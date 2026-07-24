@@ -27,6 +27,27 @@ const sourceCatalog = [
     recordAccess: "Shelter-specific integration required",
     status: "organization_credentials_required",
   },
+  {
+    id: "animal-shelter-manager",
+    name: "Animal Shelter Manager",
+    scope: "Per participating organization, worldwide",
+    recordAccess: "Shelter-enabled JSON/CSV adoptable-animal service",
+    status: "organization_feed_required",
+  },
+  {
+    id: "montgomery-county-md",
+    name: "Montgomery County Animal Services",
+    scope: "Montgomery County, Maryland, United States",
+    recordAccess: "Government open-data JSON/CSV; updated every two hours",
+    status: process.env.DATABASE_URL ? "ready_to_configure" : "database_required",
+  },
+  {
+    id: "king-county-wa",
+    name: "King County Regional Animal Services",
+    scope: "King County, Washington, United States",
+    recordAccess: "Government open-data feed for lost, found, and adoptable pets",
+    status: process.env.DATABASE_URL ? "ready_to_configure" : "database_required",
+  },
 ];
 
 export default function handler(request, response) {
