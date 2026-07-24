@@ -7,6 +7,25 @@ const sourceCatalog = [
     status: process.env.RESCUEGROUPS_API_KEY ? "active" : "awaiting_key",
   },
   {
+    id: "mapbox",
+    name: "Mapbox",
+    scope: "Global location search and map imagery",
+    recordAccess: "Temporary geocoding and Static Images APIs",
+    status: process.env.MAPBOX_ACCESS_TOKEN ? "active" : "awaiting_key",
+  },
+  {
+    id: "resend",
+    name: "Resend",
+    scope: "Submission acknowledgement and moderation alerts",
+    recordAccess: "Verified sending domain and API key required",
+    status:
+      process.env.RESEND_API_KEY &&
+      process.env.PAWLINE_FROM_EMAIL &&
+      process.env.PAWLINE_MODERATION_EMAIL
+        ? "active"
+        : "awaiting_domain_and_key",
+  },
+  {
     id: "adoptapet",
     name: "Adopt a Pet",
     scope: "United States and Canada",

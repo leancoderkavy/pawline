@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { getDatabase } from "./_db.js";
+import { notifySubmission } from "./_email.js";
 
 const clean = (value, max = 240) =>
   typeof value === "string" ? value.trim().slice(0, max) : "";
@@ -99,10 +100,12 @@ export default async function handler(request, response) {
         updated_at = now()
       RETURNING id
     `;
+    const notification = await notifySubmission({ id: rows[0].id, pet });
     response.setHeader("Cache-Control", "no-store");
     return response.status(202).json({
       id: rows[0].id,
       message: "Thank you — your pet was submitted for review.",
+      notification: notification.configured ? "queued" : "not_configured",
     });
   } catch (error) {
     console.error("Pet submission failed", error);

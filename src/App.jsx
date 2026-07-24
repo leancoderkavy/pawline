@@ -10,6 +10,13 @@ function Button({ className = "", variant = "primary", children, ...props }) {
   return <button className={`button ${variant === "outline" ? "button-outline" : ""} ${className}`} {...props}>{children}</button>;
 }
 
+async function readJson(response, fallbackMessage) {
+  if (!response.headers.get("content-type")?.includes("application/json")) {
+    throw new Error(fallbackMessage);
+  }
+  return response.json();
+}
+
 function Header({ saved, onSubmit }) {
   return <header className="header">
     <a className="brand" href="#discover"><span className="brand-mark"><PawPrint /></span><span>Pawline<small>A GLOBAL ADOPTION COMMUNITY</small></span></a>
@@ -31,7 +38,7 @@ function SubmissionForm({ onClose }) {
     setState({ status: "loading", message: "" });
     try {
       const response = await fetch("/api/submissions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
-      const body = await response.json();
+      const body = await readJson(response, "Submissions require the configured Pawline API.");
       if (!response.ok) throw new Error(body.error || "Submission failed");
       setState({ status: "success", message: body.message });
     } catch (error) { setState({ status: "error", message: error.message }); }
@@ -58,17 +65,32 @@ function PetTile({ pet, saved, onSave }) {
   </article>;
 }
 
-function MapPanel({ pets }) {
+function MapPanel({ location, coordinates }) {
+  const mapUrl = coordinates
+    ? `/api/map?longitude=${encodeURIComponent(coordinates.longitude)}&latitude=${encodeURIComponent(coordinates.latitude)}`
+    : "/api/map";
   return <section id="map" className="map-panel" aria-label="Pet location map">
-    <div className="map-roads" />
-    {pets.slice(0, 6).map((pet, i) => <button key={pet.id} style={{ left: `${pet.x}%`, top: `${pet.y}%` }} className={`map-pin ${i === 0 ? "featured" : ""}`} aria-label={`Show ${pet.name}`}>{i === 0 ? <PawPrint /> : i + 3}</button>)}
-    <span className="map-city">Pasadena</span>
+    <img className="map-image" src={mapUrl} alt={`Map centered on ${location}`} onError={event => { event.currentTarget.hidden = true; }} />
+    <span className="map-city">{location}</span>
   </section>;
 }
 
-function EventPanel() {
-  const event = events[0];
-  return <article className="event-panel"><div className="event-label"><CalendarDays /> Upcoming event</div><div className="event-content"><div className="event-date"><small>{event.month}</small><strong>{event.day}</strong></div><div><h3>{event.title}</h3><p>{event.time}</p><p><MapPin /> {event.place}</p><button>See event details <ChevronRight /></button></div></div></article>;
+function normalizeEvent(event) {
+  if (!event.starts_at) return event;
+  const start = new Date(event.starts_at);
+  const end = event.ends_at ? new Date(event.ends_at) : null;
+  return {
+    ...event,
+    month: start.toLocaleDateString("en-US", { month: "short" }).toUpperCase(),
+    day: start.toLocaleDateString("en-US", { day: "2-digit" }),
+    time: `${start.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}${end ? ` – ${end.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}` : ""}`,
+    place: [event.venue, event.city, event.country].filter(Boolean).join(", "),
+  };
+}
+
+function EventPanel({ event }) {
+  const item = normalizeEvent(event);
+  return <article className="event-panel"><div className="event-label"><CalendarDays /> Upcoming event</div><div className="event-content"><div className="event-date"><small>{item.month}</small><strong>{item.day}</strong></div><div><h3>{item.title}</h3><p>{item.time}</p><p><MapPin /> {item.place}</p>{item.source_url ? <a href={item.source_url} target="_blank" rel="noreferrer">See event details <ChevronRight /></a> : <span className="event-review">Confirm details with the organizer</span>}</div></div></article>;
 }
 
 export default function App() {
@@ -78,6 +100,9 @@ export default function App() {
   const [lifestyle, setLifestyle] = useState("Any lifestyle");
   const [submitOpen, setSubmitOpen] = useState(false);
   const [remotePets, setRemotePets] = useState([]);
+  const [remoteEvents, setRemoteEvents] = useState([]);
+  const [coordinates, setCoordinates] = useState(null);
+  const [locationState, setLocationState] = useState({ status: "idle", message: "" });
   const [feed, setFeed] = useState({ mode: "loading", message: "Checking trusted adoption sources…" });
 
   useEffect(() => localStorage.setItem("pawline-saved", JSON.stringify(saved)), [saved]);
@@ -87,7 +112,7 @@ export default function App() {
     if (species !== "All") params.set("species", species);
     fetch(`/api/pets?${params}`, { signal: controller.signal })
       .then(async response => {
-        const body = await response.json();
+        const body = await readJson(response, "Live feeds require the configured Pawline API.");
         if (!response.ok) throw new Error(body.message || "Feed unavailable");
         setRemotePets(body.pets || []);
         setFeed(body);
@@ -97,12 +122,35 @@ export default function App() {
       });
     return () => controller.abort();
   }, [species]);
+  useEffect(() => {
+    fetch("/api/events")
+      .then(response => readJson(response, "Verified events require the configured Pawline API."))
+      .then(body => setRemoteEvents(body.events || []))
+      .catch(() => setRemoteEvents([]));
+  }, []);
 
   const pets = useMemo(() => {
     const source = remotePets.length ? remotePets : seedPets;
     return source.filter(pet => species === "All" || pet.species === species);
   }, [remotePets, species]);
   const toggleSave = id => setSaved(items => items.includes(id) ? items.filter(item => item !== id) : [...items, id]);
+  const findMatch = async () => {
+    setLocationState({ status: "loading", message: "Finding that location…" });
+    try {
+      const response = await fetch(`/api/geocode?q=${encodeURIComponent(location)}`);
+      const body = await readJson(response, "Location search requires the configured Pawline API.");
+      if (!response.ok) throw new Error(body.error || "Location search failed.");
+      const match = body.results?.[0];
+      if (!match) throw new Error("We could not find that location.");
+      setLocation(match.name);
+      setCoordinates(match);
+      setLocationState({ status: "success", message: `Map centered on ${match.name}.` });
+      document.getElementById("nearby").scrollIntoView({ behavior: "smooth" });
+    } catch (error) {
+      setLocationState({ status: "error", message: error.message });
+    }
+  };
+  const featuredEvent = remoteEvents[0] || events[0];
 
   return <div className="app">
     <Header saved={saved.length} onSubmit={() => setSubmitOpen(true)} />
@@ -117,8 +165,9 @@ export default function App() {
             <label><MapPin /><span>Where<small>{location}</small></span><ChevronRight /><input aria-label="Location" value={location} onChange={e => setLocation(e.target.value)} /></label>
             <label><PawPrint /><span>Dog or cat<small>{species === "All" ? "Either" : species}</small></span><select aria-label="Species" value={species} onChange={e => setSpecies(e.target.value)}><option value="All">Either</option><option>Dog</option><option>Cat</option></select><ChevronRight /></label>
             <label><Heart /><span>Lifestyle fit<small>{lifestyle}</small></span><select aria-label="Lifestyle" value={lifestyle} onChange={e => setLifestyle(e.target.value)}><option>Any lifestyle</option><option>Active & outdoorsy</option><option>Calm & cozy</option><option>Family friendly</option></select><ChevronRight /></label>
-            <Button onClick={() => document.getElementById("nearby").scrollIntoView()}><span>Find my match</span><Search /></Button>
+            <Button onClick={findMatch} disabled={locationState.status === "loading"}><span>{locationState.status === "loading" ? "Finding…" : "Find my match"}</span><Search /></Button>
           </div>
+          {locationState.message && <p className={`location-state location-${locationState.status}`} role={locationState.status === "error" ? "alert" : "status"}>{locationState.message}</p>}
           <div className="verified"><ShieldCheck /> Every public listing is reviewed or supplied by an authorized source.</div>
         </div>
       </section>
@@ -130,9 +179,9 @@ export default function App() {
       </section>
 
       <section className="support-grid">
-        <MapPanel pets={pets} />
+        <MapPanel location={location} coordinates={coordinates} />
         <div className="map-copy"><h2>Pets are waiting<br />closer than you think.</h2><p>Explore the map to find adoptable pets and shelters near you.</p><button>Explore the map <ChevronRight /></button></div>
-        <EventPanel />
+        <EventPanel event={featuredEvent} />
       </section>
 
       <section id="how" className="mission"><PawPrint /><div><small>HOW PAWLINE HELPS</small><h2>One trusted line between pets and people.</h2></div><p>We bring together authorized shelter feeds, public records, and reviewed community submissions—without pretending one database covers every animal in the world.</p></section>

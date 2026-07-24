@@ -54,13 +54,70 @@ npm run dev
 npm run build
 ```
 
-## Live adoption data
+## Production integrations
 
-The app includes a server-side RescueGroups adapter at `/api/pets`. Configure
-the following environment variable in Vercel:
+Copy `.env.example` to `.env.local` for local development. All provider
+credentials stay in server-side Vercel functions; do not prefix them with
+`VITE_`.
+
+### RescueGroups — adoptable pets
+
+The server-side adapter at `/api/pets` uses the RescueGroups v5 public API.
+Request one API key specifically for Pawline, accept the provider terms, and set:
 
 ```text
 RESCUEGROUPS_API_KEY
 ```
 
 Without the key, the app safely falls back to its curated demonstration data.
+
+### Neon — submissions and verified events
+
+Create a Neon Postgres database, run `db/schema.sql`, and set:
+
+```text
+DATABASE_URL
+CRON_SECRET
+```
+
+Community submissions remain private and `pending` until manually verified.
+Only events with `status = 'published'` and pets with `status = 'available'`
+plus a `verified_at` timestamp are returned publicly.
+
+### Mapbox — location search and maps
+
+Create a URL-restricted Mapbox access token and set:
+
+```text
+MAPBOX_ACCESS_TOKEN
+```
+
+Pawline proxies geocoding and static-map requests through server-side routes so
+the token is not shipped in the Vite bundle. Geocoding is temporary and results
+are used for the current search session; do not persist coordinates unless the
+Mapbox account and request are configured for permanent geocoding.
+
+### Resend — moderation and acknowledgement email
+
+Verify a sending domain in Resend, create a sending-only API key, and set:
+
+```text
+RESEND_API_KEY
+PAWLINE_FROM_EMAIL=Pawline <adoptions@your-domain.example>
+PAWLINE_MODERATION_EMAIL=team@your-domain.example
+```
+
+Each accepted submission triggers an internal review alert and a submitter
+acknowledgement. Email delivery failure is logged but does not discard the
+saved submission.
+
+### Provider readiness
+
+`GET /api/health` reports whether RescueGroups, Neon, Mapbox, Resend, and the
+scheduled importer are configured without exposing credentials.
+
+Adopt-a-Pet is intentionally not enabled by default. Its API requires a signed
+partnership agreement, provider approval of the implementation, shelter notice,
+and required attribution. Ticketmaster is also not used as an adoption-event
+source: keyword matches do not establish that an organizer is authorized or
+that an event is actually an adoption event.
