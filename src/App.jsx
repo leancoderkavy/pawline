@@ -99,7 +99,15 @@ export default function App() {
         const body = await response.json();
         if (!response.ok) throw new Error(body.message || "Feed unavailable");
         setRemotePets(body.pets || []);
-        setFeed({ mode: body.mode, message: body.message });
+        setFeed({
+          mode: body.mode,
+          message: body.message,
+          provider: body.provider,
+          count: body.count,
+          providerCount: body.providerCount,
+          partial: body.partial,
+          fetchedAt: body.fetchedAt,
+        });
       })
       .catch(error => {
         if (error.name !== "AbortError") {
@@ -128,7 +136,7 @@ export default function App() {
           <label><PawPrint /><select aria-label="Species" value={species} onChange={e => setSpecies(e.target.value)}><option>All</option><option>Dog</option><option>Cat</option></select></label>
           <Button type="submit">Search <Search /></Button>
         </form>
-        <div className={`data-note feed-${feed.mode}`}><Info /> {feed.mode === "live" ? "Live adoptable listings supplied by RescueGroups. Confirm availability with the shelter." : feed.message || "Demo listings are shown. Connect live partner feeds to see current availability."}</div>
+        <div className={`data-note feed-${feed.mode}`}><Info /> {feed.mode === "live" ? `${feed.count || 0} live adoptable listings supplied by ${feed.provider}. ${feed.partial ? "Coverage is temporarily partial. " : ""}Confirm availability with the shelter.` : feed.message || "Demo listings are shown. Connect live partner feeds to see current availability."}</div>
       </section>
 
       <div className="toolbar">
