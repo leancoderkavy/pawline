@@ -1,3 +1,5 @@
+import { getDatabase } from "./_db.js";
+
 const API_BASE =
   process.env.RESCUEGROUPS_API_BASE_URL || "https://api.rescuegroups.org/v5";
 
@@ -12,6 +14,43 @@ function findRelated(included, relationship) {
       ),
     )
     .filter(Boolean);
+}
+
+function normalizeDatabasePet(pet, index) {
+  return {
+    id: `pawline-${pet.id}`,
+    externalId: pet.external_id,
+    name: pet.name,
+    species: pet.species,
+    breed: pet.breed || "Mixed breed",
+    age: pet.age || "Age unknown",
+    sex: pet.sex || "Unknown",
+    size: pet.size || "Unknown",
+    distance: 0,
+    city: [pet.city, pet.country].filter(Boolean).join(", ") || "Location available from rescue",
+    shelter: pet.shelter || "Community rescue",
+    rating: null,
+    reviews: null,
+    source: "Pawline community · Verified",
+    sourceUrl: pet.source_url,
+    image: pet.image_url,
+    x: pet.longitude == null ? 18 + ((index * 17) % 70) : 50,
+    y: pet.latitude == null ? 20 + ((index * 23) % 62) : 50,
+  };
+}
+
+async function fetchDatabasePets() {
+  const database = getDatabase();
+  if (!database) return [];
+  const rows = await database`
+    SELECT id, external_id, name, species, breed, age, sex, size, city, country,
+           shelter, image_url, source_url, latitude, longitude
+    FROM pets
+    WHERE status = 'available' AND verified_at IS NOT NULL
+    ORDER BY updated_at DESC
+    LIMIT 200
+  `;
+  return rows.map(normalizeDatabasePet);
 }
 
 function normalizeAnimal(animal, included, index) {
@@ -101,15 +140,6 @@ export default async function handler(request, response) {
   }
 
   const apiKey = process.env.RESCUEGROUPS_API_KEY;
-  if (!apiKey) {
-    response.setHeader("Cache-Control", "public, s-maxage=60");
-    return response.status(200).json({
-      mode: "demo",
-      provider: null,
-      pets: [],
-      message: "Live partner feed is ready but not configured.",
-    });
-  }
 
   const requestedSpecies = request.query.species;
   const species =
@@ -120,32 +150,43 @@ export default async function handler(request, response) {
   const page = Math.max(Number(request.query.page) || 1, 1);
 
   try {
-    const results = await Promise.allSettled(
-      species.map((item) => fetchSpecies(item, { limit, page }, apiKey)),
-    );
+    const requests = [fetchDatabasePets()];
+    if (apiKey) {
+      requests.push(...species.map((item) => fetchSpecies(item, { limit, page }, apiKey)));
+    }
+    const results = await Promise.allSettled(requests);
+    const databasePets =
+      results[0]?.status === "fulfilled"
+        ? results[0].value.filter((pet) => species.includes(pet.species))
+        : [];
     const payloads = results
+      .slice(1)
       .filter((result) => result.status === "fulfilled")
       .map((result) => result.value);
-    if (!payloads.length) {
-      throw results[0]?.reason || new Error("No provider responses");
-    }
-    const pets = payloads.flatMap((payload) =>
+    const providerPets = payloads.flatMap((payload) =>
       (payload.data || []).map((animal, index) =>
         normalizeAnimal(animal, payload.included || [], index),
       ),
+    );
+    const pets = [...databasePets, ...providerPets].filter(
+      (pet, index, all) =>
+        all.findIndex((item) => item.sourceUrl && item.sourceUrl === pet.sourceUrl) === index ||
+        !pet.sourceUrl,
     );
     const providerCount = payloads.reduce(
       (total, payload) => total + Number(payload.meta?.count || 0),
       0,
     );
-    const isPartial = payloads.length !== species.length;
+    const isPartial = Boolean(apiKey) && payloads.length !== species.length;
     response.setHeader(
       "Cache-Control",
       "public, s-maxage=300, stale-while-revalidate=900",
     );
     return response.status(200).json({
-      mode: "live",
-      provider: "RescueGroups",
+      mode: pets.length ? "live" : "demo",
+      provider: [databasePets.length && "Pawline", payloads.length && "RescueGroups"]
+        .filter(Boolean)
+        .join(" + ") || null,
       pets,
       count: pets.length,
       providerCount,
@@ -154,15 +195,15 @@ export default async function handler(request, response) {
       fetchedAt: new Date().toISOString(),
       message: isPartial
         ? "One live species feed is temporarily unavailable."
-        : undefined,
+        : pets.length ? undefined : "No verified live listings are available yet.",
     });
   } catch (error) {
-    console.error("RescueGroups request failed", error);
-    return response.status(502).json({
-      mode: "error",
-      provider: "RescueGroups",
+    console.error("Pet feed request failed", error);
+    return response.status(200).json({
+      mode: "demo",
+      provider: null,
       pets: [],
-      message: "The live adoption feed is temporarily unavailable.",
+      message: "Live adoption feeds are temporarily unavailable.",
     });
   }
 }
