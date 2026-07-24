@@ -17,6 +17,7 @@ function findRelated(included, relationship) {
 function normalizeAnimal(animal, included, index) {
   const attributes = animal.attributes || {};
   const pictures = findRelated(included, animal.relationships?.pictures) || [];
+  const breeds = findRelated(included, animal.relationships?.breeds) || [];
   const organizations =
     findRelated(included, animal.relationships?.orgs) ||
     findRelated(included, animal.relationships?.organizations) ||
@@ -41,6 +42,7 @@ function normalizeAnimal(animal, included, index) {
     breed:
       attributes.breedString ||
       attributes.breedPrimary ||
+      breeds.map((item) => item.attributes?.name).filter(Boolean).join(" / ") ||
       "Mixed breed",
     age: attributes.ageString || attributes.ageGroup || "Age unknown",
     sex: attributes.sex || "Unknown",
@@ -65,15 +67,16 @@ function normalizeAnimal(animal, included, index) {
   };
 }
 
-async function fetchSpecies(species, limit, apiKey) {
+async function fetchSpecies(species, { limit, page }, apiKey) {
   const view = species === "Cat" ? "cats" : "dogs";
   const url = new URL(
     `/public/animals/search/available/${view}/`,
     API_BASE,
   );
   url.searchParams.set("limit", String(limit));
+  url.searchParams.set("page", String(page));
   url.searchParams.set("sort", "random");
-  url.searchParams.set("include", "pictures,orgs,locations,species");
+  url.searchParams.set("include", "pictures,orgs,locations,species,breeds");
 
   const upstream = await fetch(url, {
     headers: {
@@ -113,16 +116,29 @@ export default async function handler(request, response) {
     requestedSpecies === "Dog" || requestedSpecies === "Cat"
       ? [requestedSpecies]
       : ["Dog", "Cat"];
+  const limit = Math.min(Math.max(Number(request.query.limit) || 24, 1), 100);
+  const page = Math.max(Number(request.query.page) || 1, 1);
 
   try {
-    const payloads = await Promise.all(
-      species.map((item) => fetchSpecies(item, 24, apiKey)),
+    const results = await Promise.allSettled(
+      species.map((item) => fetchSpecies(item, { limit, page }, apiKey)),
     );
+    const payloads = results
+      .filter((result) => result.status === "fulfilled")
+      .map((result) => result.value);
+    if (!payloads.length) {
+      throw results[0]?.reason || new Error("No provider responses");
+    }
     const pets = payloads.flatMap((payload) =>
       (payload.data || []).map((animal, index) =>
         normalizeAnimal(animal, payload.included || [], index),
       ),
     );
+    const providerCount = payloads.reduce(
+      (total, payload) => total + Number(payload.meta?.count || 0),
+      0,
+    );
+    const isPartial = payloads.length !== species.length;
     response.setHeader(
       "Cache-Control",
       "public, s-maxage=300, stale-while-revalidate=900",
@@ -132,6 +148,13 @@ export default async function handler(request, response) {
       provider: "RescueGroups",
       pets,
       count: pets.length,
+      providerCount,
+      page,
+      partial: isPartial,
+      fetchedAt: new Date().toISOString(),
+      message: isPartial
+        ? "One live species feed is temporarily unavailable."
+        : undefined,
     });
   } catch (error) {
     console.error("RescueGroups request failed", error);
