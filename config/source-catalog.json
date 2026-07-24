@@ -1,0 +1,30 @@
+[
+  {
+    "name": "Animal Shelter Manager",
+    "scope": "Per participating shelter worldwide",
+    "format": "JSON or CSV",
+    "documentation": "https://sheltermanager.com/repo/asm3_help/service.html",
+    "onboarding": "Ask each shelter to authorize and provide its adoptable-animal service URL."
+  },
+  {
+    "name": "Montgomery County Animal Services",
+    "scope": "Maryland, United States",
+    "format": "JSON or CSV",
+    "documentation": "https://catalog.data.gov/dataset/adoptable-pets",
+    "onboarding": "Map the official open-data columns, validate current records, then enable the source."
+  },
+  {
+    "name": "King County Regional Animal Services",
+    "scope": "Washington, United States",
+    "format": "Socrata JSON or CSV",
+    "documentation": "https://catalog.data.gov/dataset/lost-found-adoptable-pets",
+    "onboarding": "Filter the official dataset to adoptable dogs and cats before enabling it."
+  },
+  {
+    "name": "Published shelter spreadsheets",
+    "scope": "Global",
+    "format": "Published CSV",
+    "documentation": null,
+    "onboarding": "Obtain written permission, publish a read-only CSV, and configure an explicit field mapping."
+  }
+]
