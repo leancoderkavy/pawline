@@ -3,7 +3,7 @@ import { getDatabase } from "./_db.js";
 const PASADENA_EVENTS =
   "https://pasadenahumane.org/wp-json/tribe/events/v1/events";
 const ADDRESS_PATTERN =
-  /\b\d{2,6}\s+[^,<>\n]{3,80},\s*[^,<>\n()]{2,50}(?:,\s*CA\s+\d{5}(?:-\d{4})?)?\b/i;
+  /\b\d{2,6}\s+[^,<>\n]{1,65}\b(?:St(?:reet)?|Ave(?:nue)?|Blvd|Boulevard|Rd|Road|Dr(?:ive)?|Ln|Lane|Way|Hwy|Highway)\.?,\s*[^,<>\n()]{2,50}(?:,\s*CA\s+\d{5}(?:-\d{4})?)?\b/i;
 
 function cleanText(value) {
   return String(value || "")

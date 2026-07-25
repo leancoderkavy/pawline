@@ -25,3 +25,14 @@ test("rejects events that are not dog adoption events", () => {
     description: "Dog food is available outside the adoption center.",
   }), null);
 });
+
+test("does not mistake promotion dates for street addresses", () => {
+  const event = normalizePasadenaEvent({
+    id: 44,
+    title: "Hot Dog & Cool Cat Summer",
+    start_date: "2026-07-31 09:30:00",
+    description: "From July 31 to August 9, adoption fees for all adult dogs and cats will be waived.",
+  });
+  assert.equal(event.address, null);
+  assert.equal(event.city, "Pasadena");
+});
