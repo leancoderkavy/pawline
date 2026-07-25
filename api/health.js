@@ -18,7 +18,7 @@ export default function handler(_request, response) {
     submissionsConfigured: communityDatabaseConfigured,
     scheduledIngestionConfigured: communityDatabaseConfigured && Boolean(process.env.CRON_SECRET),
     aiMatchingConfigured: Boolean(
-      process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN,
+      process.env.VERCEL || process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN,
     ),
     publicOpenDataProviders: 2,
     activePetProviders:

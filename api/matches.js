@@ -1,5 +1,6 @@
+import { generateText } from "ai";
+
 const MODEL = process.env.PAWLINE_AI_MODEL || "google/gemini-2.5-flash-lite";
-const GATEWAY_URL = "https://ai-gateway.vercel.sh/v1/chat/completions";
 const MAX_PETS = 10;
 const WINDOW_MS = 60 * 60 * 1000;
 const MAX_REQUESTS_PER_WINDOW = 8;
@@ -113,8 +114,7 @@ export default async function handler(request, response) {
   }
   const validated = validateMatchRequest(request.body);
   if (validated.error) return response.status(422).json({ error: validated.error });
-  const token = process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN;
-  if (!token) {
+  if (!process.env.VERCEL && !process.env.AI_GATEWAY_API_KEY && !process.env.VERCEL_OIDC_TOKEN) {
     return response.status(503).json({ error: "AI matching is not configured." });
   }
 
@@ -130,27 +130,15 @@ export default async function handler(request, response) {
   ].join(" ");
 
   try {
-    const upstream = await fetch(GATEWAY_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        temperature: 0.1,
-        max_tokens: 1800,
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: JSON.stringify({ adopterAnswers: answers, currentListings: pets }) },
-        ],
-      }),
-      signal: AbortSignal.timeout(20000),
+    const result = await generateText({
+      model: MODEL,
+      system,
+      prompt: JSON.stringify({ adopterAnswers: answers, currentListings: pets }),
+      temperature: 0.1,
+      maxOutputTokens: 1800,
+      abortSignal: AbortSignal.timeout(20000),
     });
-    if (!upstream.ok) throw new Error(`AI Gateway returned ${upstream.status}`);
-    const body = await upstream.json();
-    const content = body.choices?.[0]?.message?.content;
-    const matches = validateModelResult(extractJson(content), pets.map((pet) => pet.id));
+    const matches = validateModelResult(extractJson(result.text), pets.map((pet) => pet.id));
     response.setHeader("Cache-Control", "no-store");
     return response.status(200).json({
       mode: "ai",
