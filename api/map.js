@@ -18,13 +18,37 @@ export default async function handler(request, response) {
     inRange(longitude, -180, 180) ? longitude : FALLBACK_CENTER[0],
     inRange(latitude, -90, 90) ? latitude : FALLBACK_CENTER[1],
   ];
-  const marker = `pin-s+244b3a(${center[0]},${center[1]})`;
+  const points = String(request.query.points || "")
+    .split("|")
+    .slice(0, 40)
+    .map((point) => {
+      const [rawLongitude, rawLatitude, type] = point.split(",");
+      const pointLongitude = Number(rawLongitude);
+      const pointLatitude = Number(rawLatitude);
+      if (!inRange(pointLongitude, -180, 180) || !inRange(pointLatitude, -90, 90)) {
+        return null;
+      }
+      return {
+        longitude: pointLongitude,
+        latitude: pointLatitude,
+        type: type === "e" ? "e" : "p",
+      };
+    })
+    .filter(Boolean);
+  const overlays = [
+    `pin-s+244b3a(${center[0]},${center[1]})`,
+    ...points.map((point) =>
+      `pin-s+${point.type === "e" ? "ad5d35" : "2f7458"}(${point.longitude},${point.latitude})`,
+    ),
+  ];
+  const camera = points.length ? "auto" : `${center[0]},${center[1]},10,0`;
   const url = new URL(
-    `https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/${marker}/${center[0]},${center[1]},10,0/900x620@2x`,
+    `https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/${overlays.join(",")}/${camera}/900x620@2x`,
   );
   url.searchParams.set("access_token", process.env.MAPBOX_ACCESS_TOKEN);
   url.searchParams.set("logo", "true");
   url.searchParams.set("attribution", "true");
+  if (points.length) url.searchParams.set("padding", "60");
 
   try {
     const upstream = await fetch(url, { signal: AbortSignal.timeout(8000) });

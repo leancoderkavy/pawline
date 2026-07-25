@@ -1,0 +1,27 @@
+{
+  "product": "pawline",
+  "feature": "adoption-match-analysis",
+  "consentRequired": true,
+  "model": "google/gemini-2.5-flash-lite",
+  "request": {
+    "answers": ["home", "energy", "kids", "pets", "alone", "experience", "species"],
+    "maxPets": 10,
+    "maxDescriptionCharacters": 1200
+  },
+  "allowedData": [
+    "quiz answers",
+    "public pet id",
+    "name",
+    "species",
+    "breed",
+    "age",
+    "sex",
+    "size",
+    "description",
+    "city",
+    "shelter"
+  ],
+  "prohibitedData": ["contact details", "account data", "payment data", "medical records"],
+  "boundary": "AI suggestions are a starting point; confirm compatibility and availability with the shelter.",
+  "rateLimit": "8 requests per IP per hour"
+}

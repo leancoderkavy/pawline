@@ -12,7 +12,18 @@ from scripts.ingest import (
 class IngestNormalizationTests(unittest.TestCase):
     def test_reviewed_sources_are_enabled_for_scheduled_imports(self):
         sql = REVIEWED_SOURCES_SQL.read_text(encoding="utf-8")
-        self.assertEqual(sql.count("\n  true,\n"), 2)
+        self.assertRegex(
+            sql,
+            r"Montgomery County Animal Services adoptable pets[\s\S]+?\n  true,\n",
+        )
+        self.assertRegex(
+            sql,
+            r"Regional Animal Services of King County adoptable pets[\s\S]+?\n  true,\n",
+        )
+        self.assertRegex(
+            sql,
+            r"Pasadena Humane dog adoption events[\s\S]+?\n  true,\n",
+        )
         self.assertIn("enabled = EXCLUDED.enabled", sql)
 
     def test_nested_supports_socrata_url_objects(self):

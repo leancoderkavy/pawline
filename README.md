@@ -6,7 +6,8 @@ Pawline combines authorized adoption feeds and moderated community submissions.
 
 1. Create a Postgres database and run `db/schema.sql`.
 2. Optionally run `db/public_sources.sql` to install the reviewed Montgomery
-   County and King County definitions. They are inserted disabled.
+   County and King County definitions. Reviewed public feeds are enabled by
+   that migration.
 3. Set `DATABASE_URL` and a random `CRON_SECRET` in Vercel.
 4. Add a row to `sources` with `enabled = false`.
 5. Put the provider's canonical field names in `parser_config.mapping`; JSON feeds
@@ -39,6 +40,8 @@ Vercel calls `/api/cron/ingest` four times daily (00:00, 06:00, 12:00, and
 authorized HTTPS JSON, CSV, and published Google Sheet CSV feeds; it does not
 scrape HTML. It sends conditional requests, limits response size, rejects local
 network destinations, records each run, and upserts duplicate records.
+Listings missing from two consecutive successful, non-empty snapshots are
+marked `unavailable`; disappearance is never treated as proof of adoption.
 
 Community submissions use `/api/submissions` and remain `pending` until a
 reviewer changes the record to `available` and sets `verified_at`.
@@ -63,6 +66,17 @@ Each result separates:
 Scores are an ordering aid, not a guarantee. Pawline never fills missing listing
 attributes with generated claims, and it links back to the shelter for current
 availability and final adoption decisions.
+
+After the quiz, adopters can explicitly request a bounded AI compatibility
+draft. The server sends only quiz answers and public listing facts through
+Vercel AI Gateway; contact information, account data, and medical records are
+excluded. AI output is independently validated, capped below a perfect score,
+and presented as questions and evidence to review with the shelter—not an
+adoption decision or compatibility guarantee.
+
+The scheduled importer also refreshes Pasadena Humane's official dog-adoption
+calendar four times daily. Upcoming events are listed with their source links,
+and live event coordinates appear alongside geolocated pets on the map.
 
 ## Development
 

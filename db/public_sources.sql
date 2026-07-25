@@ -1,6 +1,10 @@
 -- Official public sources verified against their live Socrata schemas and terms pages.
 -- The scheduled importer refreshes these four times daily.
 
+CREATE UNIQUE INDEX IF NOT EXISTS adoption_events_source_external_unique
+  ON adoption_events (source_id, external_id)
+  WHERE source_id IS NOT NULL AND external_id IS NOT NULL;
+
 INSERT INTO sources (
   id, name, kind, url, country_code, attribution, terms_url, enabled, parser_config
 ) VALUES
@@ -66,6 +70,36 @@ INSERT INTO sources (
       "shelter": "Regional Animal Services of King County"
     },
     "strip_html_fields": ["description"]
+  }'::jsonb
+),
+(
+  '9321672f-badc-4a23-93a1-53c5d25e9844',
+  'Pasadena Humane dog adoption events',
+  'json',
+  'https://pasadenahumane.org/wp-json/tribe/events/v1/events?per_page=50&start_date=now&search=adoption',
+  'US',
+  'Pasadena Humane',
+  'https://pasadenahumane.org/phs-events/',
+  true,
+  '{
+    "entity": "event",
+    "records_path": "events",
+    "mapping": {
+      "external_id": "id",
+      "title": "title",
+      "description": "description",
+      "starts_at": "utc_start_date",
+      "ends_at": "utc_end_date",
+      "source_url": "url"
+    },
+    "constants": {
+      "country": "United States",
+      "organizer": "Pasadena Humane"
+    },
+    "strip_html_fields": ["description"],
+    "required_terms": ["adopt"],
+    "dog_terms": ["dog", "pup", "mutts", "all animals", "all adult"],
+    "excluded_terms": ["food bank", "closed", "training", "workshop", "class"]
   }'::jsonb
 )
 ON CONFLICT (id) DO UPDATE SET

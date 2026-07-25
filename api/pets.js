@@ -77,6 +77,8 @@ export function normalizeMontgomeryPet(pet, index) {
     source: "Montgomery County Open Data · Live",
     sourceUrl: MONTGOMERY_ADOPTION_URL,
     image: pet.url?.url?.replace(/^http:/, "https:") || null,
+    latitude: null,
+    longitude: null,
     x: 18 + ((index * 17) % 70),
     y: 20 + ((index * 23) % 62),
   };
@@ -103,6 +105,10 @@ export function normalizeKingCountyPet(pet, index) {
     sourceUrl: pet.link?.url || null,
     image: pet.image?.url?.replace(/^http:/, "https:") || null,
     description: cleanText(pet.memo),
+    latitude: Number.isFinite(Number(pet.obfuscated_latitude))
+      ? Number(pet.obfuscated_latitude) : null,
+    longitude: Number.isFinite(Number(pet.obfuscated_longitude))
+      ? Number(pet.obfuscated_longitude) : null,
     x: 18 + ((index * 17) % 70),
     y: 20 + ((index * 23) % 62),
   };
@@ -161,6 +167,8 @@ function normalizeDatabasePet(pet, index) {
     source: "Pawline community · Verified",
     sourceUrl: pet.source_url,
     image: pet.image_url,
+    latitude: pet.latitude == null ? null : Number(pet.latitude),
+    longitude: pet.longitude == null ? null : Number(pet.longitude),
     x: pet.longitude == null ? 18 + ((index * 17) % 70) : 50,
     y: pet.latitude == null ? 20 + ((index * 23) % 62) : 50,
   };
@@ -228,6 +236,8 @@ function normalizeAnimal(animal, included, index) {
       picture?.original ||
       attributes.pictureThumbnailUrl ||
       null,
+    latitude: Number.isFinite(Number(location.latitude)) ? Number(location.latitude) : null,
+    longitude: Number.isFinite(Number(location.longitude)) ? Number(location.longitude) : null,
     x: 18 + ((index * 17) % 70),
     y: 20 + ((index * 23) % 62),
   };

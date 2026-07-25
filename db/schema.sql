@@ -42,13 +42,22 @@ CREATE TABLE IF NOT EXISTS pets (
   image_url text,
   source_url text,
   status text NOT NULL DEFAULT 'pending'
-    CHECK (status IN ('pending', 'available', 'adopted', 'rejected')),
+    CHECK (status IN ('pending', 'available', 'unavailable', 'adopted', 'rejected')),
+  missed_syncs integer NOT NULL DEFAULT 0,
   submitted_by_email text,
   raw_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
   verified_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+ALTER TABLE pets
+  ADD COLUMN IF NOT EXISTS missed_syncs integer NOT NULL DEFAULT 0;
+ALTER TABLE pets
+  DROP CONSTRAINT IF EXISTS pets_status_check;
+ALTER TABLE pets
+  ADD CONSTRAINT pets_status_check
+  CHECK (status IN ('pending', 'available', 'unavailable', 'adopted', 'rejected'));
 
 CREATE UNIQUE INDEX IF NOT EXISTS pets_source_external_unique
   ON pets (source_id, external_id)
@@ -93,3 +102,7 @@ CREATE TABLE IF NOT EXISTS adoption_events (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS adoption_events_source_external_unique
+  ON adoption_events (source_id, external_id)
+  WHERE source_id IS NOT NULL AND external_id IS NOT NULL;

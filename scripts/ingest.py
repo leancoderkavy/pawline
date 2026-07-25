@@ -32,6 +32,10 @@ FIELDS = {
     "description", "city", "country", "postal_code", "latitude", "longitude",
     "shelter", "contact_email", "contact_phone", "image_url", "source_url",
 }
+EVENT_FIELDS = {
+    "external_id", "title", "description", "venue", "city", "country",
+    "starts_at", "ends_at", "source_url", "organizer",
+}
 HTML_TAG = re.compile(r"<[^>]+>")
 REVIEWED_SOURCES_SQL = Path(__file__).resolve().parents[1] / "db" / "public_sources.sql"
 
@@ -126,6 +130,34 @@ def normalize(row: dict[str, Any], source: dict[str, Any]) -> dict[str, Any] | N
     return item
 
 
+def normalize_event(row: dict[str, Any], source: dict[str, Any]) -> dict[str, Any] | None:
+    config = source["parser_config"] or {}
+    item = {field: configured_value(row, field, config) for field in EVENT_FIELDS}
+    strip_html_fields = set(config.get("strip_html_fields") or [])
+    for field in EVENT_FIELDS:
+        item[field] = clean_text(item[field], field in strip_html_fields)
+    searchable = f'{item.get("title") or ""} {item.get("description") or ""}'.lower()
+    required_terms = [str(term).lower() for term in config.get("required_terms") or []]
+    dog_terms = [str(term).lower() for term in config.get("dog_terms") or []]
+    excluded_terms = [str(term).lower() for term in config.get("excluded_terms") or []]
+    if not item["external_id"] or not item["title"] or not item["starts_at"]:
+        return None
+    if required_terms and not all(term in searchable for term in required_terms):
+        return None
+    if dog_terms and not any(term in searchable for term in dog_terms):
+        return None
+    if any(term in searchable for term in excluded_terms):
+        return None
+    try:
+        start = datetime.fromisoformat(item["starts_at"].replace("Z", "+00:00"))
+        if start.replace(tzinfo=start.tzinfo or timezone.utc) < datetime.now(timezone.utc):
+            return None
+    except ValueError:
+        return None
+    item["raw_payload"] = json.dumps(row, default=str)[:100_000]
+    return item
+
+
 def install_reviewed_sources(connection: psycopg.Connection) -> None:
     """Keep code-reviewed public sources synchronized with the live database."""
     with connection.cursor() as cursor:
@@ -134,6 +166,7 @@ def install_reviewed_sources(connection: psycopg.Connection) -> None:
 
 
 def ingest_source(connection: psycopg.Connection, source: dict[str, Any]) -> dict[str, int | str]:
+    sync_started_at = datetime.now(timezone.utc)
     with connection.cursor() as cursor:
         cursor.execute(
             "INSERT INTO ingestion_runs (source_id) VALUES (%s) RETURNING id",
@@ -169,9 +202,36 @@ def ingest_source(connection: psycopg.Connection, source: dict[str, Any]) -> dic
         response.raw.decode_content = True
         response._content = response.raw.read(MAX_BYTES + 1)
         rows = records_from(response, source)
-        pets = [pet for row in rows if (pet := normalize(row, source))]
+        is_event_source = (source["parser_config"] or {}).get("entity") == "event"
+        records = (
+            [event for row in rows if (event := normalize_event(row, source))]
+            if is_event_source
+            else [pet for row in rows if (pet := normalize(row, source))]
+        )
         with connection.cursor() as cursor:
-            for pet in pets:
+            for record in records:
+                if is_event_source:
+                    cursor.execute(
+                        """
+                        INSERT INTO adoption_events (
+                          source_id, external_id, title, venue, city, country,
+                          starts_at, ends_at, source_url, status
+                        ) VALUES (
+                          %(source_id)s, %(external_id)s, %(title)s, %(venue)s,
+                          %(city)s, %(country)s, %(starts_at)s::timestamptz,
+                          %(ends_at)s::timestamptz, %(source_url)s, 'published'
+                        )
+                        ON CONFLICT (source_id, external_id) WHERE
+                          source_id IS NOT NULL AND external_id IS NOT NULL
+                        DO UPDATE SET
+                          title=EXCLUDED.title, venue=EXCLUDED.venue, city=EXCLUDED.city,
+                          country=EXCLUDED.country, starts_at=EXCLUDED.starts_at,
+                          ends_at=EXCLUDED.ends_at, source_url=EXCLUDED.source_url,
+                          status='published', updated_at=now()
+                        """,
+                        {"source_id": source["id"], **record},
+                    )
+                    continue
                 cursor.execute(
                     """
                     INSERT INTO pets (
@@ -195,14 +255,32 @@ def ingest_source(connection: psycopg.Connection, source: dict[str, Any]) -> dic
                       contact_email=EXCLUDED.contact_email, contact_phone=EXCLUDED.contact_phone,
                       image_url=EXCLUDED.image_url, source_url=EXCLUDED.source_url,
                       status='available', raw_payload=EXCLUDED.raw_payload, verified_at=now(),
-                      updated_at=now()
+                      missed_syncs=0, updated_at=now()
                     """,
-                    {"source_id": source["id"], **pet},
+                    {"source_id": source["id"], **record},
                 )
+            expired_count = 0
+            if not is_event_source and records:
+                cursor.execute(
+                    """
+                    UPDATE pets
+                    SET missed_syncs=missed_syncs + 1,
+                        status=CASE
+                          WHEN missed_syncs + 1 >= 2 THEN 'unavailable'
+                          ELSE status
+                        END,
+                        updated_at=now()
+                    WHERE source_id=%s
+                      AND status='available'
+                      AND verified_at < %s
+                    """,
+                    (source["id"], sync_started_at),
+                )
+                expired_count = cursor.rowcount
             cursor.execute(
                 """UPDATE ingestion_runs SET status='success', fetched_count=%s,
                    upserted_count=%s, finished_at=now() WHERE id=%s""",
-                (len(rows), len(pets), run_id),
+                (len(rows), len(records), run_id),
             )
             cursor.execute(
                 """UPDATE sources SET etag=%s, last_modified=%s, last_run_at=now(),
@@ -210,7 +288,12 @@ def ingest_source(connection: psycopg.Connection, source: dict[str, Any]) -> dic
                 (response.headers.get("ETag"), response.headers.get("Last-Modified"), source["id"]),
             )
         connection.commit()
-        return {"source": source["name"], "status": "success", "upserted": len(pets)}
+        return {
+            "source": source["name"],
+            "status": "success",
+            "upserted": len(records),
+            "missing": expired_count,
+        }
     except Exception as exc:
         connection.rollback()
         message = str(exc)[:1000]

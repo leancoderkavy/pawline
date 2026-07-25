@@ -93,13 +93,33 @@ function PetDetail({ pet, onClose, saved, onSave }) {
   </Dialog>;
 }
 
-function MapPanel({ location, coordinates, configured }) {
-  const mapUrl = coordinates
-    ? `/api/map?longitude=${encodeURIComponent(coordinates.longitude)}&latitude=${encodeURIComponent(coordinates.latitude)}`
-    : "/api/map";
+function MapPanel({ location, coordinates, configured, pets, events }) {
+  const nearby = (item) => {
+    if (!coordinates || !Number.isFinite(item.longitude) || !Number.isFinite(item.latitude)) return true;
+    const radians = value => value * Math.PI / 180;
+    const deltaLat = radians(item.latitude - coordinates.latitude);
+    const deltaLng = radians(item.longitude - coordinates.longitude);
+    const value = Math.sin(deltaLat / 2) ** 2 +
+      Math.cos(radians(coordinates.latitude)) * Math.cos(radians(item.latitude)) *
+      Math.sin(deltaLng / 2) ** 2;
+    return 3959 * 2 * Math.atan2(Math.sqrt(value), Math.sqrt(1 - value)) <= 150;
+  };
+  const points = [
+    ...pets.filter(pet => nearby(pet))
+      .slice(0, 30).map(pet => `${pet.longitude},${pet.latitude},p`),
+    ...events.filter(event => nearby(event))
+      .slice(0, 10).map(event => `${event.longitude},${event.latitude},e`),
+  ];
+  const mapParams = new URLSearchParams();
+  if (coordinates) {
+    mapParams.set("longitude", coordinates.longitude);
+    mapParams.set("latitude", coordinates.latitude);
+  }
+  if (points.length) mapParams.set("points", points.join("|"));
+  const mapUrl = `/api/map?${mapParams}`;
   return <section id="map" className="map-panel" aria-label="Pet location map">
     {configured ? <img className="map-image" src={mapUrl} alt={`Map centered on ${location}`} /> : <div className="map-unavailable"><MapPin /><strong>Map preview unavailable</strong><span>Connect Mapbox to enable live location search and maps.</span></div>}
-    {configured ? <span className="map-city">{location}</span> : null}
+    {configured ? <><span className="map-city">{location}</span><span className="map-legend"><i className="pet-dot" /> Pets <i className="event-dot" /> Events</span></> : null}
   </section>;
 }
 
@@ -116,12 +136,14 @@ function normalizeEvent(event) {
   };
 }
 
-function EventPanel({ event }) {
-  if (!event) {
+function EventPanel({ events }) {
+  if (!events.length) {
     return <article className="event-panel event-empty"><div className="event-label"><CalendarDays /> Verified events</div><h3>No verified events yet</h3><p>Partner events will appear here after their organizer and source are reviewed.</p></article>;
   }
-  const item = normalizeEvent(event);
-  return <article className="event-panel"><div className="event-label"><CalendarDays /> Upcoming event</div><div className="event-content"><div className="event-date"><small>{item.month}</small><strong>{item.day}</strong></div><div><h3>{item.title}</h3><p>{item.time}</p><p><MapPin /> {item.place}</p>{item.source_url ? <a href={item.source_url} target="_blank" rel="noreferrer">See event details <ChevronRight /></a> : <span className="event-review">Confirm details with the organizer</span>}</div></div></article>;
+  return <article className="event-panel"><div className="event-label"><CalendarDays /> Live dog adoption events</div><div className="event-list">{events.slice(0, 5).map(event => {
+    const item = normalizeEvent(event);
+    return <div className="event-content" key={item.id}><div className="event-date"><small>{item.month}</small><strong>{item.day}</strong></div><div><h3>{item.title}</h3><p>{item.time}</p><p><MapPin /> {item.place}</p>{item.source_url ? <a href={item.source_url} target="_blank" rel="noreferrer">Official event details <ChevronRight /></a> : <span className="event-review">Confirm details with the organizer</span>}</div></div>;
+  })}</div></article>;
 }
 
 const QUIZ_QUESTIONS = [
@@ -151,13 +173,21 @@ function MatchResult({ match, rank }) {
   </article>;
 }
 
-function Matchmaker({ pets, feed, location, onLocationChange, onSpeciesChange }) {
+function Matchmaker({ pets, feed, location, onLocationChange, onSpeciesChange, onFindLocation, locationState }) {
   const [started, setStarted] = useState(false);
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState({});
   const [complete, setComplete] = useState(false);
+  const [consent, setConsent] = useState(false);
+  const [aiState, setAiState] = useState({ status: "idle", matches: [], message: "" });
   const question = QUIZ_QUESTIONS[step];
-  const ranked = useMemo(() => rankPets(pets, answers).slice(0, 5), [pets, answers]);
+  const rulesRanked = useMemo(() => rankPets(pets, answers).slice(0, 10), [pets, answers]);
+  const ranked = useMemo(() => {
+    if (aiState.status !== "success") return rulesRanked.slice(0, 5);
+    const byId = new Map(pets.map(pet => [pet.id, pet]));
+    return aiState.matches.map(match => ({ ...match, pet: byId.get(match.petId) }))
+      .filter(match => match.pet).slice(0, 5);
+  }, [aiState, pets, rulesRanked]);
   const choose = (value) => {
     const nextAnswers = { ...answers, [question.key]: value };
     setAnswers(nextAnswers);
@@ -165,7 +195,33 @@ function Matchmaker({ pets, feed, location, onLocationChange, onSpeciesChange })
     if (step === QUIZ_QUESTIONS.length - 1) setComplete(true);
     else setStep(current => current + 1);
   };
-  const restart = () => { setComplete(false); setStarted(true); setStep(0); };
+  const restart = () => {
+    setComplete(false);
+    setStarted(true);
+    setStep(0);
+    setConsent(false);
+    setAiState({ status: "idle", matches: [], message: "" });
+  };
+  const analyzeWithAi = async () => {
+    if (!consent || !rulesRanked.length) return;
+    setAiState({ status: "loading", matches: [], message: "" });
+    try {
+      const response = await fetch("/api/matches", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          consentToAiProcessing: true,
+          answers,
+          pets: rulesRanked.map(({ pet }) => pet),
+        }),
+      });
+      const body = await readJson(response, "AI matching returned an invalid response.");
+      if (!response.ok) throw new Error(body.error || "AI matching is unavailable.");
+      setAiState({ status: "success", matches: body.matches || [], message: body.boundary });
+    } catch (error) {
+      setAiState({ status: "error", matches: [], message: error.message });
+    }
+  };
 
   return <section className={`matchmaker ${complete ? "is-complete" : ""}`} aria-labelledby="matchmaker-title">
     <div className="matchmaker-quiz">
@@ -194,14 +250,19 @@ function Matchmaker({ pets, feed, location, onLocationChange, onSpeciesChange })
         <dl>{QUIZ_QUESTIONS.map(item => <div key={item.key}><dt>{item.title}</dt><dd>{answers[item.key]}</dd></div>)}</dl>
         <button className="adjust-button" onClick={restart}><Pencil /> Adjust my answers</button>
       </div>}
-      <label className="quiz-location"><MapPin /><span>Search area<small>Used to prioritize nearby listings</small></span><input aria-label="City or postal code" value={location} onChange={event => onLocationChange(event.target.value)} /></label>
+      <div className="quiz-location"><MapPin /><label><span>Search area<small>Used to center nearby pets and events</small></span><input aria-label="City or postal code" value={location} onChange={event => onLocationChange(event.target.value)} /></label><button onClick={onFindLocation} disabled={locationState.status === "loading"}>{locationState.status === "loading" ? "Finding…" : "Update map"}</button></div>
+      {locationState.message ? <p className={`location-state location-${locationState.status}`} role={locationState.status === "error" ? "alert" : "status"}>{locationState.message}</p> : null}
       <div className={`quiz-feed feed-${feed.mode}`}><Info /><span><strong>{feed.mode === "live" ? "Live adoptable pets" : feed.mode === "loading" ? "Checking live shelter listings" : "Live listings unavailable"}</strong>{feed.mode === "live" ? `${feed.count || pets.length} current records from ${feed.provider}. Always confirm availability with the shelter.` : feed.message || "No synthetic pet profiles are shown."}</span></div>
     </div>
     <div className="matchmaker-results" aria-live="polite">
       <div className="results-head"><div><h2>{complete ? "Your top matches nearby" : "Your matches will appear here"}</h2><p>{complete ? "Ranked from current listing facts and your answers" : "Finish the quiz to see transparent compatibility reasons."}</p></div>{complete ? <button onClick={restart}><Pencil /> Adjust my answers</button> : null}</div>
       {!complete ? <div className="results-placeholder"><PawPrint /><h3>No black-box recommendations</h3><p>We show what supported each match, what may not fit, and what the listing does not tell us.</p></div>
         : feed.mode === "loading" ? <div className="results-placeholder"><PawPrint /><h3>Loading current listings…</h3></div>
-        : ranked.length ? <div className="match-list">{ranked.map((match, index) => <MatchResult key={match.pet.id} match={match} rank={index + 1} />)}</div>
+        : ranked.length ? <><div className="ai-controls">
+          <label><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)} /> Send my quiz answers and these public listing facts to Vercel AI Gateway for a compatibility draft.</label>
+          <Button onClick={analyzeWithAi} disabled={!consent || aiState.status === "loading"}>{aiState.status === "loading" ? "Analyzing…" : aiState.status === "success" ? "Refresh AI analysis" : "Analyze with AI"}</Button>
+          <p className={aiState.status === "error" ? "form-error" : ""} role={aiState.status === "error" ? "alert" : "status"}>{aiState.message || "Until you request AI analysis, results use Pawline’s transparent listing-fact rules."}</p>
+        </div><div className="match-list">{ranked.map((match, index) => <MatchResult key={match.pet.id} match={match} rank={index + 1} />)}</div></>
         : <div className="results-placeholder"><PawPrint /><h3>No verified matches available</h3><p>{feed.message || "Try adjusting your answers or check back when more shelter listings are available."}</p></div>}
     </div>
   </section>;
@@ -217,7 +278,11 @@ export default function App() {
   const [showAll, setShowAll] = useState(false);
   const [remotePets, setRemotePets] = useState([]);
   const [remoteEvents, setRemoteEvents] = useState([]);
-  const [coordinates, setCoordinates] = useState(null);
+  const [coordinates, setCoordinates] = useState({
+    longitude: -118.1445,
+    latitude: 34.1478,
+    name: "Pasadena, California, USA",
+  });
   const [locationState, setLocationState] = useState({ status: "idle", message: "" });
   const [feed, setFeed] = useState({ mode: "loading", message: "Checking trusted adoption sources…" });
   const [integrations, setIntegrations] = useState({ mapboxConfigured: false });
@@ -264,7 +329,7 @@ export default function App() {
     if (!integrations.mapboxConfigured) {
       setCoordinates(null);
       setLocationState({ status: "error", message: "Live location search is unavailable until the map provider is connected." });
-      document.getElementById("nearby")?.scrollIntoView({ behavior: "smooth" });
+      document.getElementById("map")?.scrollIntoView({ behavior: "smooth" });
       return;
     }
     setLocationState({ status: "loading", message: "Finding that location…" });
@@ -277,12 +342,11 @@ export default function App() {
       setLocation(match.name);
       setCoordinates(match);
       setLocationState({ status: "success", message: `Map centered on ${match.name}.` });
-      document.getElementById("nearby").scrollIntoView({ behavior: "smooth" });
+      document.getElementById("map")?.scrollIntoView({ behavior: "smooth" });
     } catch (error) {
       setLocationState({ status: "error", message: error.message });
     }
   };
-  const featuredEvent = remoteEvents[0] || null;
   const scrollToMap = () => {
     document.getElementById("map")?.scrollIntoView({ behavior: "smooth", block: "center" });
     if (!integrations.mapboxConfigured) {
@@ -294,12 +358,12 @@ export default function App() {
     <Header saved={saved.length} onSubmit={() => setSubmitOpen(true)} menuOpen={menuOpen} onToggleMenu={() => setMenuOpen(open => !open)} />
     {menuOpen ? <MobileMenu onClose={() => setMenuOpen(false)} onSubmit={() => setSubmitOpen(true)} /> : null}
     <main id="discover">
-      <Matchmaker pets={remotePets} feed={feed} location={location} onLocationChange={setLocation} onSpeciesChange={setSpecies} />
+      <Matchmaker pets={remotePets} feed={feed} location={location} onLocationChange={setLocation} onSpeciesChange={setSpecies} onFindLocation={findMatch} locationState={locationState} />
 
       <section className="support-grid">
-        <MapPanel location={location} coordinates={coordinates} configured={integrations.mapboxConfigured} />
-        <div className="map-copy"><h2>Pets are waiting<br />closer than you think.</h2><p>{integrations.mapboxConfigured ? "Explore the map to find adoptable pets and shelters near you." : "Live maps will appear here after the location provider is connected."}</p><button onClick={scrollToMap}>{integrations.mapboxConfigured ? "Explore the map" : "View map status"} <ChevronRight /></button></div>
-        <EventPanel event={featuredEvent} />
+        <MapPanel location={location} coordinates={coordinates} configured={integrations.mapboxConfigured} pets={remotePets} events={remoteEvents} />
+        <div className="map-copy"><h2>Pets and adoption events<br />on one live map.</h2><p>{integrations.mapboxConfigured ? "Green markers are current pet listings; rust markers are verified dog adoption events." : "Live maps will appear here after the location provider is connected."}</p><button onClick={scrollToMap}>{integrations.mapboxConfigured ? "Explore the map" : "View map status"} <ChevronRight /></button></div>
+        <EventPanel events={remoteEvents} />
       </section>
 
       <section id="how" className="mission"><PawPrint /><div><small>HOW PAWLINE HELPS</small><h2>One trusted line between pets and people.</h2></div><p>We bring together authorized shelter feeds, public records, and reviewed community submissions—without pretending one database covers every animal in the world.</p></section>
