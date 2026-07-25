@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  CalendarDays, ChevronRight, Globe2, Heart, Info, MapPin, Menu,
-  PawPrint, Search, ShieldCheck, X
+  AlertTriangle, ArrowLeft, CalendarDays, CheckCircle2, ChevronRight, Clock3,
+  ExternalLink, Globe2, Heart, Info, MapPin, Menu, PawPrint, Pencil,
+  Search, ShieldCheck, X
 } from "lucide-react";
 import heroImage from "./heroData";
-import { ANY_LIFESTYLE, matchPets } from "./matching";
+import { rankPets } from "./matching";
 
 function Button({ className = "", variant = "primary", children, ...props }) {
   return <button className={`button ${variant === "outline" ? "button-outline" : ""} ${className}`} {...props}>{children}</button>;
@@ -123,11 +124,93 @@ function EventPanel({ event }) {
   return <article className="event-panel"><div className="event-label"><CalendarDays /> Upcoming event</div><div className="event-content"><div className="event-date"><small>{item.month}</small><strong>{item.day}</strong></div><div><h3>{item.title}</h3><p>{item.time}</p><p><MapPin /> {item.place}</p>{item.source_url ? <a href={item.source_url} target="_blank" rel="noreferrer">See event details <ChevronRight /></a> : <span className="event-review">Confirm details with the organizer</span>}</div></div></article>;
 }
 
+const QUIZ_QUESTIONS = [
+  { key: "home", title: "What’s your home like?", help: "This helps us understand the space a pet would share with you.", options: ["Apartment or condo", "House", "Townhome or duplex", "Other"] },
+  { key: "energy", title: "What pace feels like you?", help: "Think about an ordinary week, not your most ambitious one.", options: ["Calm", "Balanced", "Active"] },
+  { key: "kids", title: "Will this pet live with children?", help: "Shelter evaluations vary, so we’ll flag anything you should confirm.", options: ["Yes", "No"] },
+  { key: "pets", title: "Any pets already at home?", help: "Choose the answer that best describes your household.", options: ["None", "Dogs", "Cats", "Dogs and cats"] },
+  { key: "alone", title: "How often would they be home alone?", help: "A realistic answer helps us avoid mismatched expectations.", options: ["Rarely", "Sometimes", "Often"] },
+  { key: "experience", title: "What’s your pet experience?", help: "Some animals thrive with first-time adopters; others need practiced handling.", options: ["First-time adopter", "Some experience", "Very experienced"] },
+  { key: "species", title: "Who are you hoping to meet?", help: "You can keep this open and compare both.", options: ["Either", "Dog", "Cat"] },
+];
+
+function MatchResult({ match, rank }) {
+  const { pet, score, reasons, considerations, questions } = match;
+  return <article className="match-result">
+    <span className="match-rank" aria-label={`Match ${rank}`}>{rank}</span>
+    <img src={pet.image} alt={`${pet.name}, a ${pet.breed}`} />
+    <div className="match-body">
+      <div className="match-title"><div><h3>{pet.name}</h3><p>{[pet.breed, pet.age, pet.city].filter(Boolean).join(" · ")}</p></div><strong>{score}%<small>match</small></strong></div>
+      <div className="match-evidence">
+        <div><h4><CheckCircle2 /> Why this fits</h4>{reasons.length ? <ul>{reasons.map(reason => <li key={reason}>{reason}</li>)}</ul> : <p>We need more listing details to explain this match.</p>}</div>
+        {considerations.length ? <div className="consider"><h4><AlertTriangle /> Things to consider</h4><p>{considerations[0]}</p></div> : null}
+        {questions.length ? <div><h4><Info /> Ask the shelter</h4><ul>{questions.map(question => <li key={question}>{question}</li>)}</ul></div> : null}
+      </div>
+      {pet.sourceUrl ? <a className="button match-link" href={pet.sourceUrl} target="_blank" rel="noreferrer">View shelter listing <ExternalLink /></a> : <span className="match-link-unavailable">Shelter link unavailable</span>}
+    </div>
+  </article>;
+}
+
+function Matchmaker({ pets, feed, location, onLocationChange, onSpeciesChange }) {
+  const [started, setStarted] = useState(false);
+  const [step, setStep] = useState(0);
+  const [answers, setAnswers] = useState({});
+  const [complete, setComplete] = useState(false);
+  const question = QUIZ_QUESTIONS[step];
+  const ranked = useMemo(() => rankPets(pets, answers).slice(0, 5), [pets, answers]);
+  const choose = (value) => {
+    const nextAnswers = { ...answers, [question.key]: value };
+    setAnswers(nextAnswers);
+    if (question.key === "species") onSpeciesChange(value === "Either" ? "All" : value);
+    if (step === QUIZ_QUESTIONS.length - 1) setComplete(true);
+    else setStep(current => current + 1);
+  };
+  const restart = () => { setComplete(false); setStarted(true); setStep(0); };
+
+  return <section className={`matchmaker ${complete ? "is-complete" : ""}`} aria-labelledby="matchmaker-title">
+    <div className="matchmaker-quiz">
+      {!started ? <div className="match-intro">
+        <div className="match-portrait"><img src={heroImage} alt="A dog and cat resting together" /></div>
+        <h1 id="matchmaker-title">Find a pet who fits <em>your real life.</em></h1>
+        <p>Answer a few practical questions and we’ll rank current shelter listings with clear reasons—not guesswork.</p>
+        <Button onClick={() => setStarted(true)}>Start the match quiz <ChevronRight /></Button>
+        <span><Clock3 /> About 2 minutes</span>
+      </div> : !complete ? <>
+        <div className="quiz-topline">
+          <button className="quiz-back" onClick={() => step ? setStep(step - 1) : setStarted(false)}><ArrowLeft /> Back</button>
+          <span><Clock3 /> About 2 minutes</span>
+        </div>
+        <div className="quiz-progress" aria-label={`Question ${step + 1} of ${QUIZ_QUESTIONS.length}`}><span style={{ width: `${((step + 1) / QUIZ_QUESTIONS.length) * 100}%` }} /></div>
+        <div className="quiz-question">
+          <p>Question {step + 1} of {QUIZ_QUESTIONS.length}</p>
+          <h2>{question.title}</h2>
+          <span>{question.help}</span>
+          <div className="quiz-options">{question.options.map(option => <button key={option} className={answers[question.key] === option ? "selected" : ""} onClick={() => choose(option)}><span>{option}</span><ChevronRight /></button>)}</div>
+        </div>
+      </> : <div className="quiz-summary">
+        <button className="quiz-back" onClick={restart}><ArrowLeft /> Start over</button>
+        <p>Your match profile</p>
+        <h2>Built around your everyday life.</h2>
+        <dl>{QUIZ_QUESTIONS.map(item => <div key={item.key}><dt>{item.title}</dt><dd>{answers[item.key]}</dd></div>)}</dl>
+        <button className="adjust-button" onClick={restart}><Pencil /> Adjust my answers</button>
+      </div>}
+      <label className="quiz-location"><MapPin /><span>Search area<small>Used to prioritize nearby listings</small></span><input aria-label="City or postal code" value={location} onChange={event => onLocationChange(event.target.value)} /></label>
+      <div className={`quiz-feed feed-${feed.mode}`}><Info /><span><strong>{feed.mode === "live" ? "Live adoptable pets" : feed.mode === "loading" ? "Checking live shelter listings" : "Live listings unavailable"}</strong>{feed.mode === "live" ? `${feed.count || pets.length} current records from ${feed.provider}. Always confirm availability with the shelter.` : feed.message || "No synthetic pet profiles are shown."}</span></div>
+    </div>
+    <div className="matchmaker-results" aria-live="polite">
+      <div className="results-head"><div><h2>{complete ? "Your top matches nearby" : "Your matches will appear here"}</h2><p>{complete ? "Ranked from current listing facts and your answers" : "Finish the quiz to see transparent compatibility reasons."}</p></div>{complete ? <button onClick={restart}><Pencil /> Adjust my answers</button> : null}</div>
+      {!complete ? <div className="results-placeholder"><PawPrint /><h3>No black-box recommendations</h3><p>We show what supported each match, what may not fit, and what the listing does not tell us.</p></div>
+        : feed.mode === "loading" ? <div className="results-placeholder"><PawPrint /><h3>Loading current listings…</h3></div>
+        : ranked.length ? <div className="match-list">{ranked.map((match, index) => <MatchResult key={match.pet.id} match={match} rank={index + 1} />)}</div>
+        : <div className="results-placeholder"><PawPrint /><h3>No verified matches available</h3><p>{feed.message || "Try adjusting your answers or check back when more shelter listings are available."}</p></div>}
+    </div>
+  </section>;
+}
+
 export default function App() {
   const [saved, setSaved] = useState(() => JSON.parse(localStorage.getItem("pawline-saved") || "[]"));
   const [species, setSpecies] = useState("All");
   const [location, setLocation] = useState("Pasadena, California, USA");
-  const [lifestyle, setLifestyle] = useState(ANY_LIFESTYLE);
   const [submitOpen, setSubmitOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [selectedPet, setSelectedPet] = useState(null);
@@ -172,9 +255,6 @@ export default function App() {
       .catch(() => setIntegrations({ mapboxConfigured: false }));
   }, []);
 
-  const pets = useMemo(() => {
-    return matchPets(remotePets, { species, lifestyle, location });
-  }, [remotePets, species, lifestyle, location]);
   const toggleSave = id => setSaved(items => items.includes(id) ? items.filter(item => item !== id) : [...items, id]);
   const findMatch = async () => {
     if (!location.trim()) {
@@ -203,7 +283,6 @@ export default function App() {
     }
   };
   const featuredEvent = remoteEvents[0] || null;
-  const visiblePets = showAll ? pets : pets.slice(0, 5);
   const scrollToMap = () => {
     document.getElementById("map")?.scrollIntoView({ behavior: "smooth", block: "center" });
     if (!integrations.mapboxConfigured) {
@@ -215,28 +294,7 @@ export default function App() {
     <Header saved={saved.length} onSubmit={() => setSubmitOpen(true)} menuOpen={menuOpen} onToggleMenu={() => setMenuOpen(open => !open)} />
     {menuOpen ? <MobileMenu onClose={() => setMenuOpen(false)} onSubmit={() => setSubmitOpen(true)} /> : null}
     <main id="discover">
-      <section className="hero">
-        <div className="hero-image"><img src={heroImage} alt="A dog and cat resting together" /><div className="coverage"><Globe2 /><div><small>ADOPTION DISCOVERY</small><strong>{feed.mode === "live" ? "Verified partner listings" : "Live listings only"}</strong><span>{feed.mode === "live" ? "Confirm availability with the source" : "No synthetic listings are shown"}</span></div></div></div>
-        <div className="hero-copy">
-          <p className="eyebrow">FIND A FRIEND FOR LIFE</p>
-          <h1>Who are you<br /><em>looking for?</em></h1>
-          <p>Tell us what matters most and we’ll help you find pets who could be your perfect match.</p>
-          <div className="match-form">
-            <label><MapPin /><span>Where<small>{location}</small></span><ChevronRight /><input aria-label="Location" value={location} onChange={e => setLocation(e.target.value)} /></label>
-            <label><PawPrint /><span>Dog or cat<small>{species === "All" ? "Either" : species}</small></span><select aria-label="Species" value={species} onChange={e => setSpecies(e.target.value)}><option value="All">Either</option><option>Dog</option><option>Cat</option></select><ChevronRight /></label>
-            <label><Heart /><span>Lifestyle fit<small>{lifestyle}</small></span><select aria-label="Lifestyle" value={lifestyle} onChange={e => setLifestyle(e.target.value)}><option>Any lifestyle</option><option>Active & outdoorsy</option><option>Calm & cozy</option><option>Family friendly</option></select><ChevronRight /></label>
-            <Button onClick={findMatch} disabled={locationState.status === "loading"}><span>{locationState.status === "loading" ? "Finding…" : "Find my match"}</span><Search /></Button>
-          </div>
-          {locationState.message && <p className={`location-state location-${locationState.status}`} role={locationState.status === "error" ? "alert" : "status"}>{locationState.message}</p>}
-          <div className="verified"><ShieldCheck /> Every public listing is reviewed or supplied by an authorized source.</div>
-        </div>
-      </section>
-
-      <section id="nearby" className="nearby">
-        <div className="section-heading"><div><h2>Adoptable pets {feed.mode === "live" ? <span>Live</span> : null}</h2><p>Current records from verified shelters and community partners</p></div>{pets.length > 5 ? <button onClick={() => setShowAll(value => !value)}>{showAll ? "Show fewer" : "View all pets"} <ChevronRight /></button> : null}</div>
-        {feed.mode === "loading" ? <div className="empty-state"><PawPrint /><h3>Loading live listings…</h3><p>Checking verified adoption sources.</p></div> : visiblePets.length ? <div className="pet-gallery">{visiblePets.map(pet => <PetTile key={pet.id} pet={pet} saved={saved.includes(pet.id)} onSave={toggleSave} onOpen={setSelectedPet} />)}</div> : <div className="empty-state"><PawPrint /><h3>{feed.mode === "error" ? "Live listings unavailable" : "No verified matches available"}</h3><p>{feed.message || "Try another species or lifestyle."}</p>{feed.mode !== "error" ? <button onClick={() => { setSpecies("All"); setLifestyle(ANY_LIFESTYLE); }}>Reset filters</button> : null}</div>}
-        <div className={`feed-note feed-${feed.mode}`}><Info /> {feed.mode === "live" ? `${feed.count || pets.length} current records from ${feed.provider}. Confirm availability with the shelter.` : feed.message || "Only verified live listings are displayed."}</div>
-      </section>
+      <Matchmaker pets={remotePets} feed={feed} location={location} onLocationChange={setLocation} onSpeciesChange={setSpecies} />
 
       <section className="support-grid">
         <MapPanel location={location} coordinates={coordinates} configured={integrations.mapboxConfigured} />

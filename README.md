@@ -34,7 +34,8 @@ Example parser configuration:
 Parser configurations may also use `constants`, per-field `value_maps`, and
 `strip_html_fields`. See `db/public_sources.sql` for reviewed examples.
 
-Vercel calls `/api/cron/ingest` every four hours. The Python importer accepts
+Vercel calls `/api/cron/ingest` four times daily (00:00, 06:00, 12:00, and
+18:00 UTC). The Python importer accepts
 authorized HTTPS JSON, CSV, and published Google Sheet CSV feeds; it does not
 scrape HTML. It sends conditional requests, limits response size, rejects local
 network destinations, records each run, and upserts duplicate records.
@@ -45,6 +46,23 @@ reviewer changes the record to `available` and sets `verified_at`.
 Pawline is a mobile-friendly pet adoption discovery app for finding adoptable
 dogs and cats, browsing nearby organizations on a map, viewing adoption events,
 and submitting community listings.
+
+## Adoption matchmaker
+
+The discovery screen includes a seven-question lifestyle quiz covering home
+type, activity level, children, existing pets, time alone, adopter experience,
+and species preference. Matching is deterministic and runs in
+`src/matching.js`; it does not make adoption decisions.
+
+Each result separates:
+
+- listing facts that support the match,
+- possible conflicts disclosed by the listing, and
+- missing compatibility details to confirm with the shelter.
+
+Scores are an ordering aid, not a guarantee. Pawline never fills missing listing
+attributes with generated claims, and it links back to the shelter for current
+availability and final adoption decisions.
 
 ## Development
 
