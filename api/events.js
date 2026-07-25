@@ -9,7 +9,7 @@ export default async function handler(request, response) {
   const database = getDatabase();
   if (!database) {
     return response.status(200).json({
-      mode: "demo",
+      mode: "unconfigured",
       events: [],
       message: "Verified adoption events are not configured yet.",
     });

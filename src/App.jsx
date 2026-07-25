@@ -3,25 +3,8 @@ import {
   CalendarDays, ChevronRight, Globe2, Heart, Info, MapPin, Menu,
   PawPrint, Search, ShieldCheck, X
 } from "lucide-react";
-import { pets as seedPets } from "./data";
 import heroImage from "./heroData";
 import { ANY_LIFESTYLE, matchPets } from "./matching";
-
-const DEMO_LIFESTYLES = {
-  1: ["Active & outdoorsy", "Family friendly"],
-  2: ["Calm & cozy"],
-  3: ["Active & outdoorsy"],
-  4: ["Calm & cozy", "Family friendly"],
-  5: ["Calm & cozy", "Family friendly"],
-  6: ["Calm & cozy"],
-};
-
-const demonstrationPets = seedPets.map((pet) => ({
-  ...pet,
-  shelter: "Example shelter",
-  source: "Demonstration profile",
-  lifestyles: DEMO_LIFESTYLES[pet.id] || [],
-}));
 
 function Button({ className = "", variant = "primary", children, ...props }) {
   return <button className={`button ${variant === "outline" ? "button-outline" : ""} ${className}`} {...props}>{children}</button>;
@@ -93,18 +76,17 @@ function PetTile({ pet, saved, onSave, onOpen }) {
 }
 
 function PetDetail({ pet, onClose, saved, onSave }) {
-  const isLive = Boolean(pet.sourceUrl);
   return <Dialog title={pet.name} onClose={onClose}>
     <div className="pet-detail">
       <img src={pet.image} alt={`${pet.name}, a ${pet.breed}`} />
       <div className="detail-meta"><span>{pet.species}</span><span>{pet.age}</span><span>{pet.size}</span><span>{pet.sex}</span></div>
       <h3>{pet.breed}</h3>
       <p><MapPin /> {pet.city}</p>
-      <p><ShieldCheck /> {isLive ? `${pet.shelter} · verified source` : "Demonstration profile — not an available animal"}</p>
+      <p><ShieldCheck /> {pet.shelter} · verified source</p>
       {pet.description ? <p>{pet.description}</p> : null}
       <div className="detail-actions">
         <Button variant="outline" onClick={() => onSave(pet.id)}><Heart fill={saved ? "currentColor" : "none"} />{saved ? "Saved" : "Save"}</Button>
-        {isLive ? <a className="button" href={pet.sourceUrl} target="_blank" rel="noreferrer">View adoption listing <ChevronRight /></a> : <span className="button button-disabled" aria-disabled="true">Adoption link unavailable</span>}
+        {pet.sourceUrl ? <a className="button" href={pet.sourceUrl} target="_blank" rel="noreferrer">View adoption listing <ChevronRight /></a> : <span className="button button-disabled" aria-disabled="true">Contact the listed rescue</span>}
       </div>
     </div>
   </Dialog>;
@@ -170,7 +152,10 @@ export default function App() {
         setFeed(body);
       })
       .catch(error => {
-        if (error.name !== "AbortError") setFeed({ mode: "error", message: "Live feeds are temporarily unavailable." });
+        if (error.name !== "AbortError") {
+          setRemotePets([]);
+          setFeed({ mode: "error", message: "Live feeds are temporarily unavailable." });
+        }
       });
     return () => controller.abort();
   }, [species]);
@@ -188,8 +173,7 @@ export default function App() {
   }, []);
 
   const pets = useMemo(() => {
-    const source = remotePets.length ? remotePets : demonstrationPets;
-    return matchPets(source, { species, lifestyle, location });
+    return matchPets(remotePets, { species, lifestyle, location });
   }, [remotePets, species, lifestyle, location]);
   const toggleSave = id => setSaved(items => items.includes(id) ? items.filter(item => item !== id) : [...items, id]);
   const findMatch = async () => {
@@ -199,7 +183,7 @@ export default function App() {
     }
     if (!integrations.mapboxConfigured) {
       setCoordinates(null);
-      setLocationState({ status: "success", message: `Showing demonstration matches for ${location.trim()}. Live map search is not connected yet.` });
+      setLocationState({ status: "error", message: "Live location search is unavailable until the map provider is connected." });
       document.getElementById("nearby")?.scrollIntoView({ behavior: "smooth" });
       return;
     }
@@ -232,7 +216,7 @@ export default function App() {
     {menuOpen ? <MobileMenu onClose={() => setMenuOpen(false)} onSubmit={() => setSubmitOpen(true)} /> : null}
     <main id="discover">
       <section className="hero">
-        <div className="hero-image"><img src={heroImage} alt="A dog and cat resting together" /><div className="coverage"><Globe2 /><div><small>ADOPTION DISCOVERY</small><strong>{feed.mode === "live" ? "Verified partner listings" : "Demonstration preview"}</strong><span>{feed.mode === "live" ? "Confirm availability with the source" : "Live partner feeds are onboarding"}</span></div></div></div>
+        <div className="hero-image"><img src={heroImage} alt="A dog and cat resting together" /><div className="coverage"><Globe2 /><div><small>ADOPTION DISCOVERY</small><strong>{feed.mode === "live" ? "Verified partner listings" : "Live listings only"}</strong><span>{feed.mode === "live" ? "Confirm availability with the source" : "No synthetic listings are shown"}</span></div></div></div>
         <div className="hero-copy">
           <p className="eyebrow">FIND A FRIEND FOR LIFE</p>
           <h1>Who are you<br /><em>looking for?</em></h1>
@@ -244,14 +228,14 @@ export default function App() {
             <Button onClick={findMatch} disabled={locationState.status === "loading"}><span>{locationState.status === "loading" ? "Finding…" : "Find my match"}</span><Search /></Button>
           </div>
           {locationState.message && <p className={`location-state location-${locationState.status}`} role={locationState.status === "error" ? "alert" : "status"}>{locationState.message}</p>}
-          <div className="verified"><ShieldCheck /> {feed.mode === "live" ? "Every public listing is reviewed or supplied by an authorized source." : "Example profiles are clearly labeled until verified listings are available."}</div>
+          <div className="verified"><ShieldCheck /> Every public listing is reviewed or supplied by an authorized source.</div>
         </div>
       </section>
 
       <section id="nearby" className="nearby">
-        <div className="section-heading"><div><h2>{feed.mode === "live" ? "New near you" : "Explore example matches"} {feed.mode === "live" ? <span>Live</span> : <span className="demo-badge">Demo</span>}</h2><p>{feed.mode === "live" ? "Fresh arrivals from trusted shelters and community partners" : "Preview matching while verified partner feeds are onboarding"}</p></div>{pets.length > 5 ? <button onClick={() => setShowAll(value => !value)}>{showAll ? "Show fewer" : "View all pets"} <ChevronRight /></button> : null}</div>
-        {visiblePets.length ? <div className="pet-gallery">{visiblePets.map(pet => <PetTile key={pet.id} pet={pet} saved={saved.includes(pet.id)} onSave={toggleSave} onOpen={setSelectedPet} />)}</div> : <div className="empty-state"><PawPrint /><h3>No matches for those filters</h3><p>Try another species or lifestyle.</p><button onClick={() => { setSpecies("All"); setLifestyle(ANY_LIFESTYLE); }}>Reset filters</button></div>}
-        <div className={`feed-note feed-${feed.mode}`}><Info /> {feed.mode === "live" ? `${feed.count || pets.length} current records from ${feed.provider}. Confirm availability with the shelter.` : "These are demonstration profiles, not currently adoptable animals."}</div>
+        <div className="section-heading"><div><h2>Adoptable pets {feed.mode === "live" ? <span>Live</span> : null}</h2><p>Current records from verified shelters and community partners</p></div>{pets.length > 5 ? <button onClick={() => setShowAll(value => !value)}>{showAll ? "Show fewer" : "View all pets"} <ChevronRight /></button> : null}</div>
+        {feed.mode === "loading" ? <div className="empty-state"><PawPrint /><h3>Loading live listings…</h3><p>Checking verified adoption sources.</p></div> : visiblePets.length ? <div className="pet-gallery">{visiblePets.map(pet => <PetTile key={pet.id} pet={pet} saved={saved.includes(pet.id)} onSave={toggleSave} onOpen={setSelectedPet} />)}</div> : <div className="empty-state"><PawPrint /><h3>{feed.mode === "error" ? "Live listings unavailable" : "No verified matches available"}</h3><p>{feed.message || "Try another species or lifestyle."}</p>{feed.mode !== "error" ? <button onClick={() => { setSpecies("All"); setLifestyle(ANY_LIFESTYLE); }}>Reset filters</button> : null}</div>}
+        <div className={`feed-note feed-${feed.mode}`}><Info /> {feed.mode === "live" ? `${feed.count || pets.length} current records from ${feed.provider}. Confirm availability with the shelter.` : feed.message || "Only verified live listings are displayed."}</div>
       </section>
 
       <section className="support-grid">

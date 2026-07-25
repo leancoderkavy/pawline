@@ -5,11 +5,13 @@ Pawline combines authorized adoption feeds and moderated community submissions.
 ## Database and ingestion
 
 1. Create a Postgres database and run `db/schema.sql`.
-2. Set `DATABASE_URL` and a random `CRON_SECRET` in Vercel.
-3. Add a row to `sources` with `enabled = false`.
-4. Put the provider's canonical field names in `parser_config.mapping`; JSON feeds
+2. Optionally run `db/public_sources.sql` to install the reviewed Montgomery
+   County and King County definitions. They are inserted disabled.
+3. Set `DATABASE_URL` and a random `CRON_SECRET` in Vercel.
+4. Add a row to `sources` with `enabled = false`.
+5. Put the provider's canonical field names in `parser_config.mapping`; JSON feeds
    may also set `records_path`.
-5. Test the source, confirm permission and attribution, then enable it.
+6. Test the source, confirm permission and attribution, then enable it.
 
 Example parser configuration:
 
@@ -28,6 +30,9 @@ Example parser configuration:
   }
 }
 ```
+
+Parser configurations may also use `constants`, per-field `value_maps`, and
+`strip_html_fields`. See `db/public_sources.sql` for reviewed examples.
 
 Vercel calls `/api/cron/ingest` every four hours. The Python importer accepts
 authorized HTTPS JSON, CSV, and published Google Sheet CSV feeds; it does not
@@ -60,6 +65,18 @@ Copy `.env.example` to `.env.local` for local development. All provider
 credentials stay in server-side Vercel functions; do not prefix them with
 `VITE_`.
 
+### Government open data — adoptable pets
+
+`/api/pets` reads two credential-free official feeds directly:
+
+- Montgomery County Animal Services adoptable pets, refreshed every two hours.
+- Regional Animal Services of King County records explicitly marked
+  `ADOPTABLE`.
+
+Both adapters retain official shelter attribution and source links, accept only
+dogs and cats, normalize provider fields, and return partial/error status when a
+feed is unavailable. No synthetic fallback records are returned.
+
 ### RescueGroups — adoptable pets
 
 The server-side adapter at `/api/pets` uses the RescueGroups v5 public API.
@@ -69,7 +86,8 @@ Request one API key specifically for Pawline, accept the provider terms, and set
 RESCUEGROUPS_API_KEY
 ```
 
-Without the key, the app safely falls back to its curated demonstration data.
+Without the key, the government feeds remain active and RescueGroups is omitted
+from the provider list.
 
 ### Neon — submissions and verified events
 
@@ -113,8 +131,9 @@ saved submission.
 
 ### Provider readiness
 
-`GET /api/health` reports whether RescueGroups, Neon, Mapbox, Resend, and the
-scheduled importer are configured without exposing credentials.
+`GET /api/health` reports the two active public feeds and whether RescueGroups,
+Neon, Mapbox, Resend, and the scheduled importer are configured without
+exposing credentials.
 
 Adopt-a-Pet is intentionally not enabled by default. Its API requires a signed
 partnership agreement, provider approval of the implementation, shelter notice,

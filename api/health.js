@@ -17,6 +17,8 @@ export default function handler(_request, response) {
     communityDatabaseConfigured,
     submissionsConfigured: communityDatabaseConfigured,
     scheduledIngestionConfigured: communityDatabaseConfigured && Boolean(process.env.CRON_SECRET),
-    activePetProviders: Number(rescueGroupsConfigured) + Number(communityDatabaseConfigured),
+    publicOpenDataProviders: 2,
+    activePetProviders:
+      2 + Number(rescueGroupsConfigured) + Number(communityDatabaseConfigured),
   });
 }

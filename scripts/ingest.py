@@ -11,18 +11,18 @@ from __future__ import annotations
 
 import csv
 import hashlib
+import html
 import io
 import ipaddress
 import json
 import os
+import re
 import socket
 import sys
 from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import urlparse
 
-import psycopg
-from psycopg.rows import dict_row
 import requests
 
 MAX_BYTES = 15 * 1024 * 1024
@@ -31,6 +31,7 @@ FIELDS = {
     "description", "city", "country", "postal_code", "latitude", "longitude",
     "shelter", "contact_email", "contact_phone", "image_url", "source_url",
 }
+HTML_TAG = re.compile(r"<[^>]+>")
 
 
 def nested(row: dict[str, Any], path: str | None) -> Any:
@@ -64,6 +65,26 @@ def canonical_species(value: Any) -> str | None:
     return None
 
 
+def clean_text(value: Any, strip_html: bool = False) -> str | None:
+    if value in (None, ""):
+        return None
+    result = str(value)
+    if strip_html:
+        result = HTML_TAG.sub(" ", result)
+        result = html.unescape(result)
+        result = re.sub(r"\s+", " ", result)
+    return result.strip() or None
+
+
+def configured_value(row: dict[str, Any], field: str, config: dict[str, Any]) -> Any:
+    constants = config.get("constants") or {}
+    if field in constants:
+        return constants[field]
+    value = nested(row, (config.get("mapping") or {}).get(field))
+    value_map = (config.get("value_maps") or {}).get(field) or {}
+    return value_map.get(str(value), value)
+
+
 def records_from(response: requests.Response, source: dict[str, Any]) -> list[dict[str, Any]]:
     content = response.content
     if len(content) > MAX_BYTES:
@@ -82,14 +103,14 @@ def records_from(response: requests.Response, source: dict[str, Any]) -> list[di
 
 def normalize(row: dict[str, Any], source: dict[str, Any]) -> dict[str, Any] | None:
     config = source["parser_config"] or {}
-    mapping = config.get("mapping") or {}
-    item = {field: nested(row, mapping.get(field)) for field in FIELDS}
+    item = {field: configured_value(row, field, config) for field in FIELDS}
     item["name"] = str(item["name"] or "").strip()[:100]
     item["species"] = canonical_species(item["species"])
     if not item["name"] or not item["species"]:
         return None
+    strip_html_fields = set(config.get("strip_html_fields") or [])
     for field in FIELDS - {"latitude", "longitude", "species", "name"}:
-        item[field] = str(item[field]).strip() if item[field] not in (None, "") else None
+        item[field] = clean_text(item[field], field in strip_html_fields)
     for field in ("latitude", "longitude"):
         try:
             item[field] = float(item[field]) if item[field] not in (None, "") else None
@@ -198,6 +219,9 @@ def ingest_source(connection: psycopg.Connection, source: dict[str, Any]) -> dic
 
 
 def run() -> list[dict[str, int | str]]:
+    import psycopg
+    from psycopg.rows import dict_row
+
     database_url = os.environ.get("DATABASE_URL")
     if not database_url:
         raise RuntimeError("DATABASE_URL is required")

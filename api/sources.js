@@ -58,14 +58,14 @@ const sourceCatalog = [
     name: "Montgomery County Animal Services",
     scope: "Montgomery County, Maryland, United States",
     recordAccess: "Government open-data JSON/CSV; updated every two hours",
-    status: process.env.DATABASE_URL ? "ready_to_configure" : "database_required",
+    status: "active",
   },
   {
     id: "king-county-wa",
     name: "King County Regional Animal Services",
     scope: "King County, Washington, United States",
     recordAccess: "Government open-data feed for lost, found, and adoptable pets",
-    status: process.env.DATABASE_URL ? "ready_to_configure" : "database_required",
+    status: "active",
   },
 ];
 

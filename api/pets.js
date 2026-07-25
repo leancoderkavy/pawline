@@ -2,6 +2,133 @@ import { getDatabase } from "./_db.js";
 
 const API_BASE =
   process.env.RESCUEGROUPS_API_BASE_URL || "https://api.rescuegroups.org/v5";
+const MONTGOMERY_API =
+  "https://data.montgomerycountymd.gov/resource/e54u-qx42.json";
+const KING_COUNTY_API =
+  "https://data.kingcounty.gov/resource/yaai-7frk.json";
+const MONTGOMERY_ADOPTION_URL =
+  "https://www.montgomerycountymd.gov/animalservices/adoption/index.html";
+
+export function cleanText(value) {
+  if (!value) return null;
+  return String(value)
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, " ")
+    .trim() || null;
+}
+
+export function canonicalSpecies(value) {
+  const species = String(value || "").toLowerCase();
+  if (species === "dog" || species === "canine") return "Dog";
+  if (species === "cat" || species === "feline") return "Cat";
+  return null;
+}
+
+function socrataUrl(base, { limit, page, where }) {
+  const url = new URL(base);
+  url.searchParams.set("$limit", String(limit));
+  url.searchParams.set("$offset", String((page - 1) * limit));
+  if (where) url.searchParams.set("$where", where);
+  return url;
+}
+
+async function fetchSocrata(url, provider) {
+  const upstream = await fetch(url, {
+    headers: { Accept: "application/json" },
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!upstream.ok) {
+    throw new Error(`${provider} returned ${upstream.status}`);
+  }
+  const payload = await upstream.json();
+  if (!Array.isArray(payload)) {
+    throw new Error(`${provider} returned an invalid payload`);
+  }
+  return payload;
+}
+
+export function normalizeMontgomeryPet(pet, index) {
+  const species = canonicalSpecies(pet.animaltype);
+  if (!species || !pet.animalid || !pet.petname) return null;
+  const sex = {
+    M: "Male",
+    F: "Female",
+    N: "Neutered Male",
+    S: "Spayed Female",
+    U: "Unknown",
+  }[pet.sex] || pet.sex || "Unknown";
+  return {
+    id: `montgomery-${pet.animalid}`,
+    externalId: pet.animalid,
+    name: cleanText(pet.petname)?.replace(/^\*+/, "") || "New friend",
+    species,
+    breed: cleanText(pet.breed) || "Mixed breed",
+    age: cleanText(pet.petage) || "Age unknown",
+    sex,
+    size: cleanText(pet.petsize) || "Unknown",
+    distance: 0,
+    city: "Derwood, Maryland, United States",
+    shelter: "Montgomery County Animal Services and Adoption Center",
+    rating: null,
+    reviews: null,
+    source: "Montgomery County Open Data · Live",
+    sourceUrl: MONTGOMERY_ADOPTION_URL,
+    image: pet.url?.url?.replace(/^http:/, "https:") || null,
+    x: 18 + ((index * 17) % 70),
+    y: 20 + ((index * 23) % 62),
+  };
+}
+
+export function normalizeKingCountyPet(pet, index) {
+  const species = canonicalSpecies(pet.animal_type);
+  if (!species || !pet.animal_id || !pet.animal_name) return null;
+  return {
+    id: `king-${pet.animal_id}`,
+    externalId: pet.animal_id,
+    name: cleanText(pet.animal_name) || "New friend",
+    species,
+    breed: cleanText(pet.animal_breed) || "Mixed breed",
+    age: cleanText(pet.age) || "Age unknown",
+    sex: cleanText(pet.animal_gender) || "Unknown",
+    size: "Unknown",
+    distance: 0,
+    city: [pet.city, pet.state, "United States"].filter(Boolean).join(", "),
+    shelter: "Regional Animal Services of King County",
+    rating: null,
+    reviews: null,
+    source: "King County Open Data · Live",
+    sourceUrl: pet.link?.url || null,
+    image: pet.image?.url?.replace(/^http:/, "https:") || null,
+    description: cleanText(pet.memo),
+    x: 18 + ((index * 17) % 70),
+    y: 20 + ((index * 23) % 62),
+  };
+}
+
+async function fetchMontgomeryPets(species, options) {
+  const type = species.length === 1 ? species[0].toUpperCase() : null;
+  const where = type ? `upper(animaltype)='${type}'` : null;
+  const rows = await fetchSocrata(
+    socrataUrl(MONTGOMERY_API, { ...options, where }),
+    "Montgomery County",
+  );
+  return rows.map(normalizeMontgomeryPet).filter(Boolean);
+}
+
+async function fetchKingCountyPets(species, options) {
+  const clauses = ["upper(record_type)='ADOPTABLE'"];
+  if (species.length === 1) {
+    clauses.push(`upper(animal_type)='${species[0].toUpperCase()}'`);
+  }
+  const rows = await fetchSocrata(
+    socrataUrl(KING_COUNTY_API, { ...options, where: clauses.join(" AND ") }),
+    "King County",
+  );
+  return rows.map(normalizeKingCountyPet).filter(Boolean);
+}
 
 function findRelated(included, relationship) {
   const ref = relationship?.data;
@@ -150,17 +277,33 @@ export default async function handler(request, response) {
   const page = Math.max(Number(request.query.page) || 1, 1);
 
   try {
-    const requests = [fetchDatabasePets()];
+    const requests = [
+      { id: "Pawline", promise: fetchDatabasePets() },
+      {
+        id: "Montgomery County",
+        promise: fetchMontgomeryPets(species, { limit, page }),
+      },
+      {
+        id: "King County",
+        promise: fetchKingCountyPets(species, { limit, page }),
+      },
+    ];
     if (apiKey) {
-      requests.push(...species.map((item) => fetchSpecies(item, { limit, page }, apiKey)));
+      requests.push(
+        ...species.map((item) => ({
+          id: `RescueGroups ${item}`,
+          promise: fetchSpecies(item, { limit, page }, apiKey),
+        })),
+      );
     }
-    const results = await Promise.allSettled(requests);
-    const databasePets =
-      results[0]?.status === "fulfilled"
-        ? results[0].value.filter((pet) => species.includes(pet.species))
-        : [];
-    const payloads = results
-      .slice(1)
+    const results = await Promise.allSettled(requests.map((item) => item.promise));
+    const databasePets = results[0]?.status === "fulfilled"
+      ? results[0].value.filter((pet) => species.includes(pet.species))
+      : [];
+    const montgomeryPets = results[1]?.status === "fulfilled" ? results[1].value : [];
+    const kingCountyPets = results[2]?.status === "fulfilled" ? results[2].value : [];
+    const rescueGroupsStart = 3;
+    const payloads = results.slice(rescueGroupsStart)
       .filter((result) => result.status === "fulfilled")
       .map((result) => result.value);
     const providerPets = payloads.flatMap((payload) =>
@@ -168,39 +311,55 @@ export default async function handler(request, response) {
         normalizeAnimal(animal, payload.included || [], index),
       ),
     );
-    const pets = [...databasePets, ...providerPets].filter(
+    const pets = [
+      ...databasePets,
+      ...montgomeryPets,
+      ...kingCountyPets,
+      ...providerPets,
+    ].filter(
       (pet, index, all) =>
-        all.findIndex((item) => item.sourceUrl && item.sourceUrl === pet.sourceUrl) === index ||
-        !pet.sourceUrl,
+        all.findIndex((item) => item.id === pet.id) === index,
     );
     const providerCount = payloads.reduce(
       (total, payload) => total + Number(payload.meta?.count || 0),
       0,
     );
-    const isPartial = Boolean(apiKey) && payloads.length !== species.length;
+    const expectedProviderFeeds = 2 + (apiKey ? species.length : 0);
+    const successfulProviderFeeds =
+      Number(results[1]?.status === "fulfilled") +
+      Number(results[2]?.status === "fulfilled") +
+      payloads.length;
+    const isPartial = successfulProviderFeeds !== expectedProviderFeeds;
+    const providerUnavailable = successfulProviderFeeds === 0 && databasePets.length === 0;
+    const providerNames = [
+      databasePets.length && "Pawline",
+      montgomeryPets.length && "Montgomery County",
+      kingCountyPets.length && "King County",
+      payloads.length && "RescueGroups",
+    ].filter(Boolean);
     response.setHeader(
       "Cache-Control",
       "public, s-maxage=300, stale-while-revalidate=900",
     );
     return response.status(200).json({
-      mode: pets.length ? "live" : "demo",
-      provider: [databasePets.length && "Pawline", payloads.length && "RescueGroups"]
-        .filter(Boolean)
-        .join(" + ") || null,
+      mode: providerUnavailable ? "error" : pets.length ? "live" : "empty",
+      provider: providerNames.join(" + ") || null,
       pets,
       count: pets.length,
       providerCount,
       page,
       partial: isPartial,
       fetchedAt: new Date().toISOString(),
-      message: isPartial
-        ? "One live species feed is temporarily unavailable."
+      message: providerUnavailable
+        ? "Live adoption feeds are temporarily unavailable."
+        : isPartial
+        ? "One or more live provider feeds are temporarily unavailable."
         : pets.length ? undefined : "No verified live listings are available yet.",
     });
   } catch (error) {
     console.error("Pet feed request failed", error);
     return response.status(200).json({
-      mode: "demo",
+      mode: "error",
       provider: null,
       pets: [],
       message: "Live adoption feeds are temporarily unavailable.",
