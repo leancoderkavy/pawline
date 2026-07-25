@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import "mapbox-gl/dist/mapbox-gl.css";
 import {
   AlertTriangle, ArrowLeft, CalendarDays, CheckCircle2, ChevronRight, Clock3,
   ExternalLink, Globe2, Heart, Info, LocateFixed, MapPin, Menu, PawPrint, Pencil,
@@ -93,6 +94,135 @@ function PetDetail({ pet, onClose, saved, onSave }) {
   </Dialog>;
 }
 
+const DEFAULT_MAP_CENTER = [-118.1445, 34.1478];
+
+function InteractiveMap({ coordinates, points, location }) {
+  const containerRef = useRef(null);
+  const mapRef = useRef(null);
+  const geoJsonRef = useRef(null);
+  const [mapState, setMapState] = useState({ status: "loading", message: "" });
+  const center = coordinates
+    ? [Number(coordinates.longitude), Number(coordinates.latitude)]
+    : DEFAULT_MAP_CENTER;
+  const geoJson = {
+    type: "FeatureCollection",
+    features: [
+      {
+        type: "Feature",
+        geometry: { type: "Point", coordinates: center },
+        properties: { type: "center" },
+      },
+      ...points.map(point => ({
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [point.longitude, point.latitude] },
+        properties: { type: point.type },
+      })),
+    ],
+  };
+  geoJsonRef.current = geoJson;
+
+  useEffect(() => {
+    if (!containerRef.current) return undefined;
+    let active = true;
+    let map;
+
+    Promise.all([
+      fetch("/api/map-token").then(response => readJson(response, "Interactive maps are unavailable."))
+        .then(body => {
+          if (!body.accessToken) throw new Error("Interactive maps are unavailable.");
+          return body.accessToken;
+        }),
+      import("mapbox-gl"),
+    ]).then(([accessToken, module]) => {
+      if (!active || !containerRef.current) return;
+      const mapboxgl = module.default;
+      mapboxgl.accessToken = accessToken;
+      map = new mapboxgl.Map({
+        container: containerRef.current,
+        style: "mapbox://styles/mapbox/streets-v12",
+        center,
+        zoom: 10,
+        attributionControl: true,
+        cooperativeGestures: false,
+      });
+      mapRef.current = map;
+      map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "top-right");
+      map.on("load", () => {
+        if (!active) return;
+        map.addSource("pawline-points", { type: "geojson", data: geoJsonRef.current });
+        map.addLayer({
+          id: "pawline-pets",
+          type: "circle",
+          source: "pawline-points",
+          filter: ["==", ["get", "type"], "pet"],
+          paint: {
+            "circle-radius": 7,
+            "circle-color": "#2f7458",
+            "circle-stroke-color": "#fffaf1",
+            "circle-stroke-width": 2,
+          },
+        });
+        map.addLayer({
+          id: "pawline-events",
+          type: "circle",
+          source: "pawline-points",
+          filter: ["==", ["get", "type"], "event"],
+          paint: {
+            "circle-radius": 7,
+            "circle-color": "#ad5d35",
+            "circle-stroke-color": "#fffaf1",
+            "circle-stroke-width": 2,
+          },
+        });
+        map.addLayer({
+          id: "pawline-center",
+          type: "circle",
+          source: "pawline-points",
+          filter: ["==", ["get", "type"], "center"],
+          paint: {
+            "circle-radius": 10,
+            "circle-color": "#17382f",
+            "circle-stroke-color": "#fffaf1",
+            "circle-stroke-width": 3,
+          },
+        });
+        setMapState({ status: "ready", message: "" });
+      });
+      map.on("error", () => {
+        if (active) setMapState({ status: "error", message: "The interactive map could not load." });
+      });
+    }).catch(error => {
+      if (active) setMapState({ status: "error", message: error.message });
+    });
+
+    return () => {
+      active = false;
+      mapRef.current = null;
+      if (map) map.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const source = map.getSource("pawline-points");
+    if (source) source.setData(geoJson);
+  }, [points, coordinates]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !coordinates) return;
+    map.easeTo({ center, zoom: Math.max(map.getZoom(), 10), duration: 700 });
+  }, [coordinates?.longitude, coordinates?.latitude]);
+
+  return <>
+    <div ref={containerRef} className="interactive-map" role="region" aria-label={`Interactive pet map centered on ${location}`} />
+    {mapState.status === "loading" ? <div className="map-loading" role="status">Loading interactive map…</div> : null}
+    {mapState.status === "error" ? <div className="map-unavailable" role="alert"><span className="map-unavailable-icon"><MapPin /></span><strong>Map temporarily unavailable</strong><span>{mapState.message}</span></div> : null}
+    {mapState.status === "ready" ? <span className="map-instructions">Drag to explore · Scroll or use +/− to zoom</span> : null}
+  </>;
+}
+
 function MapPanel({ location, coordinates, configured, pets, events, onLocationChange, onFindLocation, locationState }) {
   const [petType, setPetType] = useState("All");
   const [distance, setDistance] = useState("150");
@@ -115,16 +245,13 @@ function MapPanel({ location, coordinates, configured, pets, events, onLocationC
   const visiblePets = pets.filter(pet => (petType === "All" || pet.species === petType) && nearby(pet));
   const visibleEvents = showEvents ? events.filter(event => nearby(event)) : [];
   const points = [
-    ...visiblePets.slice(0, 30).map(pet => `${pet.longitude},${pet.latitude},p`),
-    ...visibleEvents.slice(0, 10).map(event => `${event.longitude},${event.latitude},e`),
+    ...visiblePets.slice(0, 30)
+      .filter(pet => Number.isFinite(pet.longitude) && Number.isFinite(pet.latitude))
+      .map(pet => ({ longitude: pet.longitude, latitude: pet.latitude, type: "pet" })),
+    ...visibleEvents.slice(0, 10)
+      .filter(event => Number.isFinite(event.longitude) && Number.isFinite(event.latitude))
+      .map(event => ({ longitude: event.longitude, latitude: event.latitude, type: "event" })),
   ];
-  const mapParams = new URLSearchParams();
-  if (coordinates) {
-    mapParams.set("longitude", coordinates.longitude);
-    mapParams.set("latitude", coordinates.latitude);
-  }
-  if (points.length) mapParams.set("points", points.join("|"));
-  const mapUrl = `/api/map?${mapParams}`;
   const resetFilters = () => {
     setPetType("All");
     setDistance("150");
@@ -144,8 +271,7 @@ function MapPanel({ location, coordinates, configured, pets, events, onLocationC
     </form>
     {locationState.message ? <p className={`map-status location-${locationState.status}`} role={locationState.status === "error" ? "alert" : "status"}>{locationState.message}</p> : null}
     <div className="map-canvas">
-      {configured ? <img className="map-image" src={mapUrl} alt={`Map centered on ${location}`} /> : <div className="map-unavailable"><span className="map-unavailable-icon"><MapPin /></span><strong>Map preview is waiting for its connection</strong><span>Filters are ready to use. Connect Mapbox to turn on live location search and the map preview.</span></div>}
-      {configured ? <span className="map-city">{location}</span> : null}
+      {configured ? <InteractiveMap coordinates={coordinates} points={points} location={location} /> : <div className="map-unavailable"><span className="map-unavailable-icon"><MapPin /></span><strong>Map preview is waiting for its connection</strong><span>Filters are ready to use. Connect Mapbox to turn on live location search and the map preview.</span></div>}
       <span className="map-legend"><i className="pet-dot" /> {petType === "All" ? "Pets" : `${petType}s`} {showEvents ? <><i className="event-dot" /> Events</> : null}</span>
       <span className="map-attribution">Current listings · Always confirm with the shelter</span>
     </div>
