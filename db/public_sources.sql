@@ -1,5 +1,5 @@
--- Official public-domain sources verified against their live Socrata schemas.
--- They remain disabled until an operator reviews attribution and runs a staged import.
+-- Official public sources verified against their live Socrata schemas and terms pages.
+-- The scheduled importer refreshes these four times daily.
 
 INSERT INTO sources (
   id, name, kind, url, country_code, attribution, terms_url, enabled, parser_config
@@ -12,7 +12,7 @@ INSERT INTO sources (
   'US',
   'Montgomery County, Maryland',
   'https://data.montgomerycountymd.gov/Public-Safety/Adoptable-Pets/e54u-qx42',
-  false,
+  true,
   '{
     "mapping": {
       "external_id": "animalid",
@@ -44,7 +44,7 @@ INSERT INTO sources (
   'US',
   'Regional Animal Services of King County',
   'https://data.kingcounty.gov/Pets/Lost-found-adoptable-pets/yaai-7frk',
-  false,
+  true,
   '{
     "mapping": {
       "external_id": "animal_id",
@@ -75,5 +75,6 @@ ON CONFLICT (id) DO UPDATE SET
   country_code = EXCLUDED.country_code,
   attribution = EXCLUDED.attribution,
   terms_url = EXCLUDED.terms_url,
+  enabled = EXCLUDED.enabled,
   parser_config = EXCLUDED.parser_config,
   updated_at = now();

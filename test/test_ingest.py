@@ -1,9 +1,20 @@
 import unittest
 
-from scripts.ingest import canonical_species, clean_text, nested, normalize
+from scripts.ingest import (
+    REVIEWED_SOURCES_SQL,
+    canonical_species,
+    clean_text,
+    nested,
+    normalize,
+)
 
 
 class IngestNormalizationTests(unittest.TestCase):
+    def test_reviewed_sources_are_enabled_for_scheduled_imports(self):
+        sql = REVIEWED_SOURCES_SQL.read_text(encoding="utf-8")
+        self.assertEqual(sql.count("\n  true,\n"), 2)
+        self.assertIn("enabled = EXCLUDED.enabled", sql)
+
     def test_nested_supports_socrata_url_objects(self):
         self.assertEqual(nested({"image": {"url": "https://example.test/pet"}}, "image.url"),
                          "https://example.test/pet")

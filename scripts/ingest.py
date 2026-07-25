@@ -20,6 +20,7 @@ import re
 import socket
 import sys
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
@@ -32,6 +33,7 @@ FIELDS = {
     "shelter", "contact_email", "contact_phone", "image_url", "source_url",
 }
 HTML_TAG = re.compile(r"<[^>]+>")
+REVIEWED_SOURCES_SQL = Path(__file__).resolve().parents[1] / "db" / "public_sources.sql"
 
 
 def nested(row: dict[str, Any], path: str | None) -> Any:
@@ -122,6 +124,13 @@ def normalize(row: dict[str, Any], source: dict[str, Any]) -> dict[str, Any] | N
     item["fingerprint"] = hashlib.sha256(f'{source["id"]}|{identity}'.encode()).hexdigest()
     item["raw_payload"] = json.dumps(row, default=str)[:100_000]
     return item
+
+
+def install_reviewed_sources(connection: psycopg.Connection) -> None:
+    """Keep code-reviewed public sources synchronized with the live database."""
+    with connection.cursor() as cursor:
+        cursor.execute(REVIEWED_SOURCES_SQL.read_text(encoding="utf-8"))
+    connection.commit()
 
 
 def ingest_source(connection: psycopg.Connection, source: dict[str, Any]) -> dict[str, int | str]:
@@ -226,6 +235,7 @@ def run() -> list[dict[str, int | str]]:
     if not database_url:
         raise RuntimeError("DATABASE_URL is required")
     with psycopg.connect(database_url, row_factory=dict_row) as connection:
+        install_reviewed_sources(connection)
         with connection.cursor() as cursor:
             cursor.execute(
                 """SELECT * FROM sources WHERE enabled=true
