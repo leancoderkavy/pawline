@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle, ArrowLeft, CalendarDays, CheckCircle2, ChevronRight, Clock3,
-  ExternalLink, Globe2, Heart, Info, MapPin, Menu, PawPrint, Pencil,
-  Search, ShieldCheck, X
+  ExternalLink, Globe2, Heart, Info, LocateFixed, MapPin, Menu, PawPrint, Pencil,
+  RotateCcw, Search, ShieldCheck, SlidersHorizontal, X
 } from "lucide-react";
 import heroImage from "./heroData";
 import { rankPets } from "./matching";
@@ -93,8 +93,12 @@ function PetDetail({ pet, onClose, saved, onSave }) {
   </Dialog>;
 }
 
-function MapPanel({ location, coordinates, configured, pets, events }) {
-  const nearby = (item) => {
+function MapPanel({ location, coordinates, configured, pets, events, onLocationChange, onFindLocation, locationState }) {
+  const [petType, setPetType] = useState("All");
+  const [distance, setDistance] = useState("150");
+  const [showEvents, setShowEvents] = useState(true);
+  const distanceLimit = Number(distance);
+  const distanceFromCenter = (item) => {
     if (!coordinates || !Number.isFinite(item.longitude) || !Number.isFinite(item.latitude)) return true;
     const radians = value => value * Math.PI / 180;
     const deltaLat = radians(item.latitude - coordinates.latitude);
@@ -102,13 +106,17 @@ function MapPanel({ location, coordinates, configured, pets, events }) {
     const value = Math.sin(deltaLat / 2) ** 2 +
       Math.cos(radians(coordinates.latitude)) * Math.cos(radians(item.latitude)) *
       Math.sin(deltaLng / 2) ** 2;
-    return 3959 * 2 * Math.atan2(Math.sqrt(value), Math.sqrt(1 - value)) <= 150;
+    return 3959 * 2 * Math.atan2(Math.sqrt(value), Math.sqrt(1 - value));
   };
+  const nearby = item => {
+    const miles = distanceFromCenter(item);
+    return miles === true || miles <= distanceLimit;
+  };
+  const visiblePets = pets.filter(pet => (petType === "All" || pet.species === petType) && nearby(pet));
+  const visibleEvents = showEvents ? events.filter(event => nearby(event)) : [];
   const points = [
-    ...pets.filter(pet => nearby(pet))
-      .slice(0, 30).map(pet => `${pet.longitude},${pet.latitude},p`),
-    ...events.filter(event => nearby(event))
-      .slice(0, 10).map(event => `${event.longitude},${event.latitude},e`),
+    ...visiblePets.slice(0, 30).map(pet => `${pet.longitude},${pet.latitude},p`),
+    ...visibleEvents.slice(0, 10).map(event => `${event.longitude},${event.latitude},e`),
   ];
   const mapParams = new URLSearchParams();
   if (coordinates) {
@@ -117,9 +125,30 @@ function MapPanel({ location, coordinates, configured, pets, events }) {
   }
   if (points.length) mapParams.set("points", points.join("|"));
   const mapUrl = `/api/map?${mapParams}`;
-  return <section id="map" className="map-panel" aria-label="Pet location map">
-    {configured ? <img className="map-image" src={mapUrl} alt={`Map centered on ${location}`} /> : <div className="map-unavailable"><MapPin /><strong>Map preview unavailable</strong><span>Connect Mapbox to enable live location search and maps.</span></div>}
-    {configured ? <><span className="map-city">{location}</span><span className="map-legend"><i className="pet-dot" /> Pets <i className="event-dot" /> Events</span></> : null}
+  const resetFilters = () => {
+    setPetType("All");
+    setDistance("150");
+    setShowEvents(true);
+  };
+  return <section id="map" className="map-discovery" aria-labelledby="map-title">
+    <header className="map-header">
+      <div><span className="map-kicker"><MapPin /> Explore nearby</span><h2 id="map-title">Find your next hello.</h2><p>Browse current pet listings and reviewed adoption events around your search area.</p></div>
+      <div className="map-count" aria-live="polite"><strong>{visiblePets.length}</strong><span>pets in this view</span></div>
+    </header>
+    <form className="map-toolbar" onSubmit={event => { event.preventDefault(); onFindLocation(); }}>
+      <label className="map-search"><Search /><span className="sr-only">Search location</span><input value={location} onChange={event => onLocationChange(event.target.value)} aria-label="Map location" /><button type="submit" disabled={locationState.status === "loading"}>{locationState.status === "loading" ? "Finding…" : "Search"}</button></label>
+      <label className="map-select"><SlidersHorizontal /><span>Pet type</span><select value={petType} onChange={event => setPetType(event.target.value)} aria-label="Filter map by pet type"><option>All</option><option>Dog</option><option>Cat</option></select></label>
+      <label className="map-select"><LocateFixed /><span>Radius</span><select value={distance} onChange={event => setDistance(event.target.value)} aria-label="Map search radius"><option value="25">25 mi</option><option value="50">50 mi</option><option value="100">100 mi</option><option value="150">150 mi</option></select></label>
+      <button type="button" className={`map-toggle ${showEvents ? "is-active" : ""}`} onClick={() => setShowEvents(value => !value)} aria-pressed={showEvents}><CalendarDays /> Events</button>
+      <button type="button" className="map-reset" onClick={resetFilters} aria-label="Reset map filters"><RotateCcw /> Reset</button>
+    </form>
+    {locationState.message ? <p className={`map-status location-${locationState.status}`} role={locationState.status === "error" ? "alert" : "status"}>{locationState.message}</p> : null}
+    <div className="map-canvas">
+      {configured ? <img className="map-image" src={mapUrl} alt={`Map centered on ${location}`} /> : <div className="map-unavailable"><span className="map-unavailable-icon"><MapPin /></span><strong>Map preview is waiting for its connection</strong><span>Filters are ready to use. Connect Mapbox to turn on live location search and the map preview.</span></div>}
+      {configured ? <span className="map-city">{location}</span> : null}
+      <span className="map-legend"><i className="pet-dot" /> {petType === "All" ? "Pets" : `${petType}s`} {showEvents ? <><i className="event-dot" /> Events</> : null}</span>
+      <span className="map-attribution">Current listings · Always confirm with the shelter</span>
+    </div>
   </section>;
 }
 
@@ -347,13 +376,6 @@ export default function App() {
       setLocationState({ status: "error", message: error.message });
     }
   };
-  const scrollToMap = () => {
-    document.getElementById("map")?.scrollIntoView({ behavior: "smooth", block: "center" });
-    if (!integrations.mapboxConfigured) {
-      setLocationState({ status: "success", message: "The map preview is unavailable until Mapbox is connected." });
-    }
-  };
-
   return <div className="app">
     <Header saved={saved.length} onSubmit={() => setSubmitOpen(true)} menuOpen={menuOpen} onToggleMenu={() => setMenuOpen(open => !open)} />
     {menuOpen ? <MobileMenu onClose={() => setMenuOpen(false)} onSubmit={() => setSubmitOpen(true)} /> : null}
@@ -361,8 +383,7 @@ export default function App() {
       <Matchmaker pets={remotePets} feed={feed} location={location} onLocationChange={setLocation} onSpeciesChange={setSpecies} onFindLocation={findMatch} locationState={locationState} />
 
       <section className="support-grid">
-        <MapPanel location={location} coordinates={coordinates} configured={integrations.mapboxConfigured} pets={remotePets} events={remoteEvents} />
-        <div className="map-copy"><h2>Pets and adoption events<br />on one live map.</h2><p>{integrations.mapboxConfigured ? "Green markers are current pet listings; rust markers are verified dog adoption events." : "Live maps will appear here after the location provider is connected."}</p><button onClick={scrollToMap}>{integrations.mapboxConfigured ? "Explore the map" : "View map status"} <ChevronRight /></button></div>
+        <MapPanel location={location} coordinates={coordinates} configured={integrations.mapboxConfigured} pets={remotePets} events={remoteEvents} onLocationChange={setLocation} onFindLocation={findMatch} locationState={locationState} />
         <EventPanel events={remoteEvents} />
       </section>
 
