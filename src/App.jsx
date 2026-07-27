@@ -96,10 +96,11 @@ function PetDetail({ pet, onClose, saved, onSave }) {
 
 const DEFAULT_MAP_CENTER = [-118.1445, 34.1478];
 
-function InteractiveMap({ coordinates, points, location }) {
+function InteractiveMap({ coordinates, points, location, onPointClick }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const geoJsonRef = useRef(null);
+  const pointClickRef = useRef(onPointClick);
   const [mapState, setMapState] = useState({ status: "loading", message: "" });
   const center = coordinates
     ? [Number(coordinates.longitude), Number(coordinates.latitude)]
@@ -115,11 +116,12 @@ function InteractiveMap({ coordinates, points, location }) {
       ...points.map(point => ({
         type: "Feature",
         geometry: { type: "Point", coordinates: [point.longitude, point.latitude] },
-        properties: { type: point.type },
+        properties: { type: point.type, id: String(point.id) },
       })),
     ],
   };
   geoJsonRef.current = geoJson;
+  pointClickRef.current = onPointClick;
 
   useEffect(() => {
     if (!containerRef.current) return undefined;
@@ -186,6 +188,16 @@ function InteractiveMap({ coordinates, points, location }) {
             "circle-stroke-width": 3,
           },
         });
+        map.on("mouseenter", "pawline-pets", () => {
+          map.getCanvas().style.cursor = "pointer";
+        });
+        map.on("mouseleave", "pawline-pets", () => {
+          map.getCanvas().style.cursor = "";
+        });
+        map.on("click", "pawline-pets", event => {
+          const id = event.features?.[0]?.properties?.id;
+          if (id) pointClickRef.current?.(id);
+        });
         setMapState({ status: "ready", message: "" });
       });
       map.on("error", () => {
@@ -223,7 +235,7 @@ function InteractiveMap({ coordinates, points, location }) {
   </>;
 }
 
-function MapPanel({ location, coordinates, configured, pets, events, onLocationChange, onFindLocation, locationState }) {
+function MapPanel({ location, coordinates, configured, pets, events, onLocationChange, onFindLocation, locationState, onOpenPet }) {
   const [petType, setPetType] = useState("All");
   const [distance, setDistance] = useState("150");
   const [showEvents, setShowEvents] = useState(true);
@@ -247,11 +259,15 @@ function MapPanel({ location, coordinates, configured, pets, events, onLocationC
   const points = [
     ...visiblePets.slice(0, 30)
       .filter(pet => Number.isFinite(pet.longitude) && Number.isFinite(pet.latitude))
-      .map(pet => ({ longitude: pet.longitude, latitude: pet.latitude, type: "pet" })),
+      .map(pet => ({ id: pet.id, longitude: pet.longitude, latitude: pet.latitude, type: "pet" })),
     ...visibleEvents.slice(0, 10)
       .filter(event => Number.isFinite(event.longitude) && Number.isFinite(event.latitude))
-      .map(event => ({ longitude: event.longitude, latitude: event.latitude, type: "event" })),
+      .map(event => ({ id: event.id, longitude: event.longitude, latitude: event.latitude, type: "event" })),
   ];
+  const openPoint = id => {
+    const pet = visiblePets.find(item => String(item.id) === String(id));
+    if (pet) onOpenPet?.(pet);
+  };
   const resetFilters = () => {
     setPetType("All");
     setDistance("150");
@@ -271,7 +287,7 @@ function MapPanel({ location, coordinates, configured, pets, events, onLocationC
     </form>
     {locationState.message ? <p className={`map-status location-${locationState.status}`} role={locationState.status === "error" ? "alert" : "status"}>{locationState.message}</p> : null}
     <div className="map-canvas">
-      {configured ? <InteractiveMap coordinates={coordinates} points={points} location={location} /> : <div className="map-unavailable"><span className="map-unavailable-icon"><MapPin /></span><strong>Map preview is waiting for its connection</strong><span>Filters are ready to use. Connect Mapbox to turn on live location search and the map preview.</span></div>}
+      {configured ? <InteractiveMap coordinates={coordinates} points={points} location={location} onPointClick={openPoint} /> : <div className="map-unavailable"><span className="map-unavailable-icon"><MapPin /></span><strong>Map preview is waiting for its connection</strong><span>Filters are ready to use. Connect Mapbox to turn on live location search and the map preview.</span></div>}
       <span className="map-legend"><i className="pet-dot" /> {petType === "All" ? "Pets" : `${petType}s`} {showEvents ? <><i className="event-dot" /> Events</> : null}</span>
       <span className="map-attribution">Current listings · Always confirm with the shelter</span>
     </div>
@@ -441,6 +457,7 @@ export default function App() {
   const [locationState, setLocationState] = useState({ status: "idle", message: "" });
   const [feed, setFeed] = useState({ mode: "loading", message: "Checking trusted adoption sources…" });
   const [integrations, setIntegrations] = useState({ mapboxConfigured: false });
+  const [activePanel, setActivePanel] = useState("explore");
 
   useEffect(() => localStorage.setItem("pawline-saved", JSON.stringify(saved)), [saved]);
   useEffect(() => {
@@ -502,22 +519,49 @@ export default function App() {
       setLocationState({ status: "error", message: error.message });
     }
   };
-  return <div className="app">
-    <Header saved={saved.length} onSubmit={() => setSubmitOpen(true)} menuOpen={menuOpen} onToggleMenu={() => setMenuOpen(open => !open)} />
-    {menuOpen ? <MobileMenu onClose={() => setMenuOpen(false)} onSubmit={() => setSubmitOpen(true)} /> : null}
-    <main id="discover">
-      <Matchmaker pets={remotePets} feed={feed} location={location} onLocationChange={setLocation} onSpeciesChange={setSpecies} onFindLocation={findMatch} locationState={locationState} />
+  const previewPet = remotePets[0];
+  return <div className="app map-app">
+    <header className="map-app-header">
+      <a className="brand" href="#map" aria-label="Pawline home"><span className="brand-mark"><PawPrint /></span><span>Pawline</span></a>
+      <form className="global-location" onSubmit={event => { event.preventDefault(); findMatch(); }}>
+        <MapPin /><span>Find pets near</span>
+        <input value={location} onChange={event => setLocation(event.target.value)} aria-label="Find pets near" />
+        <button type="submit" disabled={locationState.status === "loading"}><Search /><span className="sr-only">Search</span></button>
+      </form>
+      <div className="map-app-actions">
+        <button className="saved-action" aria-label={`${saved.length} saved pets`}><Heart fill={saved.length ? "currentColor" : "none"} /><span>Saved</span>{saved.length ? <strong>{saved.length}</strong> : null}</button>
+        <Button onClick={() => setSubmitOpen(true)}>List a pet <PawPrint /></Button>
+      </div>
+    </header>
 
-      <section className="support-grid">
-        <MapPanel location={location} coordinates={coordinates} configured={integrations.mapboxConfigured} pets={remotePets} events={remoteEvents} onLocationChange={setLocation} onFindLocation={findMatch} locationState={locationState} />
-        <EventPanel events={remoteEvents} />
-      </section>
+    <main id="discover" className={`map-workspace panel-${activePanel}`}>
+      <MapPanel location={location} coordinates={coordinates} configured={integrations.mapboxConfigured} pets={remotePets} events={remoteEvents} onLocationChange={setLocation} onFindLocation={findMatch} locationState={locationState} onOpenPet={setSelectedPet} />
 
-      <section id="how" className="mission"><PawPrint /><div><small>HOW PAWLINE HELPS</small><h2>One trusted line between pets and people.</h2></div><p>We bring together authorized shelter feeds, public records, and reviewed community submissions—without pretending one database covers every animal in the world.</p></section>
-      <span id="events" />
+      <aside className="map-rail" aria-label="Map discovery tools">
+        <nav className="rail-tabs" aria-label="Discovery views">
+          <button className={activePanel === "explore" ? "active" : ""} onClick={() => setActivePanel("explore")}><Search />Explore</button>
+          <button className={activePanel === "match" ? "active" : ""} onClick={() => setActivePanel("match")}><PawPrint />Match quiz</button>
+          <button className={activePanel === "events" ? "active" : ""} onClick={() => setActivePanel("events")}><CalendarDays />Events</button>
+        </nav>
+        <div className="rail-content">
+          {activePanel === "explore" ? <div className="explore-intro">
+            <div><h1>Pets in this area</h1><span className={`live-state feed-${feed.mode}`}><i />{feed.mode === "live" ? "Live" : feed.mode === "loading" ? "Checking" : "Unavailable"}</span></div>
+            <p>{feed.mode === "live" ? `${feed.count || remotePets.length} current records from ${feed.provider}.` : feed.message || "No synthetic pet profiles are shown."}</p>
+            <Button onClick={() => setActivePanel("match")}><PawPrint />Find my match</Button>
+            <button className="quiz-teaser" onClick={() => setActivePanel("match")}><span className="quiz-ring">0%</span><span><small>Match quiz progress</small><strong>Tell us about your lifestyle</strong><em>About 2 minutes</em></span><ChevronRight /></button>
+          </div> : null}
+          {activePanel === "match" ? <Matchmaker pets={remotePets} feed={feed} location={location} onLocationChange={setLocation} onSpeciesChange={setSpecies} onFindLocation={findMatch} locationState={locationState} /> : null}
+          {activePanel === "events" ? <EventPanel events={remoteEvents} /> : null}
+        </div>
+      </aside>
+
+      {activePanel === "explore" && previewPet ? <article className="map-pet-preview">
+        <img src={previewPet.image} alt={`${previewPet.name}, a ${previewPet.breed}`} />
+        <div><small>{[previewPet.species, previewPet.age, previewPet.size].filter(Boolean).join(" · ")}</small><h2>{previewPet.name}</h2><p>{previewPet.breed}</p><span><MapPin /> {previewPet.city}</span></div>
+        <button className={`preview-save ${saved.includes(previewPet.id) ? "is-saved" : ""}`} onClick={() => toggleSave(previewPet.id)} aria-label={`Save ${previewPet.name}`}><Heart fill={saved.includes(previewPet.id) ? "currentColor" : "none"} /></button>
+        <Button variant="outline" onClick={() => setSelectedPet(previewPet)}>View profile <ChevronRight /></Button>
+      </article> : null}
     </main>
-    <nav className="floating-nav" aria-label="App navigation"><a className="active" href="#discover"><Search />Discover</a><a href="#map"><MapPin />Map</a><a href="#events"><CalendarDays />Events</a><button onClick={() => setSubmitOpen(true)}><PawPrint />List a pet</button></nav>
-    <footer><a className="brand" href="#discover"><span className="brand-mark"><PawPrint /></span><span>Pawline</span></a><p>Helping good people find great animals.</p><p>© 2026 Pawline</p></footer>
     {submitOpen && <SubmissionForm onClose={() => setSubmitOpen(false)} />}
     {selectedPet && <PetDetail pet={selectedPet} onClose={() => setSelectedPet(null)} saved={saved.includes(selectedPet.id)} onSave={toggleSave} />}
   </div>;
