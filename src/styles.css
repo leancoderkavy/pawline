@@ -230,7 +230,7 @@ body { background:#dce3d5; }
 .map-app-actions { justify-self:end;display:flex;align-items:center;gap:10px; }.map-app-actions .button { min-height:46px;border-radius:10px;padding:0 18px; }.map-app-actions .button svg { width:16px; }
 .saved-action { min-height:42px;padding:0 12px;border:0;background:transparent;display:flex;align-items:center;gap:7px;font-weight:700; }.saved-action svg { width:19px; }.saved-action strong { min-width:18px;height:18px;padding:0 5px;border-radius:10px;display:grid;place-items:center;background:var(--rust);color:#fff;font-size:9px; }
 .map-workspace { position:relative;width:100%;height:100%;max-width:none;margin:0;isolation:isolate; }
-.map-workspace > .map-discovery { position:absolute;inset:0;z-index:0;border:0;border-radius:0;padding:0;background:#dce3d5;box-shadow:none; }
+.map-workspace > .map-discovery { position:absolute;inset:0;z-index:auto;border:0;border-radius:0;padding:0;background:#dce3d5;box-shadow:none; }
 .map-workspace .map-discovery > .map-header,.map-workspace .map-discovery > .map-toolbar,.map-workspace .map-discovery > .map-status { position:fixed;z-index:22;left:40px;width:390px; }
 .map-workspace .map-discovery > .map-header { top:184px;display:block;margin:0;padding:0 22px;pointer-events:none; }
 .map-workspace .map-discovery > .map-header h2,.map-workspace .map-discovery > .map-header p,.map-workspace .map-discovery > .map-header .map-kicker { display:none; }
