@@ -149,24 +149,43 @@ function findRelated(included, relationship) {
     .filter(Boolean);
 }
 
-function normalizeDatabasePet(pet, index) {
+function safeDatabaseText(value, fallback, maxLength = 240) {
+  if (typeof value !== "string") return fallback;
+  const text = cleanText(value);
+  if (!text || text.length > maxLength || /^[\[{]/.test(text)) return fallback;
+  return text;
+}
+
+function safeHttpUrl(value) {
+  if (typeof value !== "string") return null;
+  try {
+    const url = new URL(value);
+    return ["http:", "https:"].includes(url.protocol) ? url.href : null;
+  } catch {
+    return null;
+  }
+}
+
+export function normalizeDatabasePet(pet, index) {
+  const city = safeDatabaseText(pet.city, null, 120);
+  const country = safeDatabaseText(pet.country, null, 80);
   return {
     id: `pawline-${pet.id}`,
     externalId: pet.external_id,
-    name: pet.name,
-    species: pet.species,
-    breed: pet.breed || "Mixed breed",
-    age: pet.age || "Age unknown",
-    sex: pet.sex || "Unknown",
-    size: pet.size || "Unknown",
+    name: safeDatabaseText(pet.name, "New friend", 120),
+    species: canonicalSpecies(pet.species),
+    breed: safeDatabaseText(pet.breed, "Mixed breed", 160),
+    age: safeDatabaseText(pet.age, "Age unknown", 80),
+    sex: safeDatabaseText(pet.sex, "Unknown", 80),
+    size: safeDatabaseText(pet.size, "Unknown", 80),
     distance: 0,
-    city: [pet.city, pet.country].filter(Boolean).join(", ") || "Location available from rescue",
-    shelter: pet.shelter || "Community rescue",
+    city: [city, country].filter(Boolean).join(", ") || "Location available from rescue",
+    shelter: safeDatabaseText(pet.shelter, "Community rescue", 180),
     rating: null,
     reviews: null,
     source: "Pawline community · Verified",
-    sourceUrl: pet.source_url,
-    image: pet.image_url,
+    sourceUrl: safeHttpUrl(pet.source_url),
+    image: safeHttpUrl(pet.image_url),
     latitude: pet.latitude == null ? null : Number(pet.latitude),
     longitude: pet.longitude == null ? null : Number(pet.longitude),
     x: pet.longitude == null ? 18 + ((index * 17) % 70) : 50,
@@ -322,13 +341,16 @@ export default async function handler(request, response) {
       ),
     );
     const pets = [
-      ...databasePets,
       ...montgomeryPets,
       ...kingCountyPets,
       ...providerPets,
+      ...databasePets,
     ].filter(
       (pet, index, all) =>
-        all.findIndex((item) => item.id === pet.id) === index,
+        all.findIndex((item) =>
+          item.id === pet.id ||
+          (pet.externalId && item.externalId === pet.externalId)
+        ) === index,
     );
     const providerCount = payloads.reduce(
       (total, payload) => total + Number(payload.meta?.count || 0),
