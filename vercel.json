@@ -33,7 +33,7 @@
     },
     {
       "path": "/api/cron/discover",
-      "schedule": "17 5 * * 1,4"
+      "schedule": "*/5 * * * *"
     }
   ]
 }
