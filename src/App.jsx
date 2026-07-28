@@ -138,7 +138,7 @@ function EventDetail({ event, onClose }) {
   return <Dialog title={item.title || "Adoption event"} onClose={onClose}>
     <div className="map-point-detail">
       <span className="point-detail-label"><CalendarDays /> Verified adoption event</span>
-      <p><Clock3 /> {item.time || "Confirm the current time with the organizer"}</p>
+      <p><Clock3 /> {item.date ? `${item.date} · ${item.time}` : item.time || "Confirm the current time with the organizer"}</p>
       <p><MapPin /> {item.place || item.city}</p>
       {item.description ? <p>{item.description}</p> : null}
       {item.source_url ? <a className="button" href={item.source_url} target="_blank" rel="noreferrer">Official event details <ExternalLink /></a> : <span className="button button-disabled" aria-disabled="true">Confirm with the organizer</span>}
@@ -460,12 +460,16 @@ function normalizeEvent(event) {
   if (!event.starts_at) return event;
   const start = new Date(event.starts_at);
   const end = event.ends_at ? new Date(event.ends_at) : null;
+  const placeParts = [event.venue, event.city, event.country].filter((part, index, parts) =>
+    part && !parts.slice(0, index).some(previous =>
+      previous.toLocaleLowerCase().includes(part.toLocaleLowerCase())));
   return {
     ...event,
     month: start.toLocaleDateString("en-US", { month: "short" }).toUpperCase(),
     day: start.toLocaleDateString("en-US", { day: "2-digit" }),
+    date: start.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" }),
     time: `${start.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}${end ? ` – ${end.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}` : ""}`,
-    place: [event.venue, event.city, event.country].filter(Boolean).join(", "),
+    place: placeParts.join(", "),
   };
 }
 
