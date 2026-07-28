@@ -14,6 +14,13 @@ const sourceCatalog = [
     status: process.env.MAPBOX_ACCESS_TOKEN ? "active" : "awaiting_key",
   },
   {
+    id: "tavily",
+    name: "Tavily",
+    scope: "Current public adoption pages in selected United States metros",
+    recordAccess: "Basic web search; results remain clearly labeled discovery leads",
+    status: process.env.TAVILY_API_KEY ? "active" : "awaiting_key",
+  },
+  {
     id: "resend",
     name: "Resend",
     scope: "Submission acknowledgement and moderation alerts",

@@ -20,6 +20,7 @@ export default function handler(_request, response) {
     aiMatchingConfigured: Boolean(
       process.env.VERCEL || process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN,
     ),
+    tavilyDiscoveryConfigured: Boolean(process.env.TAVILY_API_KEY && process.env.CRON_SECRET),
     publicOpenDataProviders: 2,
     activePetProviders:
       2 + Number(rescueGroupsConfigured) + Number(communityDatabaseConfigured),

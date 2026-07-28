@@ -106,3 +106,24 @@ CREATE TABLE IF NOT EXISTS adoption_events (
 CREATE UNIQUE INDEX IF NOT EXISTS adoption_events_source_external_unique
   ON adoption_events (source_id, external_id)
   WHERE source_id IS NOT NULL AND external_id IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS web_discoveries (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  title text NOT NULL,
+  snippet text,
+  source_url text NOT NULL UNIQUE,
+  source_domain text NOT NULL,
+  city text NOT NULL,
+  latitude double precision NOT NULL,
+  longitude double precision NOT NULL,
+  species text CHECK (species IS NULL OR species IN ('Dog', 'Cat')),
+  status text NOT NULL DEFAULT 'current'
+    CHECK (status IN ('current', 'stale', 'rejected')),
+  first_seen_at timestamptz NOT NULL DEFAULT now(),
+  last_seen_at timestamptz NOT NULL DEFAULT now(),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS web_discoveries_fresh
+  ON web_discoveries (status, last_seen_at DESC);

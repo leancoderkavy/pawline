@@ -177,6 +177,18 @@ function InteractiveMap({ coordinates, points, location, onPointClick }) {
           },
         });
         map.addLayer({
+          id: "pawline-discoveries",
+          type: "circle",
+          source: "pawline-points",
+          filter: ["==", ["get", "type"], "discovery"],
+          paint: {
+            "circle-radius": 8,
+            "circle-color": "#7a5a9b",
+            "circle-stroke-color": "#fffaf1",
+            "circle-stroke-width": 2,
+          },
+        });
+        map.addLayer({
           id: "pawline-center",
           type: "circle",
           source: "pawline-points",
@@ -196,7 +208,17 @@ function InteractiveMap({ coordinates, points, location, onPointClick }) {
         });
         map.on("click", "pawline-pets", event => {
           const id = event.features?.[0]?.properties?.id;
-          if (id) pointClickRef.current?.(id);
+          if (id) pointClickRef.current?.(id, "pet");
+        });
+        map.on("mouseenter", "pawline-discoveries", () => {
+          map.getCanvas().style.cursor = "pointer";
+        });
+        map.on("mouseleave", "pawline-discoveries", () => {
+          map.getCanvas().style.cursor = "";
+        });
+        map.on("click", "pawline-discoveries", event => {
+          const id = event.features?.[0]?.properties?.id;
+          if (id) pointClickRef.current?.(id, "discovery");
         });
         setMapState({ status: "ready", message: "" });
       });
@@ -235,7 +257,7 @@ function InteractiveMap({ coordinates, points, location, onPointClick }) {
   </>;
 }
 
-function MapPanel({ location, coordinates, configured, pets, events, onLocationChange, onFindLocation, locationState, onOpenPet }) {
+function MapPanel({ location, coordinates, configured, pets, events, discoveries, onLocationChange, onFindLocation, locationState, onOpenPet }) {
   const [petType, setPetType] = useState("All");
   const [distance, setDistance] = useState("150");
   const [showEvents, setShowEvents] = useState(true);
@@ -256,6 +278,9 @@ function MapPanel({ location, coordinates, configured, pets, events, onLocationC
   };
   const visiblePets = pets.filter(pet => (petType === "All" || pet.species === petType) && nearby(pet));
   const visibleEvents = showEvents ? events.filter(event => nearby(event)) : [];
+  const visibleDiscoveries = discoveries.filter(
+    item => (petType === "All" || !item.species || item.species === petType) && nearby(item),
+  );
   const points = [
     ...visiblePets.slice(0, 30)
       .filter(pet => Number.isFinite(pet.longitude) && Number.isFinite(pet.latitude))
@@ -263,8 +288,16 @@ function MapPanel({ location, coordinates, configured, pets, events, onLocationC
     ...visibleEvents.slice(0, 10)
       .filter(event => Number.isFinite(event.longitude) && Number.isFinite(event.latitude))
       .map(event => ({ id: event.id, longitude: event.longitude, latitude: event.latitude, type: "event" })),
+    ...visibleDiscoveries.slice(0, 10)
+      .filter(item => Number.isFinite(item.longitude) && Number.isFinite(item.latitude))
+      .map(item => ({ id: item.id, longitude: item.longitude, latitude: item.latitude, type: "discovery" })),
   ];
-  const openPoint = id => {
+  const openPoint = (id, type) => {
+    if (type === "discovery") {
+      const discovery = visibleDiscoveries.find(item => String(item.id) === String(id));
+      if (discovery?.source_url) window.open(discovery.source_url, "_blank", "noopener,noreferrer");
+      return;
+    }
     const pet = visiblePets.find(item => String(item.id) === String(id));
     if (pet) onOpenPet?.(pet);
   };
@@ -288,8 +321,8 @@ function MapPanel({ location, coordinates, configured, pets, events, onLocationC
     {locationState.message ? <p className={`map-status location-${locationState.status}`} role={locationState.status === "error" ? "alert" : "status"}>{locationState.message}</p> : null}
     <div className="map-canvas">
       {configured ? <InteractiveMap coordinates={coordinates} points={points} location={location} onPointClick={openPoint} /> : <div className="map-unavailable"><span className="map-unavailable-icon"><MapPin /></span><strong>Map preview is waiting for its connection</strong><span>Filters are ready to use. Connect Mapbox to turn on live location search and the map preview.</span></div>}
-      <span className="map-legend"><i className="pet-dot" /> {petType === "All" ? "Pets" : `${petType}s`} {showEvents ? <><i className="event-dot" /> Events</> : null}</span>
-      <span className="map-attribution">Current listings · Always confirm with the shelter</span>
+      <span className="map-legend"><i className="pet-dot" /> {petType === "All" ? "Pets" : `${petType}s`} {showEvents ? <><i className="event-dot" /> Events</> : null} <i className="discovery-dot" /> Web leads</span>
+      <span className="map-attribution">Verified listings + current web leads · Always confirm with the shelter</span>
     </div>
   </section>;
 }
@@ -449,6 +482,7 @@ export default function App() {
   const [showAll, setShowAll] = useState(false);
   const [remotePets, setRemotePets] = useState([]);
   const [remoteEvents, setRemoteEvents] = useState([]);
+  const [remoteDiscoveries, setRemoteDiscoveries] = useState([]);
   const [coordinates, setCoordinates] = useState({
     longitude: -118.1445,
     latitude: 34.1478,
@@ -484,6 +518,12 @@ export default function App() {
       .then(response => readJson(response, "Verified events require the configured Pawline API."))
       .then(body => setRemoteEvents(body.events || []))
       .catch(() => setRemoteEvents([]));
+  }, []);
+  useEffect(() => {
+    fetch("/api/discoveries")
+      .then(response => readJson(response, "Web discovery leads are unavailable."))
+      .then(body => setRemoteDiscoveries(body.discoveries || []))
+      .catch(() => setRemoteDiscoveries([]));
   }, []);
   useEffect(() => {
     fetch("/api/health")
@@ -535,7 +575,7 @@ export default function App() {
     </header>
 
     <main id="discover" className={`map-workspace panel-${activePanel}`}>
-      <MapPanel location={location} coordinates={coordinates} configured={integrations.mapboxConfigured} pets={remotePets} events={remoteEvents} onLocationChange={setLocation} onFindLocation={findMatch} locationState={locationState} onOpenPet={setSelectedPet} />
+      <MapPanel location={location} coordinates={coordinates} configured={integrations.mapboxConfigured} pets={remotePets} events={remoteEvents} discoveries={remoteDiscoveries} onLocationChange={setLocation} onFindLocation={findMatch} locationState={locationState} onOpenPet={setSelectedPet} />
 
       <aside className="map-rail" aria-label="Map discovery tools">
         <nav className="rail-tabs" aria-label="Discovery views">
@@ -549,6 +589,13 @@ export default function App() {
             <p>{feed.mode === "live" ? `${feed.count || remotePets.length} current records from ${feed.provider}.` : feed.message || "No synthetic pet profiles are shown."}</p>
             <Button onClick={() => setActivePanel("match")}><PawPrint />Find my match</Button>
             <button className="quiz-teaser" onClick={() => setActivePanel("match")}><span className="quiz-ring">0%</span><span><small>Match quiz progress</small><strong>Tell us about your lifestyle</strong><em>About 2 minutes</em></span><ChevronRight /></button>
+            {remoteDiscoveries.length ? <section className="web-leads" aria-label="Current web adoption leads">
+              <div><Globe2 /><span><small>Web discovery</small><strong>Fresh adoption leads</strong></span></div>
+              <p>Search results are approximate map leads, not shelter-verified pet records.</p>
+              {remoteDiscoveries.slice(0, 3).map(item => <a key={item.id} href={item.source_url} target="_blank" rel="noreferrer">
+                <span>{item.title}</span><small>{item.city} · {item.source_domain}</small>
+              </a>)}
+            </section> : null}
           </div> : null}
           {activePanel === "match" ? <Matchmaker pets={remotePets} feed={feed} location={location} onLocationChange={setLocation} onSpeciesChange={setSpecies} onFindLocation={findMatch} locationState={locationState} /> : null}
           {activePanel === "events" ? <EventPanel events={remoteEvents} /> : null}
