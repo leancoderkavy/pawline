@@ -530,6 +530,7 @@ export default function App() {
   const [feed, setFeed] = useState({ mode: "loading", message: "Checking trusted adoption sources…" });
   const [integrations, setIntegrations] = useState({ mapboxConfigured: false });
   const [activePanel, setActivePanel] = useState("explore");
+  const [mobileRailCollapsed, setMobileRailCollapsed] = useState(true);
 
   useEffect(() => localStorage.setItem("pawline-saved", JSON.stringify(saved)), [saved]);
   useEffect(() => {
@@ -597,6 +598,10 @@ export default function App() {
       setLocationState({ status: "error", message: error.message });
     }
   };
+  const openPanel = panel => {
+    setActivePanel(panel);
+    setMobileRailCollapsed(false);
+  };
   const previewPet = remotePets[0];
   return <div className="app map-app">
     <header className="map-app-header">
@@ -612,21 +617,25 @@ export default function App() {
       </div>
     </header>
 
-    <main id="discover" className={`map-workspace panel-${activePanel}`}>
+    <main id="discover" className={`map-workspace panel-${activePanel} ${mobileRailCollapsed ? "rail-collapsed" : ""}`}>
       <MapPanel location={location} coordinates={coordinates} configured={integrations.mapboxConfigured} pets={remotePets} events={remoteEvents} discoveries={remoteDiscoveries} onLocationChange={setLocation} onFindLocation={findMatch} locationState={locationState} onOpenPet={setSelectedPet} />
 
-      <aside className="map-rail" aria-label="Map discovery tools">
+      <aside className={`map-rail ${mobileRailCollapsed ? "is-collapsed" : ""}`} aria-label="Map discovery tools">
+        <button className="rail-toggle" type="button" onClick={() => setMobileRailCollapsed(value => !value)} aria-expanded={!mobileRailCollapsed} aria-controls="map-rail-content">
+          <ChevronRight />
+          <span className="sr-only">{mobileRailCollapsed ? "Expand discovery tools" : "Collapse discovery tools"}</span>
+        </button>
         <nav className="rail-tabs" aria-label="Discovery views">
-          <button className={activePanel === "explore" ? "active" : ""} onClick={() => setActivePanel("explore")}><Search />Explore</button>
-          <button className={activePanel === "match" ? "active" : ""} onClick={() => setActivePanel("match")}><PawPrint />Match quiz</button>
-          <button className={activePanel === "events" ? "active" : ""} onClick={() => setActivePanel("events")}><CalendarDays />Events</button>
+          <button className={activePanel === "explore" ? "active" : ""} onClick={() => openPanel("explore")}><Search />Explore</button>
+          <button className={activePanel === "match" ? "active" : ""} onClick={() => openPanel("match")}><PawPrint />Match quiz</button>
+          <button className={activePanel === "events" ? "active" : ""} onClick={() => openPanel("events")}><CalendarDays />Events</button>
         </nav>
-        <div className="rail-content">
+        <div id="map-rail-content" className="rail-content">
           {activePanel === "explore" ? <div className="explore-intro">
             <div><h1>Pets in this area</h1><span className={`live-state feed-${feed.mode}`}><i />{feed.mode === "live" ? "Live" : feed.mode === "loading" ? "Checking" : "Unavailable"}</span></div>
             <p>{feed.mode === "live" ? `${feed.count || remotePets.length} current records from ${feed.provider}.` : feed.message || "No synthetic pet profiles are shown."}</p>
-            <Button onClick={() => setActivePanel("match")}><PawPrint />Find my match</Button>
-            <button className="quiz-teaser" onClick={() => setActivePanel("match")}><span className="quiz-ring">0%</span><span><small>Match quiz progress</small><strong>Tell us about your lifestyle</strong><em>About 2 minutes</em></span><ChevronRight /></button>
+            <Button onClick={() => openPanel("match")}><PawPrint />Find my match</Button>
+            <button className="quiz-teaser" onClick={() => openPanel("match")}><span className="quiz-ring">0%</span><span><small>Match quiz progress</small><strong>Tell us about your lifestyle</strong><em>About 2 minutes</em></span><ChevronRight /></button>
             {remoteDiscoveries.length ? <section className="web-leads" aria-label="Current web adoption leads">
               <div><Globe2 /><span><small>Web discovery</small><strong>Fresh adoption leads</strong></span></div>
               <p>Search results are approximate map leads, not shelter-verified pet records.</p>
