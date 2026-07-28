@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import heroImage from "./heroData";
 import { rankPets } from "./matching";
+import { buildMapView } from "./mapView";
 
 function Button({ className = "", variant = "primary", children, ...props }) {
   return <button className={`button ${variant === "outline" ? "button-outline" : ""} ${className}`} {...props}>{children}</button>;
@@ -132,6 +133,30 @@ function PetDetail({ pet, onClose, saved, onSave }) {
   </Dialog>;
 }
 
+function EventDetail({ event, onClose }) {
+  const item = normalizeEvent(event);
+  return <Dialog title={item.title || "Adoption event"} onClose={onClose}>
+    <div className="map-point-detail">
+      <span className="point-detail-label"><CalendarDays /> Verified adoption event</span>
+      <p><Clock3 /> {item.time || "Confirm the current time with the organizer"}</p>
+      <p><MapPin /> {item.place || item.city}</p>
+      {item.description ? <p>{item.description}</p> : null}
+      {item.source_url ? <a className="button" href={item.source_url} target="_blank" rel="noreferrer">Official event details <ExternalLink /></a> : <span className="button button-disabled" aria-disabled="true">Confirm with the organizer</span>}
+    </div>
+  </Dialog>;
+}
+
+function DiscoveryDetail({ discovery, onClose }) {
+  return <Dialog title={discovery.title || "Adoption lead"} onClose={onClose}>
+    <div className="map-point-detail">
+      <span className="point-detail-label"><Globe2 /> Current web adoption lead</span>
+      <p><MapPin /> {discovery.city}</p>
+      <p>This is an approximate web lead, not a shelter-verified pet listing. Confirm availability and details with the source.</p>
+      <a className="button" href={discovery.source_url} target="_blank" rel="noreferrer">Open source website <ExternalLink /></a>
+    </div>
+  </Dialog>;
+}
+
 const DEFAULT_MAP_CENTER = [-118.1445, 34.1478];
 
 function addPawImage(map, id, color) {
@@ -248,11 +273,25 @@ function InteractiveMap({ coordinates, points, location, onPointClick, onMoveSea
           layout: { "icon-image": "pawline-event-marker", "icon-size": 0.52, "icon-allow-overlap": true },
         });
         map.addLayer({
+          id: "pawline-event-hit-area",
+          type: "circle",
+          source: "pawline-points",
+          filter: ["==", ["get", "type"], "event"],
+          paint: { "circle-radius": 20, "circle-color": "#ad5d35", "circle-opacity": 0.01 },
+        });
+        map.addLayer({
           id: "pawline-discoveries",
           type: "symbol",
           source: "pawline-points",
           filter: ["==", ["get", "type"], "discovery"],
           layout: { "icon-image": "pawline-discovery-marker", "icon-size": 0.52, "icon-allow-overlap": true },
+        });
+        map.addLayer({
+          id: "pawline-discovery-hit-area",
+          type: "circle",
+          source: "pawline-points",
+          filter: ["==", ["get", "type"], "discovery"],
+          paint: { "circle-radius": 20, "circle-color": "#7a5a9b", "circle-opacity": 0.01 },
         });
         map.addLayer({
           id: "pawline-center",
@@ -276,17 +315,28 @@ function InteractiveMap({ coordinates, points, location, onPointClick, onMoveSea
           const id = event.features?.[0]?.properties?.id;
           if (id) pointClickRef.current?.(id, "pet");
         });
-        map.on("mouseenter", "pawline-discoveries", () => {
+        map.on("mouseenter", "pawline-event-hit-area", () => {
           map.getCanvas().style.cursor = "pointer";
         });
-        map.on("mouseleave", "pawline-discoveries", () => {
+        map.on("mouseleave", "pawline-event-hit-area", () => {
           map.getCanvas().style.cursor = "";
         });
-        map.on("click", "pawline-discoveries", event => {
+        map.on("click", "pawline-event-hit-area", event => {
+          const id = event.features?.[0]?.properties?.id;
+          if (id) pointClickRef.current?.(id, "event");
+        });
+        map.on("mouseenter", "pawline-discovery-hit-area", () => {
+          map.getCanvas().style.cursor = "pointer";
+        });
+        map.on("mouseleave", "pawline-discovery-hit-area", () => {
+          map.getCanvas().style.cursor = "";
+        });
+        map.on("click", "pawline-discovery-hit-area", event => {
           const id = event.features?.[0]?.properties?.id;
           if (id) pointClickRef.current?.(id, "discovery");
         });
-        map.on("moveend", () => {
+        map.on("moveend", event => {
+          if (!event.originalEvent) return;
           const nextCenter = map.getCenter();
           moveSearchRef.current?.({ longitude: nextCenter.lng, latitude: nextCenter.lat });
         });
@@ -338,42 +388,56 @@ function MapFilters({ petType, distance, showEvents, onPetTypeChange, onDistance
   </div>;
 }
 
-function MapPanel({ location, coordinates, configured, pets, events, discoveries, petType, distance, showEvents, onOpenPet, onMapMove }) {
-  const distanceLimit = Number(distance);
-  const distanceFromCenter = (item) => {
-    if (!coordinates || !Number.isFinite(item.longitude) || !Number.isFinite(item.latitude)) return true;
-    const radians = value => value * Math.PI / 180;
-    const deltaLat = radians(item.latitude - coordinates.latitude);
-    const deltaLng = radians(item.longitude - coordinates.longitude);
-    const value = Math.sin(deltaLat / 2) ** 2 +
-      Math.cos(radians(coordinates.latitude)) * Math.cos(radians(item.latitude)) *
-      Math.sin(deltaLng / 2) ** 2;
-    return 3959 * 2 * Math.atan2(Math.sqrt(value), Math.sqrt(1 - value));
+function MapResults({ view, onOpenPet, onOpenEvent, onOpenDiscovery }) {
+  const items = [
+    ...view.pets.slice(0, 4).map(item => ({ ...item, resultType: "pet" })),
+    ...view.events.slice(0, 2).map(item => ({ ...item, resultType: "event" })),
+    ...view.discoveries.slice(0, 2).map(item => ({ ...item, resultType: "discovery" })),
+  ];
+  const open = item => {
+    if (item.resultType === "pet") onOpenPet(item);
+    if (item.resultType === "event") onOpenEvent(item);
+    if (item.resultType === "discovery") onOpenDiscovery(item);
   };
-  const nearby = item => {
-    const miles = distanceFromCenter(item);
-    return miles === true || miles <= distanceLimit;
-  };
-  const visiblePets = pets.filter(pet => (petType === "All" || pet.species === petType) && nearby(pet));
-  const visibleEvents = showEvents ? events.filter(event => nearby(event)) : [];
-  const visibleDiscoveries = discoveries.filter(
-    item => (petType === "All" || !item.species || item.species === petType) && nearby(item),
-  );
+  const icon = type => type === "event" ? <CalendarDays /> : type === "discovery" ? <Globe2 /> : <PawPrint />;
+  const detail = item => item.resultType === "event"
+    ? `${normalizeEvent(item).month} ${normalizeEvent(item).day} · ${normalizeEvent(item).time}`
+    : item.breed || item.city || "Open details";
+  const accessibleName = item => item.resultType === "event"
+    ? `Open ${item.title} on ${normalizeEvent(item).month} ${normalizeEvent(item).day} details`
+    : `Open ${item.name || item.title || item.resultType} details`;
+
+  return <section className="map-results" aria-labelledby="map-results-title">
+    <div><strong id="map-results-title">On this map</strong><span>{view.pets.length + view.events.length + view.discoveries.length} results</span></div>
+    {items.length ? <div className="map-result-list">{items.map(item =>
+      <button type="button" key={`${item.resultType}-${item.id}`} onClick={() => open(item)} aria-label={accessibleName(item)}>
+        <span className={`map-result-icon result-${item.resultType}`}>{icon(item.resultType)}</span>
+        <span><strong>{item.name || item.title}</strong><small>{detail(item)}</small></span>
+        <ChevronRight />
+      </button>,
+    )}</div> : <p>No coordinate-backed results match this map area and filters.</p>}
+  </section>;
+}
+
+function MapPanel({ location, coordinates, configured, view, petType, showEvents, onOpenPet, onOpenEvent, onOpenDiscovery, onMapMove }) {
+  const { pets: visiblePets, events: visibleEvents, discoveries: visibleDiscoveries } = view;
   const points = [
     ...visiblePets.slice(0, 30)
-      .filter(pet => Number.isFinite(pet.longitude) && Number.isFinite(pet.latitude))
       .map(pet => ({ id: pet.id, longitude: pet.longitude, latitude: pet.latitude, type: "pet" })),
     ...visibleEvents.slice(0, 10)
-      .filter(event => Number.isFinite(event.longitude) && Number.isFinite(event.latitude))
       .map(event => ({ id: event.id, longitude: event.longitude, latitude: event.latitude, type: "event" })),
     ...visibleDiscoveries.slice(0, 10)
-      .filter(item => Number.isFinite(item.longitude) && Number.isFinite(item.latitude))
       .map(item => ({ id: item.id, longitude: item.longitude, latitude: item.latitude, type: "discovery" })),
   ];
   const openPoint = (id, type) => {
     if (type === "discovery") {
       const discovery = visibleDiscoveries.find(item => String(item.id) === String(id));
-      if (discovery?.source_url) window.open(discovery.source_url, "_blank", "noopener,noreferrer");
+      if (discovery) onOpenDiscovery?.(discovery);
+      return;
+    }
+    if (type === "event") {
+      const event = visibleEvents.find(item => String(item.id) === String(id));
+      if (event) onOpenEvent?.(event);
       return;
     }
     const pet = visiblePets.find(item => String(item.id) === String(id));
@@ -382,7 +446,7 @@ function MapPanel({ location, coordinates, configured, pets, events, discoveries
   return <section id="map" className="map-discovery" aria-labelledby="map-title">
     <header className="map-header">
       <div><span className="map-kicker"><MapPin /> Explore nearby</span><h2 id="map-title">Find your next hello.</h2><p>Browse current pet listings and reviewed adoption events around your search area.</p></div>
-      <div className="map-count" aria-live="polite"><strong>{visiblePets.length}</strong><span>pets in this view</span></div>
+      <div className="map-count" aria-live="polite"><strong>{visiblePets.length}</strong><span>mapped pets in this view</span></div>
     </header>
     <div className="map-canvas">
       {configured ? <InteractiveMap coordinates={coordinates} points={points} location={location} onPointClick={openPoint} onMoveSearch={onMapMove} /> : <div className="map-unavailable"><span className="map-unavailable-icon"><MapPin /></span><strong>Map preview is waiting for its connection</strong><span>Filters are ready to use. Connect Mapbox to turn on live location search and the map preview.</span></div>}
@@ -544,6 +608,8 @@ export default function App() {
   const [submitOpen, setSubmitOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [selectedPet, setSelectedPet] = useState(null);
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [selectedDiscovery, setSelectedDiscovery] = useState(null);
   const [showAll, setShowAll] = useState(false);
   const [remotePets, setRemotePets] = useState([]);
   const [remoteEvents, setRemoteEvents] = useState([]);
@@ -562,6 +628,15 @@ export default function App() {
   const [mapDistance, setMapDistance] = useState("150");
   const [showMapEvents, setShowMapEvents] = useState(true);
   const [mapSearchMoved, setMapSearchMoved] = useState(false);
+  const mapView = useMemo(() => buildMapView({
+    pets: remotePets,
+    events: remoteEvents,
+    discoveries: remoteDiscoveries,
+    center: coordinates,
+    petType: mapPetType,
+    distance: mapDistance,
+    showEvents: showMapEvents,
+  }), [remotePets, remoteEvents, remoteDiscoveries, coordinates, mapPetType, mapDistance, showMapEvents]);
 
   useEffect(() => localStorage.setItem("pawline-saved", JSON.stringify(saved)), [saved]);
   useEffect(() => {
@@ -623,6 +698,7 @@ export default function App() {
       if (!match) throw new Error("We could not find that location.");
       setLocation(match.name);
       setCoordinates(match);
+      setMapSearchMoved(false);
       setLocationState({ status: "success", message: `Map centered on ${match.name}.` });
       document.getElementById("map")?.scrollIntoView({ behavior: "smooth" });
     } catch (error) {
@@ -645,7 +721,6 @@ export default function App() {
     });
     setMapSearchMoved(true);
   };
-  const previewPet = remotePets[0];
   return <div className="app map-app">
     <header className="map-app-header">
       <a className="brand" href="#map" aria-label="Pawline home"><span className="brand-mark"><PawPrint /></span><span>Pawline</span></a>
@@ -653,12 +728,12 @@ export default function App() {
         <span className="global-location-icon" aria-hidden="true"><MapPin /></span>
         <span className="global-location-field">
           <label htmlFor="global-location-input">Find pets near</label>
-          <input id="global-location-input" value={location} onChange={event => setLocation(event.target.value)} placeholder="City or ZIP code" autoComplete="postal-code" />
+          <input id="global-location-input" value={location} onChange={event => setLocation(event.target.value)} placeholder="City or ZIP code" autoComplete="postal-code" aria-invalid={locationState.status === "error"} aria-describedby="global-location-status" />
         </span>
         <button type="submit" disabled={locationState.status === "loading"} aria-label={locationState.status === "loading" ? "Searching for pets" : "Search this location"}>
           {locationState.status === "loading" ? <RotateCcw className="location-spinner" /> : <Search />}
         </button>
-        <span className="sr-only" role="status" aria-live="polite">{locationState.status === "loading" ? "Searching for pets nearby" : locationState.message}</span>
+        <span id="global-location-status" className="sr-only" role={locationState.status === "error" ? "alert" : "status"} aria-live="polite">{locationState.status === "loading" ? "Searching for pets nearby" : locationState.message}</span>
       </form>
       <div className="map-app-actions">
         <button className="saved-action" aria-label={`${saved.length} saved pets`}><Heart fill={saved.length ? "currentColor" : "none"} /><span>Saved</span>{saved.length ? <strong>{saved.length}</strong> : null}</button>
@@ -667,7 +742,7 @@ export default function App() {
     </header>
 
   <main id="discover" className={`map-workspace panel-${activePanel} ${mobileRailCollapsed ? "rail-collapsed" : ""}`}>
-      <MapPanel location={location} coordinates={coordinates} configured={integrations.mapboxConfigured} pets={remotePets} events={remoteEvents} discoveries={remoteDiscoveries} petType={mapPetType} distance={mapDistance} showEvents={showMapEvents} onOpenPet={setSelectedPet} onMapMove={searchThisMapArea} />
+      <MapPanel location={location} coordinates={coordinates} configured={integrations.mapboxConfigured} view={mapView} petType={mapPetType} showEvents={showMapEvents} onOpenPet={setSelectedPet} onOpenEvent={setSelectedEvent} onOpenDiscovery={setSelectedDiscovery} onMapMove={searchThisMapArea} />
 
       <aside className={`map-rail ${mobileRailCollapsed ? "is-collapsed" : ""}`} aria-label="Map discovery tools">
         <button className="rail-toggle" type="button" onClick={() => setMobileRailCollapsed(value => !value)} aria-expanded={!mobileRailCollapsed} aria-controls="map-rail-content">
@@ -683,8 +758,9 @@ export default function App() {
           {activePanel === "explore" ? <div className="explore-intro">
             <MapFilters petType={mapPetType} distance={mapDistance} showEvents={showMapEvents} onPetTypeChange={setMapPetType} onDistanceChange={setMapDistance} onShowEventsChange={setShowMapEvents} onReset={resetMapFilters} />
             <div><h1>Pets in this area</h1><span className={`live-state feed-${feed.mode}`}><i />{feed.mode === "live" ? "Live" : feed.mode === "loading" ? "Checking" : "Unavailable"}</span></div>
-            <p>{feed.mode === "live" ? `${feed.count || remotePets.length} current records from ${feed.provider}.` : feed.message || "No synthetic pet profiles are shown."}</p>
+            <p>{feed.mode === "live" ? `${mapView.pets.length} mapped within ${mapDistance} mi · ${feed.count || remotePets.length} verified records total.` : feed.message || "No synthetic pet profiles are shown."}</p>
             {mapSearchMoved ? <p className="map-area-status" role="status">Showing results around the map center.</p> : null}
+            <MapResults view={mapView} onOpenPet={setSelectedPet} onOpenEvent={setSelectedEvent} onOpenDiscovery={setSelectedDiscovery} />
             <Button onClick={() => openPanel("match")}><PawPrint />Find my match</Button>
             <button className="quiz-teaser" onClick={() => openPanel("match")}><span className="quiz-ring">0%</span><span><small>Match quiz progress</small><strong>Tell us about your lifestyle</strong><em>About 2 minutes</em></span><ChevronRight /></button>
             {remoteDiscoveries.length ? <section className="web-leads" aria-label="Current web adoption leads">
@@ -700,14 +776,10 @@ export default function App() {
         </div>
       </aside>
 
-      {activePanel === "explore" && previewPet ? <article className="map-pet-preview">
-        <img src={previewPet.image} alt={`${previewPet.name}, a ${previewPet.breed}`} />
-        <div><small>{[previewPet.species, previewPet.age, previewPet.size].filter(Boolean).join(" · ")}</small><h2>{previewPet.name}</h2><p>{previewPet.breed}</p><span><MapPin /> {previewPet.city}</span></div>
-        <button className={`preview-save ${saved.includes(previewPet.id) ? "is-saved" : ""}`} onClick={() => toggleSave(previewPet.id)} aria-label={`Save ${previewPet.name}`}><Heart fill={saved.includes(previewPet.id) ? "currentColor" : "none"} /></button>
-        <Button variant="outline" onClick={() => setSelectedPet(previewPet)}>View profile <ChevronRight /></Button>
-      </article> : null}
     </main>
     {submitOpen && <SubmissionForm onClose={() => setSubmitOpen(false)} />}
     {selectedPet && <PetDetail pet={selectedPet} onClose={() => setSelectedPet(null)} saved={saved.includes(selectedPet.id)} onSave={toggleSave} />}
+    {selectedEvent && <EventDetail event={selectedEvent} onClose={() => setSelectedEvent(null)} />}
+    {selectedDiscovery && <DiscoveryDetail discovery={selectedDiscovery} onClose={() => setSelectedDiscovery(null)} />}
   </div>;
 }

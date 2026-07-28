@@ -263,6 +263,15 @@ body { background:#dce3d5; }
 .explore-intro h1 { margin:0;font:400 27px "DM Serif Display"; }
 .explore-intro > p { min-height:34px;margin:7px 0 18px;color:#63736d;font-size:11px;line-height:1.5; }
 .map-area-status { min-height:0 !important;margin:-10px 0 18px !important;color:#3f6f55 !important;font-size:10px !important;font-weight:700; }
+.map-results { margin:0 0 14px;padding:11px;border:1px solid #ddd7cd;border-radius:13px;background:rgba(255,255,255,.64); }
+.map-results > div:first-child { display:flex;align-items:center;justify-content:space-between;gap:10px; }
+.map-results > div:first-child strong { font-size:11px; }.map-results > div:first-child span { color:#6b7772;font-size:9px; }
+.map-results > p { min-height:0;margin:9px 0 0;color:#697670;font-size:10px;line-height:1.4; }
+.map-result-list { display:grid;margin-top:7px; }
+.map-result-list button { width:100%;min-height:44px;padding:6px 2px;border:0;border-top:1px solid #e5e0d8;background:transparent;display:grid;grid-template-columns:30px minmax(0,1fr) auto;align-items:center;gap:8px;text-align:left;color:var(--ink); }
+.map-result-list button > span:nth-child(2) { min-width:0;display:grid;gap:1px; }.map-result-list button strong { overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px; }.map-result-list button small { overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#6c7773;font-size:8px; }
+.map-result-list button > svg { width:14px; }.map-result-icon { width:28px;height:28px;border-radius:9px;display:grid;place-items:center;background:#edf4ef;color:var(--green); }.map-result-icon svg { width:14px; }
+.map-result-icon.result-event { background:#f7eee9;color:var(--rust); }.map-result-icon.result-discovery { background:#f3edf7;color:#7a5a9b; }
 .live-state { display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700;color:#3f6f55; }.live-state i { width:7px;height:7px;border-radius:50%;background:#71a96d;box-shadow:0 0 0 4px #71a96d22; }.live-state.feed-error i { background:#a7aaa5;box-shadow:none; }
 .explore-intro > .button { width:100%;min-height:56px;border-radius:10px;background:var(--green);font-size:15px; }
 .quiz-teaser { width:100%;min-height:104px;margin-top:12px;padding:14px;border:1px solid #ddd7cd;border-radius:13px;background:rgba(255,255,255,.6);display:grid;grid-template-columns:56px 1fr auto;align-items:center;gap:12px;text-align:left; }
@@ -289,6 +298,12 @@ body { background:#dce3d5; }
 .map-rail .match-result { grid-template-columns:24px 72px 1fr;gap:8px; }.map-rail .match-result > img { width:72px;height:100px; }.map-rail .match-title h3 { font-size:20px; }.map-rail .match-evidence { grid-template-columns:1fr; }.map-rail .match-evidence > div:first-child { grid-row:auto; }
 .map-rail .event-panel { min-height:100%;border:0;border-radius:0;padding:24px;background:transparent; }
 .map-rail .event-list { max-height:none; }
+.map-point-detail { display:grid;gap:14px; }
+.map-point-detail > p { margin:0;display:flex;align-items:flex-start;gap:8px;color:#53655f;line-height:1.55; }
+.map-point-detail > p svg { width:17px;min-width:17px;margin-top:2px;color:var(--green); }
+.point-detail-label { width:max-content;display:flex;align-items:center;gap:7px;padding:7px 10px;border-radius:999px;background:#edf4ef;color:var(--green);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em; }
+.point-detail-label svg { width:15px; }
+.map-point-detail > .button { width:100%;min-height:48px;text-decoration:none; }
 .map-pet-preview { position:fixed;z-index:19;left:max(490px,52vw);bottom:36px;width:min(440px,calc(100vw - 530px));min-width:360px;display:grid;grid-template-columns:118px 1fr auto;grid-template-rows:1fr auto;gap:0 14px;padding:10px;border:1px solid #ded8ce;border-radius:16px;background:rgba(255,253,249,.96);box-shadow:0 16px 46px rgba(23,56,47,.2);backdrop-filter:blur(12px); }
 .map-pet-preview > img { width:118px;height:126px;grid-row:1/3;object-fit:cover;border-radius:10px;background:#e6e9e2; }
 .map-pet-preview > div { min-width:0;padding-top:5px; }.map-pet-preview small { color:#6d7773;font-size:9px; }.map-pet-preview h2 { margin:3px 0 0;font:400 29px/1 "DM Serif Display"; }.map-pet-preview p { margin:3px 0;color:#586963;font-size:11px; }.map-pet-preview span { display:flex;align-items:center;gap:4px;color:#697670;font-size:9px; }.map-pet-preview span svg { width:11px; }
