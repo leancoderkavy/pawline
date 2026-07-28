@@ -38,7 +38,45 @@ function MobileMenu({ onClose, onSubmit }) {
 }
 
 function Dialog({ title, children, onClose }) {
-  return <div className="overlay" onMouseDown={onClose}><div className="dialog" onMouseDown={e => e.stopPropagation()} role="dialog" aria-modal="true"><div className="dialog-head"><h2>{title}</h2><button onClick={onClose} aria-label="Close"><X /></button></div>{children}</div></div>;
+  const dialogRef = useRef(null);
+  const titleId = `dialog-title-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+
+  useEffect(() => {
+    const previousFocus = document.activeElement;
+    const dialog = dialogRef.current;
+    const focusable = () => [...dialog.querySelectorAll("button, a[href], input, select, textarea, [tabindex]:not([tabindex='-1'])")]
+      .filter(element => !element.disabled && element.getClientRects().length);
+    focusable()[0]?.focus();
+
+    const handleKeyDown = event => {
+      if (event.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const elements = focusable();
+      if (!elements.length) return;
+      const first = elements[0];
+      const last = elements[elements.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.body.classList.add("dialog-open");
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.classList.remove("dialog-open");
+      document.removeEventListener("keydown", handleKeyDown);
+      previousFocus?.focus?.();
+    };
+  }, [onClose]);
+
+  return <div className="overlay" onMouseDown={onClose}><div ref={dialogRef} className="dialog" onMouseDown={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby={titleId}><div className="dialog-head"><h2 id={titleId}>{title}</h2><button type="button" onClick={onClose} aria-label="Close dialog"><X /></button></div>{children}</div></div>;
 }
 
 function SubmissionForm({ onClose }) {
@@ -570,7 +608,7 @@ export default function App() {
       </form>
       <div className="map-app-actions">
         <button className="saved-action" aria-label={`${saved.length} saved pets`}><Heart fill={saved.length ? "currentColor" : "none"} /><span>Saved</span>{saved.length ? <strong>{saved.length}</strong> : null}</button>
-        <Button onClick={() => setSubmitOpen(true)}>List a pet <PawPrint /></Button>
+        <Button onClick={() => setSubmitOpen(true)} aria-label="List a pet"><span>List a pet</span><PawPrint /></Button>
       </div>
     </header>
 
