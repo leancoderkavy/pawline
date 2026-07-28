@@ -252,7 +252,10 @@ body { background:#dce3d5; }
 .rail-tabs button { border:0;background:transparent;border-radius:11px;display:flex;align-items:center;justify-content:center;gap:7px;font-size:11px;font-weight:700; }.rail-tabs button svg { width:16px; }.rail-tabs button.active { background:#f0eee7;box-shadow:0 2px 7px #17382f12;color:var(--green); }
 .rail-content { height:calc(100% - 68px);overflow:auto; }
 .panel-explore .rail-content { padding:22px; }
-.explore-intro { padding-top:108px; }
+/* The Explore copy begins below the fixed map filters, which visually belong to
+   the left rail.  Keeping this clearance prevents the second filter row from
+   covering the title and live-feed status on desktop. */
+.explore-intro { padding-top:220px; }
 .explore-intro > div:first-child { display:flex;align-items:center;justify-content:space-between;gap:14px; }
 .explore-intro h1 { margin:0;font:400 27px "DM Serif Display"; }
 .explore-intro > p { min-height:34px;margin:7px 0 18px;color:#63736d;font-size:11px;line-height:1.5; }
