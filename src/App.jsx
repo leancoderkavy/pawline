@@ -134,11 +134,39 @@ function PetDetail({ pet, onClose, saved, onSave }) {
 
 const DEFAULT_MAP_CENTER = [-118.1445, 34.1478];
 
-function InteractiveMap({ coordinates, points, location, onPointClick }) {
+function addPawImage(map, id, color) {
+  if (map.hasImage(id)) return;
+  const size = 64;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const context = canvas.getContext("2d");
+  context.fillStyle = color;
+  context.strokeStyle = "#fffaf1";
+  context.lineWidth = 4;
+  const circle = (x, y, radius) => {
+    context.beginPath();
+    context.arc(x, y, radius, 0, Math.PI * 2);
+    context.fill();
+    context.stroke();
+  };
+  circle(17, 17, 7);
+  circle(31, 11, 7);
+  circle(45, 17, 7);
+  circle(51, 30, 6);
+  context.beginPath();
+  context.ellipse(32, 42, 17, 13, 0, 0, Math.PI * 2);
+  context.fill();
+  context.stroke();
+  map.addImage(id, { width: size, height: size, data: context.getImageData(0, 0, size, size).data });
+}
+
+function InteractiveMap({ coordinates, points, location, onPointClick, onMoveSearch }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const geoJsonRef = useRef(null);
   const pointClickRef = useRef(onPointClick);
+  const moveSearchRef = useRef(onMoveSearch);
   const [mapState, setMapState] = useState({ status: "loading", message: "" });
   const center = coordinates
     ? [Number(coordinates.longitude), Number(coordinates.latitude)]
@@ -160,6 +188,7 @@ function InteractiveMap({ coordinates, points, location, onPointClick }) {
   };
   geoJsonRef.current = geoJson;
   pointClickRef.current = onPointClick;
+  moveSearchRef.current = onMoveSearch;
 
   useEffect(() => {
     if (!containerRef.current) return undefined;
@@ -190,41 +219,29 @@ function InteractiveMap({ coordinates, points, location, onPointClick }) {
       map.on("load", () => {
         if (!active) return;
         map.addSource("pawline-points", { type: "geojson", data: geoJsonRef.current });
+        addPawImage(map, "pawline-pet-marker", "#2f7458");
+        addPawImage(map, "pawline-event-marker", "#ad5d35");
+        addPawImage(map, "pawline-discovery-marker", "#7a5a9b");
         map.addLayer({
           id: "pawline-pets",
-          type: "circle",
+          type: "symbol",
           source: "pawline-points",
           filter: ["==", ["get", "type"], "pet"],
-          paint: {
-            "circle-radius": 7,
-            "circle-color": "#2f7458",
-            "circle-stroke-color": "#fffaf1",
-            "circle-stroke-width": 2,
-          },
+          layout: { "icon-image": "pawline-pet-marker", "icon-size": 0.52, "icon-allow-overlap": true },
         });
         map.addLayer({
           id: "pawline-events",
-          type: "circle",
+          type: "symbol",
           source: "pawline-points",
           filter: ["==", ["get", "type"], "event"],
-          paint: {
-            "circle-radius": 7,
-            "circle-color": "#ad5d35",
-            "circle-stroke-color": "#fffaf1",
-            "circle-stroke-width": 2,
-          },
+          layout: { "icon-image": "pawline-event-marker", "icon-size": 0.52, "icon-allow-overlap": true },
         });
         map.addLayer({
           id: "pawline-discoveries",
-          type: "circle",
+          type: "symbol",
           source: "pawline-points",
           filter: ["==", ["get", "type"], "discovery"],
-          paint: {
-            "circle-radius": 8,
-            "circle-color": "#7a5a9b",
-            "circle-stroke-color": "#fffaf1",
-            "circle-stroke-width": 2,
-          },
+          layout: { "icon-image": "pawline-discovery-marker", "icon-size": 0.52, "icon-allow-overlap": true },
         });
         map.addLayer({
           id: "pawline-center",
@@ -258,6 +275,10 @@ function InteractiveMap({ coordinates, points, location, onPointClick }) {
           const id = event.features?.[0]?.properties?.id;
           if (id) pointClickRef.current?.(id, "discovery");
         });
+        map.on("moveend", () => {
+          const nextCenter = map.getCenter();
+          moveSearchRef.current?.({ longitude: nextCenter.lng, latitude: nextCenter.lat });
+        });
         setMapState({ status: "ready", message: "" });
       });
       map.on("error", () => {
@@ -284,6 +305,8 @@ function InteractiveMap({ coordinates, points, location, onPointClick }) {
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !coordinates) return;
+    const current = map.getCenter();
+    if (Math.abs(current.lng - center[0]) < 0.0001 && Math.abs(current.lat - center[1]) < 0.0001) return;
     map.easeTo({ center, zoom: Math.max(map.getZoom(), 10), duration: 700 });
   }, [coordinates?.longitude, coordinates?.latitude]);
 
@@ -295,10 +318,16 @@ function InteractiveMap({ coordinates, points, location, onPointClick }) {
   </>;
 }
 
-function MapPanel({ location, coordinates, configured, pets, events, discoveries, onLocationChange, onFindLocation, locationState, onOpenPet }) {
-  const [petType, setPetType] = useState("All");
-  const [distance, setDistance] = useState("150");
-  const [showEvents, setShowEvents] = useState(true);
+function MapFilters({ petType, distance, showEvents, onPetTypeChange, onDistanceChange, onShowEventsChange, onReset }) {
+  return <div className="map-toolbar" role="group" aria-label="Map filters">
+    <label className="map-select"><SlidersHorizontal /><span>Pet type</span><select value={petType} onChange={event => onPetTypeChange(event.target.value)} aria-label="Filter map by pet type"><option>All</option><option>Dog</option><option>Cat</option></select></label>
+    <label className="map-select"><LocateFixed /><span>Radius</span><select value={distance} onChange={event => onDistanceChange(event.target.value)} aria-label="Map search radius"><option value="25">25 mi</option><option value="50">50 mi</option><option value="100">100 mi</option><option value="150">150 mi</option></select></label>
+    <button type="button" className={`map-toggle ${showEvents ? "is-active" : ""}`} onClick={() => onShowEventsChange(value => !value)} aria-pressed={showEvents}><CalendarDays /> Events</button>
+    <button type="button" className="map-reset" onClick={onReset} aria-label="Reset map filters"><RotateCcw /> Reset</button>
+  </div>;
+}
+
+function MapPanel({ location, coordinates, configured, pets, events, discoveries, petType, distance, showEvents, onOpenPet, onMapMove }) {
   const distanceLimit = Number(distance);
   const distanceFromCenter = (item) => {
     if (!coordinates || !Number.isFinite(item.longitude) || !Number.isFinite(item.latitude)) return true;
@@ -339,27 +368,14 @@ function MapPanel({ location, coordinates, configured, pets, events, discoveries
     const pet = visiblePets.find(item => String(item.id) === String(id));
     if (pet) onOpenPet?.(pet);
   };
-  const resetFilters = () => {
-    setPetType("All");
-    setDistance("150");
-    setShowEvents(true);
-  };
   return <section id="map" className="map-discovery" aria-labelledby="map-title">
     <header className="map-header">
       <div><span className="map-kicker"><MapPin /> Explore nearby</span><h2 id="map-title">Find your next hello.</h2><p>Browse current pet listings and reviewed adoption events around your search area.</p></div>
       <div className="map-count" aria-live="polite"><strong>{visiblePets.length}</strong><span>pets in this view</span></div>
     </header>
-    <form className="map-toolbar" onSubmit={event => { event.preventDefault(); onFindLocation(); }}>
-      <label className="map-search"><Search /><span className="sr-only">Search location</span><input value={location} onChange={event => onLocationChange(event.target.value)} aria-label="Map location" /><button type="submit" disabled={locationState.status === "loading"}>{locationState.status === "loading" ? "Finding…" : "Search"}</button></label>
-      <label className="map-select"><SlidersHorizontal /><span>Pet type</span><select value={petType} onChange={event => setPetType(event.target.value)} aria-label="Filter map by pet type"><option>All</option><option>Dog</option><option>Cat</option></select></label>
-      <label className="map-select"><LocateFixed /><span>Radius</span><select value={distance} onChange={event => setDistance(event.target.value)} aria-label="Map search radius"><option value="25">25 mi</option><option value="50">50 mi</option><option value="100">100 mi</option><option value="150">150 mi</option></select></label>
-      <button type="button" className={`map-toggle ${showEvents ? "is-active" : ""}`} onClick={() => setShowEvents(value => !value)} aria-pressed={showEvents}><CalendarDays /> Events</button>
-      <button type="button" className="map-reset" onClick={resetFilters} aria-label="Reset map filters"><RotateCcw /> Reset</button>
-    </form>
-    {locationState.message ? <p className={`map-status location-${locationState.status}`} role={locationState.status === "error" ? "alert" : "status"}>{locationState.message}</p> : null}
     <div className="map-canvas">
-      {configured ? <InteractiveMap coordinates={coordinates} points={points} location={location} onPointClick={openPoint} /> : <div className="map-unavailable"><span className="map-unavailable-icon"><MapPin /></span><strong>Map preview is waiting for its connection</strong><span>Filters are ready to use. Connect Mapbox to turn on live location search and the map preview.</span></div>}
-      <span className="map-legend"><i className="pet-dot" /> {petType === "All" ? "Pets" : `${petType}s`} {showEvents ? <><i className="event-dot" /> Events</> : null} <i className="discovery-dot" /> Web leads</span>
+      {configured ? <InteractiveMap coordinates={coordinates} points={points} location={location} onPointClick={openPoint} onMoveSearch={onMapMove} /> : <div className="map-unavailable"><span className="map-unavailable-icon"><MapPin /></span><strong>Map preview is waiting for its connection</strong><span>Filters are ready to use. Connect Mapbox to turn on live location search and the map preview.</span></div>}
+      <span className="map-legend"><PawPrint className="pet-paw" /> {petType === "All" ? "Pets" : `${petType}s`} {showEvents ? <><PawPrint className="event-paw" /> Events</> : null} <PawPrint className="discovery-paw" /> Web leads</span>
       <span className="map-attribution">Verified listings + current web leads · Always confirm with the shelter</span>
     </div>
   </section>;
@@ -531,6 +547,10 @@ export default function App() {
   const [integrations, setIntegrations] = useState({ mapboxConfigured: false });
   const [activePanel, setActivePanel] = useState("explore");
   const [mobileRailCollapsed, setMobileRailCollapsed] = useState(true);
+  const [mapPetType, setMapPetType] = useState("All");
+  const [mapDistance, setMapDistance] = useState("150");
+  const [showMapEvents, setShowMapEvents] = useState(true);
+  const [mapSearchMoved, setMapSearchMoved] = useState(false);
 
   useEffect(() => localStorage.setItem("pawline-saved", JSON.stringify(saved)), [saved]);
   useEffect(() => {
@@ -602,6 +622,18 @@ export default function App() {
     setActivePanel(panel);
     setMobileRailCollapsed(false);
   };
+  const resetMapFilters = () => {
+    setMapPetType("All");
+    setMapDistance("150");
+    setShowMapEvents(true);
+  };
+  const searchThisMapArea = ({ longitude, latitude }) => {
+    setCoordinates(current => {
+      if (current && Math.abs(current.longitude - longitude) < 0.0001 && Math.abs(current.latitude - latitude) < 0.0001) return current;
+      return { longitude, latitude, name: current?.name || "Map area" };
+    });
+    setMapSearchMoved(true);
+  };
   const previewPet = remotePets[0];
   return <div className="app map-app">
     <header className="map-app-header">
@@ -617,8 +649,8 @@ export default function App() {
       </div>
     </header>
 
-    <main id="discover" className={`map-workspace panel-${activePanel} ${mobileRailCollapsed ? "rail-collapsed" : ""}`}>
-      <MapPanel location={location} coordinates={coordinates} configured={integrations.mapboxConfigured} pets={remotePets} events={remoteEvents} discoveries={remoteDiscoveries} onLocationChange={setLocation} onFindLocation={findMatch} locationState={locationState} onOpenPet={setSelectedPet} />
+  <main id="discover" className={`map-workspace panel-${activePanel} ${mobileRailCollapsed ? "rail-collapsed" : ""}`}>
+      <MapPanel location={location} coordinates={coordinates} configured={integrations.mapboxConfigured} pets={remotePets} events={remoteEvents} discoveries={remoteDiscoveries} petType={mapPetType} distance={mapDistance} showEvents={showMapEvents} onOpenPet={setSelectedPet} onMapMove={searchThisMapArea} />
 
       <aside className={`map-rail ${mobileRailCollapsed ? "is-collapsed" : ""}`} aria-label="Map discovery tools">
         <button className="rail-toggle" type="button" onClick={() => setMobileRailCollapsed(value => !value)} aria-expanded={!mobileRailCollapsed} aria-controls="map-rail-content">
@@ -632,8 +664,10 @@ export default function App() {
         </nav>
         <div id="map-rail-content" className="rail-content">
           {activePanel === "explore" ? <div className="explore-intro">
+            <MapFilters petType={mapPetType} distance={mapDistance} showEvents={showMapEvents} onPetTypeChange={setMapPetType} onDistanceChange={setMapDistance} onShowEventsChange={setShowMapEvents} onReset={resetMapFilters} />
             <div><h1>Pets in this area</h1><span className={`live-state feed-${feed.mode}`}><i />{feed.mode === "live" ? "Live" : feed.mode === "loading" ? "Checking" : "Unavailable"}</span></div>
             <p>{feed.mode === "live" ? `${feed.count || remotePets.length} current records from ${feed.provider}.` : feed.message || "No synthetic pet profiles are shown."}</p>
+            {mapSearchMoved ? <p className="map-area-status" role="status">Showing results around the map center.</p> : null}
             <Button onClick={() => openPanel("match")}><PawPrint />Find my match</Button>
             <button className="quiz-teaser" onClick={() => openPanel("match")}><span className="quiz-ring">0%</span><span><small>Match quiz progress</small><strong>Tell us about your lifestyle</strong><em>About 2 minutes</em></span><ChevronRight /></button>
             {remoteDiscoveries.length ? <section className="web-leads" aria-label="Current web adoption leads">
