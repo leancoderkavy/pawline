@@ -230,6 +230,17 @@ function InteractiveMap({ coordinates, points, location, onPointClick, onMoveSea
           layout: { "icon-image": "pawline-pet-marker", "icon-size": 0.52, "icon-allow-overlap": true },
         });
         map.addLayer({
+          id: "pawline-pet-hit-area",
+          type: "circle",
+          source: "pawline-points",
+          filter: ["==", ["get", "type"], "pet"],
+          paint: {
+            "circle-radius": 20,
+            "circle-color": "#2f7458",
+            "circle-opacity": 0.01,
+          },
+        });
+        map.addLayer({
           id: "pawline-events",
           type: "symbol",
           source: "pawline-points",
@@ -255,13 +266,13 @@ function InteractiveMap({ coordinates, points, location, onPointClick, onMoveSea
             "circle-stroke-width": 3,
           },
         });
-        map.on("mouseenter", "pawline-pets", () => {
+        map.on("mouseenter", "pawline-pet-hit-area", () => {
           map.getCanvas().style.cursor = "pointer";
         });
-        map.on("mouseleave", "pawline-pets", () => {
+        map.on("mouseleave", "pawline-pet-hit-area", () => {
           map.getCanvas().style.cursor = "";
         });
-        map.on("click", "pawline-pets", event => {
+        map.on("click", "pawline-pet-hit-area", event => {
           const id = event.features?.[0]?.properties?.id;
           if (id) pointClickRef.current?.(id, "pet");
         });
@@ -638,10 +649,16 @@ export default function App() {
   return <div className="app map-app">
     <header className="map-app-header">
       <a className="brand" href="#map" aria-label="Pawline home"><span className="brand-mark"><PawPrint /></span><span>Pawline</span></a>
-      <form className="global-location" onSubmit={event => { event.preventDefault(); findMatch(); }}>
-        <MapPin /><span>Find pets near</span>
-        <input value={location} onChange={event => setLocation(event.target.value)} aria-label="Find pets near" />
-        <button type="submit" disabled={locationState.status === "loading"}><Search /><span className="sr-only">Search</span></button>
+      <form className={`global-location ${locationState.status === "error" ? "is-error" : ""}`} onSubmit={event => { event.preventDefault(); findMatch(); }}>
+        <span className="global-location-icon" aria-hidden="true"><MapPin /></span>
+        <span className="global-location-field">
+          <label htmlFor="global-location-input">Find pets near</label>
+          <input id="global-location-input" value={location} onChange={event => setLocation(event.target.value)} placeholder="City or ZIP code" autoComplete="postal-code" />
+        </span>
+        <button type="submit" disabled={locationState.status === "loading"} aria-label={locationState.status === "loading" ? "Searching for pets" : "Search this location"}>
+          {locationState.status === "loading" ? <RotateCcw className="location-spinner" /> : <Search />}
+        </button>
+        <span className="sr-only" role="status" aria-live="polite">{locationState.status === "loading" ? "Searching for pets nearby" : locationState.message}</span>
       </form>
       <div className="map-app-actions">
         <button className="saved-action" aria-label={`${saved.length} saved pets`}><Heart fill={saved.length ? "currentColor" : "none"} /><span>Saved</span>{saved.length ? <strong>{saved.length}</strong> : null}</button>
