@@ -151,10 +151,15 @@ footer { padding:32px 3.2vw 100px;display:flex;align-items:center;gap:25px;borde
 .event-empty { display:grid;align-content:center;gap:6px; }
 .event-empty h3 { margin-top:12px; }
 .event-empty p { line-height:1.5;color:#68756f; }
-.pet-detail > img { width:100%;height:230px;object-fit:cover;border-radius:14px; }
+.pet-detail-media { width:100%;height:min(52vh,420px);min-height:280px;display:grid;place-items:center;overflow:hidden;border-radius:14px;background:#e5ebe2; }
+.pet-detail-media img { width:100%;height:100%;object-fit:contain; }
 .pet-detail h3 { font:400 26px "DM Serif Display";margin:16px 0 8px; }
 .pet-detail p { display:flex;align-items:flex-start;gap:7px;color:#526860;font-size:12px;line-height:1.5; }
 .pet-detail p svg { width:16px;flex:none; }
+.pet-detail .detail-location > span { display:grid;gap:2px; }
+.pet-detail .detail-location strong { color:var(--green);font-size:10px;text-transform:uppercase;letter-spacing:.04em; }
+.pet-detail .detail-location small { color:#78837e;font-size:10px; }
+.pet-detail .detail-note { display:block;margin:10px 0;padding:10px 12px;border-left:3px solid #9ab5a5;background:#eef4ee;color:#526860; }
 .detail-meta { display:flex;flex-wrap:wrap;gap:6px;margin-top:14px; }
 .detail-meta span { border:1px solid var(--line);border-radius:20px;padding:5px 10px;font-size:10px;font-weight:700; }
 .detail-actions { display:grid;grid-template-columns:1fr 1.35fr;gap:9px;margin-top:20px; }
@@ -163,6 +168,7 @@ footer { padding:32px 3.2vw 100px;display:flex;align-items:center;gap:25px;borde
 
 @media (min-width: 981px) { .mobile-menu { display:none; } }
 @media (max-width: 600px) { .detail-actions { grid-template-columns:1fr; } }
+@media (max-width: 600px) { .pet-detail-media { height:min(46vh,390px);min-height:240px; } }
 
 .matchmaker { display:grid;grid-template-columns:minmax(420px,.92fr) minmax(560px,1.08fr);min-height:calc(100vh - 92px);border-bottom:1px solid var(--line); }
 .matchmaker-quiz { padding:34px clamp(26px,4vw,64px) 48px;border-right:1px solid var(--line);display:flex;flex-direction:column;min-width:0;background:#faf7f0; }

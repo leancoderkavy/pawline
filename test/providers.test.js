@@ -44,6 +44,7 @@ test("parses live LA Animal Services cards into shelter-mapped pets", () => {
   assert.equal(pets.length, 1);
   assert.equal(pets[0].species, "Dog");
   assert.equal(pets[0].shelter, "West Los Angeles Animal Shelter");
+  assert.equal(pets[0].address, "11361 West Pico Blvd, Los Angeles, CA 90064");
   assert.equal(pets[0].locationAccuracy, "shelter");
   assert.ok(Number.isFinite(pets[0].latitude));
   assert.match(pets[0].sourceUrl, /laanimalservices\.com\/pet\/a2286725/);

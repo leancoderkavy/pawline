@@ -117,13 +117,23 @@ function PetTile({ pet, saved, onSave, onOpen }) {
 }
 
 function PetDetail({ pet, onClose, saved, onSave }) {
+  const unavailableDetails = new Set([
+    "See official listing",
+    "Age available from LA Animal Services",
+    "Details available from LA Animal Services",
+    "Unknown",
+  ]);
+  const detailTags = [...new Set([pet.species, pet.age, pet.size, pet.sex])]
+    .filter(value => value && !unavailableDetails.has(value));
+  const hasSpecificBreed = pet.breed && !unavailableDetails.has(pet.breed);
   return <Dialog title={pet.name} onClose={onClose}>
     <div className="pet-detail">
-      <img src={pet.image} alt={`${pet.name}, a ${pet.breed}`} />
-      <div className="detail-meta"><span>{pet.species}</span><span>{pet.age}</span><span>{pet.size}</span><span>{pet.sex}</span></div>
-      <h3>{pet.breed}</h3>
-      <p><MapPin /> {pet.city}</p>
+      <div className="pet-detail-media"><img src={pet.image} alt={`${pet.name}${hasSpecificBreed ? `, a ${pet.breed}` : ""}`} /></div>
+      {detailTags.length ? <div className="detail-meta">{detailTags.map(tag => <span key={tag}>{tag}</span>)}</div> : null}
+      {hasSpecificBreed ? <h3>{pet.breed}</h3> : null}
+      <p className="detail-location"><MapPin /><span><strong>{pet.locationAccuracy === "shelter" ? "Current shelter location" : "Location"}</strong>{pet.address || pet.city}{pet.address && pet.city ? <small>{pet.city}</small> : null}</span></p>
       <p><ShieldCheck /> {pet.shelter} · verified source</p>
+      {pet.locationAccuracy === "shelter" ? <p className="detail-note">The map marker shows the shelter caring for {pet.name}, not a private or foster address. Confirm current availability before visiting.</p> : null}
       {pet.description ? <p>{pet.description}</p> : null}
       <div className="detail-actions">
         <Button variant="outline" onClick={() => onSave(pet.id)}><Heart fill={saved ? "currentColor" : "none"} />{saved ? "Saved" : "Save"}</Button>
