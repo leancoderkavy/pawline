@@ -74,6 +74,13 @@ const sourceCatalog = [
     recordAccess: "Government open-data feed for lost, found, and adoptable pets",
     status: "active",
   },
+  {
+    id: "los-angeles-city-ca",
+    name: "LA Animal Services",
+    scope: "Los Angeles, California, United States",
+    recordAccess: "Official live adoptable-pet pages mapped to City animal shelters",
+    status: "active",
+  },
 ];
 
 export default function handler(request, response) {

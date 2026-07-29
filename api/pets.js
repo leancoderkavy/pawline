@@ -6,8 +6,42 @@ const MONTGOMERY_API =
   "https://data.montgomerycountymd.gov/resource/e54u-qx42.json";
 const KING_COUNTY_API =
   "https://data.kingcounty.gov/resource/yaai-7frk.json";
+const LOS_ANGELES_PETS_URL =
+  "https://www.laanimalservices.com/search/pets";
 const MONTGOMERY_ADOPTION_URL =
   "https://www.montgomerycountymd.gov/animalservices/adoption/index.html";
+const LOS_ANGELES_CENTERS = {
+  LACT: {
+    name: "East Valley Animal Shelter",
+    city: "Van Nuys, California, United States",
+    latitude: 34.193986435685,
+    longitude: -118.446771390738,
+  },
+  LACT2: {
+    name: "West Los Angeles Animal Shelter",
+    city: "Los Angeles, California, United States",
+    latitude: 34.034628815564,
+    longitude: -118.439972412714,
+  },
+  LACT3: {
+    name: "Chesterfield Square / South LA Animal Shelter",
+    city: "Los Angeles, California, United States",
+    latitude: 33.98517085948,
+    longitude: -118.310507744437,
+  },
+  LACT4: {
+    name: "North Central Animal Shelter",
+    city: "Los Angeles, California, United States",
+    latitude: 34.083720752489,
+    longitude: -118.218016326391,
+  },
+  LACT5: {
+    name: "West Valley Animal Shelter",
+    city: "Chatsworth, California, United States",
+    latitude: 34.242784438194,
+    longitude: -118.583183249589,
+  },
+};
 
 export function cleanText(value) {
   if (!value) return null;
@@ -18,6 +52,19 @@ export function cleanText(value) {
     .replace(/&#39;/g, "'")
     .replace(/\s+/g, " ")
     .trim() || null;
+}
+
+function decodeHtml(value) {
+  return String(value || "")
+    .replace(/&#x([0-9a-f]+);/gi, (_, code) =>
+      String.fromCodePoint(Number.parseInt(code, 16)))
+    .replace(/&#(\d+);/g, (_, code) =>
+      String.fromCodePoint(Number.parseInt(code, 10)))
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">");
 }
 
 export function canonicalSpecies(value) {
@@ -134,6 +181,68 @@ async function fetchKingCountyPets(species, options) {
     "King County",
   );
   return rows.map(normalizeKingCountyPet).filter(Boolean);
+}
+
+export function normalizeLosAngelesPet(record) {
+  const center = LOS_ANGELES_CENTERS[record.locationCode];
+  const species = canonicalSpecies(record.species);
+  if (!center || !species || !record.id || !record.name) return null;
+  return {
+    id: `laas-${record.id.toUpperCase()}`,
+    externalId: record.id.toUpperCase(),
+    name: cleanText(decodeHtml(record.name)) || "New friend",
+    species,
+    breed: "Details available from LA Animal Services",
+    age: "Age available from LA Animal Services",
+    sex: "See official listing",
+    size: "See official listing",
+    distance: 0,
+    city: center.city,
+    shelter: center.name,
+    rating: null,
+    reviews: null,
+    source: "LA Animal Services · Live",
+    sourceUrl: `https://www.laanimalservices.com/pet/${record.id.toLowerCase()}`,
+    image: record.image ? decodeHtml(record.image).replace(/^http:/, "https:") : null,
+    latitude: center.latitude,
+    longitude: center.longitude,
+    locationAccuracy: "shelter",
+  };
+}
+
+export function parseLosAngelesPets(html) {
+  const rows = String(html || "").match(/<div class="views-row">[\s\S]*?<\/div>\s*<\/div>\s*<\/div>/g) || [];
+  return rows.map(row => {
+    const link = row.match(/class="pet-result__link" href="\/pet\/([^"]+)">([\s\S]*?)<\/a>/);
+    const image = row.match(/class="pet-result__image[^"]*" src="([^"]+)"/);
+    const alt = row.match(/alt="([^"]+)"/);
+    const locationCode = image?.[1]?.match(/[?&](?:amp;)?LOCATION=([^&"]+)/i)?.[1];
+    const species = decodeHtml(alt?.[1] || "").match(/^(Dog|Cat)\b/i)?.[1];
+    return normalizeLosAngelesPet({
+      id: link?.[1],
+      name: link?.[2],
+      species,
+      image: image?.[1],
+      locationCode,
+    });
+  }).filter(Boolean);
+}
+
+async function fetchLosAngelesPets(species, { limit, page }) {
+  const url = new URL(LOS_ANGELES_PETS_URL);
+  url.searchParams.set("items_per_page", String(Math.min(limit, 48)));
+  url.searchParams.set("page", String(page - 1));
+  if (species.includes("Cat")) url.searchParams.set("species[28]", "28");
+  if (species.includes("Dog")) url.searchParams.set("species[29]", "29");
+  const upstream = await fetch(url, {
+    headers: {
+      Accept: "text/html",
+      "User-Agent": "Pawline adoption search (pawlineadopt.com)",
+    },
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!upstream.ok) throw new Error(`LA Animal Services returned ${upstream.status}`);
+  return parseLosAngelesPets(await upstream.text());
 }
 
 function findRelated(included, relationship) {
@@ -316,6 +425,10 @@ export default async function handler(request, response) {
         id: "King County",
         promise: fetchKingCountyPets(species, { limit, page }),
       },
+      {
+        id: "LA Animal Services",
+        promise: fetchLosAngelesPets(species, { limit, page }),
+      },
     ];
     if (apiKey) {
       requests.push(
@@ -331,7 +444,8 @@ export default async function handler(request, response) {
       : [];
     const montgomeryPets = results[1]?.status === "fulfilled" ? results[1].value : [];
     const kingCountyPets = results[2]?.status === "fulfilled" ? results[2].value : [];
-    const rescueGroupsStart = 3;
+    const losAngelesPets = results[3]?.status === "fulfilled" ? results[3].value : [];
+    const rescueGroupsStart = 4;
     const payloads = results.slice(rescueGroupsStart)
       .filter((result) => result.status === "fulfilled")
       .map((result) => result.value);
@@ -343,6 +457,7 @@ export default async function handler(request, response) {
     const pets = [
       ...montgomeryPets,
       ...kingCountyPets,
+      ...losAngelesPets,
       ...providerPets,
       ...databasePets,
     ].filter(
@@ -356,10 +471,11 @@ export default async function handler(request, response) {
       (total, payload) => total + Number(payload.meta?.count || 0),
       0,
     );
-    const expectedProviderFeeds = 2 + (apiKey ? species.length : 0);
+    const expectedProviderFeeds = 3 + (apiKey ? species.length : 0);
     const successfulProviderFeeds =
       Number(results[1]?.status === "fulfilled") +
       Number(results[2]?.status === "fulfilled") +
+      Number(results[3]?.status === "fulfilled") +
       payloads.length;
     const isPartial = successfulProviderFeeds !== expectedProviderFeeds;
     const providerUnavailable = successfulProviderFeeds === 0 && databasePets.length === 0;
@@ -367,6 +483,7 @@ export default async function handler(request, response) {
       databasePets.length && "Pawline",
       montgomeryPets.length && "Montgomery County",
       kingCountyPets.length && "King County",
+      losAngelesPets.length && "LA Animal Services",
       payloads.length && "RescueGroups",
     ].filter(Boolean);
     response.setHeader(

@@ -5,7 +5,9 @@ import {
   cleanText,
   normalizeDatabasePet,
   normalizeKingCountyPet,
+  normalizeLosAngelesPet,
   normalizeMontgomeryPet,
+  parseLosAngelesPets,
 } from "../api/pets.js";
 
 test("normalizes Montgomery County adoptable pet records", () => {
@@ -26,6 +28,34 @@ test("normalizes Montgomery County adoptable pet records", () => {
   assert.equal(pet.sex, "Spayed Female");
   assert.match(pet.image, /^https:/);
   assert.match(pet.source, /Live/);
+});
+
+test("parses live LA Animal Services cards into shelter-mapped pets", () => {
+  const pets = parseLosAngelesPets(`
+    <div class="views-row"><div class="pet-result">
+      <img class="pet-result__image" src="https://petharbor.com/get_image.asp?RES=Detail&amp;ID=A2286725&amp;LOCATION=LACT2" alt="Dog&#x20;named&#x20;Blanco&#x20;with&#x20;Animal&#x20;ID&#x3A;&#x20;A2286725" />
+      <div class="pet-result__content">
+        <h3 class="pet-result__name"><a class="pet-result__link" href="/pet/a2286725">Blanco</a></h3>
+        <span class="pet-result__id">A2286725</span>
+      </div>
+    </div></div>
+  `);
+
+  assert.equal(pets.length, 1);
+  assert.equal(pets[0].species, "Dog");
+  assert.equal(pets[0].shelter, "West Los Angeles Animal Shelter");
+  assert.equal(pets[0].locationAccuracy, "shelter");
+  assert.ok(Number.isFinite(pets[0].latitude));
+  assert.match(pets[0].sourceUrl, /laanimalservices\.com\/pet\/a2286725/);
+});
+
+test("LA Animal Services records fail closed without a known shelter location", () => {
+  assert.equal(normalizeLosAngelesPet({
+    id: "A1",
+    name: "Friend",
+    species: "Dog",
+    locationCode: "UNKNOWN",
+  }), null);
 });
 
 test("normalizes King County adoptable pet records", () => {

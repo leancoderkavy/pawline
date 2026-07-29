@@ -198,18 +198,11 @@ function InteractiveMap({ coordinates, points, location, onPointClick, onMoveSea
     : DEFAULT_MAP_CENTER;
   const geoJson = {
     type: "FeatureCollection",
-    features: [
-      {
-        type: "Feature",
-        geometry: { type: "Point", coordinates: center },
-        properties: { type: "center" },
-      },
-      ...points.map(point => ({
+    features: points.map(point => ({
         type: "Feature",
         geometry: { type: "Point", coordinates: [point.longitude, point.latitude] },
         properties: { type: point.type, id: String(point.id) },
       })),
-    ],
   };
   geoJsonRef.current = geoJson;
   pointClickRef.current = onPointClick;
@@ -293,18 +286,6 @@ function InteractiveMap({ coordinates, points, location, onPointClick, onMoveSea
           filter: ["==", ["get", "type"], "discovery"],
           paint: { "circle-radius": 20, "circle-color": "#7a5a9b", "circle-opacity": 0.01 },
         });
-        map.addLayer({
-          id: "pawline-center",
-          type: "circle",
-          source: "pawline-points",
-          filter: ["==", ["get", "type"], "center"],
-          paint: {
-            "circle-radius": 10,
-            "circle-color": "#17382f",
-            "circle-stroke-color": "#fffaf1",
-            "circle-stroke-width": 3,
-          },
-        });
         map.on("mouseenter", "pawline-pet-hit-area", () => {
           map.getCanvas().style.cursor = "pointer";
         });
@@ -375,7 +356,10 @@ function InteractiveMap({ coordinates, points, location, onPointClick, onMoveSea
     <div ref={containerRef} className="interactive-map" role="region" aria-label={`Interactive pet map centered on ${location}`} />
     {mapState.status === "loading" ? <div className="map-loading" role="status">Loading interactive map…</div> : null}
     {mapState.status === "error" ? <div className="map-unavailable" role="alert"><span className="map-unavailable-icon"><MapPin /></span><strong>Map temporarily unavailable</strong><span>{mapState.message}</span></div> : null}
-    {mapState.status === "ready" ? <span className="map-instructions">Drag to explore · Scroll or use +/− to zoom</span> : null}
+    {mapState.status === "ready" ? <>
+      <span className="map-search-center" aria-hidden="true"><LocateFixed /></span>
+      <span className="map-instructions">Move the map to search this area · Use +/− to zoom</span>
+    </> : null}
   </>;
 }
 
