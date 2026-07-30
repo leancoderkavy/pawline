@@ -80,6 +80,7 @@ function rateLimited(userId) {
 }
 
 export default async function handler(request, response) {
+  response.setHeader("Cache-Control", "no-store");
   if (request.method !== "POST") {
     response.setHeader("Allow", "POST");
     return response.status(405).json({ error: "Method not allowed" });
@@ -149,7 +150,6 @@ export default async function handler(request, response) {
         longitude=EXCLUDED.longitude, updated_at=now()
       RETURNING id
     `;
-    response.setHeader("Cache-Control", "no-store");
     return response.status(200).json({
       lead: {
         id: rows[0].id,
@@ -165,4 +165,3 @@ export default async function handler(request, response) {
     return response.status(422).json({ error: error.message || "We could not parse that listing." });
   }
 }
-

@@ -3,11 +3,12 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import {
   AlertTriangle, ArrowLeft, CalendarDays, CheckCircle2, ChevronRight, Clock3,
   ExternalLink, FileText, Globe2, Heart, Info, LocateFixed, MapPin, Menu, PawPrint, Pencil,
-  RotateCcw, Search, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Upload, X
+  MessageCircle, RotateCcw, Search, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Upload, X
 } from "lucide-react";
 import heroImage from "./heroData";
 import { rankPets } from "./matching";
 import { buildMapView } from "./mapView";
+import Community from "./Community";
 
 function Button({ className = "", variant = "primary", children, ...props }) {
   return <button className={`button ${variant === "outline" ? "button-outline" : ""} ${className}`} {...props}>{children}</button>;
@@ -683,7 +684,7 @@ function Matchmaker({ pets, feed, location, onLocationChange, onSpeciesChange, o
   </section>;
 }
 
-export default function App() {
+export default function App({ clerkConfigured = false }) {
   const [saved, setSaved] = useState(() => JSON.parse(localStorage.getItem("pawline-saved") || "[]"));
   const [species, setSpecies] = useState("All");
   const [location, setLocation] = useState("Pasadena, California, USA");
@@ -696,6 +697,7 @@ export default function App() {
   const [remotePets, setRemotePets] = useState([]);
   const [remoteEvents, setRemoteEvents] = useState([]);
   const [remoteDiscoveries, setRemoteDiscoveries] = useState([]);
+  const [communityLeads, setCommunityLeads] = useState([]);
   const [coordinates, setCoordinates] = useState({
     longitude: -118.1445,
     latitude: 34.1478,
@@ -710,15 +712,27 @@ export default function App() {
   const [mapDistance, setMapDistance] = useState("150");
   const [showMapEvents, setShowMapEvents] = useState(true);
   const [mapSearchMoved, setMapSearchMoved] = useState(false);
+  const communityDiscoveries = useMemo(() => communityLeads
+    .filter(item => Number.isFinite(Number(item.latitude)) && Number.isFinite(Number(item.longitude)))
+    .map(item => ({
+      ...item,
+      latitude: Number(item.latitude),
+      longitude: Number(item.longitude),
+      title: item.name || "Community pet lead",
+      source_url: item.sourceUrl,
+      source_domain: item.sourceDomain,
+      city: [item.city, item.country].filter(Boolean).join(", "),
+      communityLead: true,
+    })), [communityLeads]);
   const mapView = useMemo(() => buildMapView({
     pets: remotePets,
     events: remoteEvents,
-    discoveries: remoteDiscoveries,
+    discoveries: [...remoteDiscoveries, ...communityDiscoveries],
     center: coordinates,
     petType: mapPetType,
     distance: mapDistance,
     showEvents: showMapEvents,
-  }), [remotePets, remoteEvents, remoteDiscoveries, coordinates, mapPetType, mapDistance, showMapEvents]);
+  }), [remotePets, remoteEvents, remoteDiscoveries, communityDiscoveries, coordinates, mapPetType, mapDistance, showMapEvents]);
 
   useEffect(() => localStorage.setItem("pawline-saved", JSON.stringify(saved)), [saved]);
   useEffect(() => {
@@ -833,6 +847,7 @@ export default function App() {
         </button>
         <nav className="rail-tabs" aria-label="Discovery views">
           <button className={activePanel === "explore" ? "active" : ""} onClick={() => openPanel("explore")}><Search />Explore</button>
+          <button className={activePanel === "community" ? "active" : ""} onClick={() => openPanel("community")}><MessageCircle />Community</button>
           <button className={activePanel === "match" ? "active" : ""} onClick={() => openPanel("match")}><PawPrint />Match quiz</button>
           <button className={activePanel === "events" ? "active" : ""} onClick={() => openPanel("events")}><CalendarDays />Events</button>
         </nav>
@@ -855,6 +870,10 @@ export default function App() {
           </div> : null}
           {activePanel === "match" ? <Matchmaker pets={remotePets} feed={feed} location={location} onLocationChange={setLocation} onSpeciesChange={setSpecies} onFindLocation={findMatch} locationState={locationState} /> : null}
           {activePanel === "events" ? <EventPanel events={remoteEvents} /> : null}
+          {activePanel === "community" ? clerkConfigured
+            ? <Community onLeadsChange={setCommunityLeads} />
+            : <div className="community-auth-state"><span><MessageCircle /></span><h2>Community needs Clerk</h2><p>Add the Pawline Clerk publishable key to enable account creation and sign-in. Chat stays closed until identity is configured.</p><div className="auth-safety"><ShieldCheck /><span><strong>Failing closed</strong>No anonymous or unverified chat access is allowed.</span></div></div>
+          : null}
         </div>
       </aside>
 

@@ -7,6 +7,8 @@ export default function handler(_request, response) {
       process.env.PAWLINE_FROM_EMAIL &&
       process.env.PAWLINE_MODERATION_EMAIL,
   );
+  const clerkConfigured = Boolean(process.env.CLERK_SECRET_KEY);
+  const realtimeConfigured = Boolean(process.env.ABLY_API_KEY);
   response.setHeader("Cache-Control", "no-store");
   response.status(200).json({
     ok: true,
@@ -21,6 +23,11 @@ export default function handler(_request, response) {
       process.env.VERCEL || process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN,
     ),
     tavilyDiscoveryConfigured: Boolean(process.env.TAVILY_API_KEY && process.env.CRON_SECRET),
+    clerkConfigured,
+    realtimeCommunityConfigured: clerkConfigured && communityDatabaseConfigured && realtimeConfigured,
+    communityLinkParsingConfigured: clerkConfigured && communityDatabaseConfigured && Boolean(
+      process.env.VERCEL || process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN,
+    ),
     publicOpenDataProviders: 2,
     activePetProviders:
       2 + Number(rescueGroupsConfigured) + Number(communityDatabaseConfigured),

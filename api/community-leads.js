@@ -3,6 +3,7 @@ import { requireUser } from "./_auth.js";
 import { ensureCommunityTables } from "./_community.js";
 
 export default async function handler(request, response) {
+  response.setHeader("Cache-Control", "no-store");
   if (request.method !== "GET") {
     response.setHeader("Allow", "GET");
     return response.status(405).json({ error: "Method not allowed" });
@@ -21,7 +22,6 @@ export default async function handler(request, response) {
     ORDER BY created_at DESC
     LIMIT 40
   `;
-  response.setHeader("Cache-Control", "no-store");
   return response.status(200).json({ leads: rows.map((row) => ({
     id: row.id,
     sourceUrl: row.source_url,
@@ -40,4 +40,3 @@ export default async function handler(request, response) {
     createdAt: row.created_at,
   })) });
 }
-

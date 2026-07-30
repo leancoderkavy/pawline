@@ -1,6 +1,11 @@
 import { getDatabase } from "./_db.js";
 
+export function petMediaErrorStatus(error) {
+  return error?.code === "42P01" ? 503 : 500;
+}
+
 export default async function handler(request, response) {
+  response.setHeader("Cache-Control", "no-store");
   if (request.method !== "GET") {
     response.setHeader("Allow", "GET");
     return response.status(405).end();
@@ -27,6 +32,6 @@ export default async function handler(request, response) {
     return response.status(200).send(rows[0].content);
   } catch (error) {
     console.error("Pet media lookup failed", error);
-    return response.status(500).end();
+    return response.status(petMediaErrorStatus(error)).end();
   }
 }
