@@ -72,7 +72,7 @@ export default async function handler(request, response) {
     }
 
     const { output, totalUsage, response: modelResponse } = await generateText({
-      model: "google/gemini-3-flash",
+      model: "google/gemini-2.5-flash-lite",
       output: Output.object({
         schema: extractionSchema,
         name: "pet_record_extraction",
@@ -104,7 +104,7 @@ Summarize clinical facts without diagnosing. Keep the public description factual
     return response.status(200).json({
       fields: output.fields,
       extraction: {
-        model: modelResponse?.modelId || "google/gemini-3-flash",
+        model: modelResponse?.modelId || "google/gemini-2.5-flash-lite",
         inputTokens: totalUsage?.inputTokens || null,
         outputTokens: totalUsage?.outputTokens || null,
       },
