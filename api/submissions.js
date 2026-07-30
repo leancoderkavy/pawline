@@ -35,6 +35,7 @@ export function submissionStorageReady(row) {
 }
 
 export default async function handler(request, response) {
+  response.setHeader("Cache-Control", "no-store");
   if (request.method !== "POST") {
     response.setHeader("Allow", "POST");
     return response.status(405).json({ error: "Method not allowed" });
@@ -200,7 +201,6 @@ export default async function handler(request, response) {
       `;
     }
     const notification = await notifySubmission({ id: rows[0].id, pet });
-    response.setHeader("Cache-Control", "no-store");
     return response.status(202).json({
       id: rows[0].id,
       message: "Thank you — your pet was submitted for review.",
