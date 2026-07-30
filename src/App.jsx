@@ -8,6 +8,7 @@ import {
 import heroImage from "./heroData";
 import { rankPets } from "./matching";
 import { buildMapView } from "./mapView";
+import { createMapSearchInteraction } from "./mapSearchInteraction";
 
 function Button({ className = "", variant = "primary", children, ...props }) {
   return <button className={`button ${variant === "outline" ? "button-outline" : ""} ${className}`} {...props}>{children}</button>;
@@ -326,11 +327,12 @@ function InteractiveMap({ coordinates, points, location, onPointClick, onMoveSea
           const id = event.features?.[0]?.properties?.id;
           if (id) pointClickRef.current?.(id, "discovery");
         });
-        map.on("moveend", event => {
-          if (!event.originalEvent) return;
-          const nextCenter = map.getCenter();
-          moveSearchRef.current?.({ longitude: nextCenter.lng, latitude: nextCenter.lat });
+        const searchInteraction = createMapSearchInteraction(nextCenter => {
+          moveSearchRef.current?.(nextCenter);
         });
+        map.on("dragstart", event => searchInteraction.start(event));
+        map.on("zoomstart", event => searchInteraction.start(event));
+        map.on("moveend", () => searchInteraction.finish(map.getCenter()));
         setMapState({ status: "ready", message: "" });
       });
       map.on("error", () => {
