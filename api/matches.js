@@ -1,10 +1,48 @@
-import { generateText } from "ai";
+import { generateText, jsonSchema, Output } from "ai";
 
 const MODEL = process.env.PAWLINE_AI_MODEL || "google/gemini-2.5-flash-lite";
 const MAX_PETS = 10;
 const WINDOW_MS = 60 * 60 * 1000;
 const MAX_REQUESTS_PER_WINDOW = 8;
 const buckets = new Map();
+const matchSchema = jsonSchema({
+  type: "object",
+  additionalProperties: false,
+  required: ["matches"],
+  properties: {
+    matches: {
+      type: "array",
+      minItems: 1,
+      maxItems: MAX_PETS,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["petId", "score", "reasons", "considerations", "questions"],
+        properties: {
+          petId: { type: "string" },
+          score: { type: "integer", minimum: 1, maximum: 95 },
+          reasons: {
+            type: "array",
+            minItems: 1,
+            maxItems: 3,
+            items: { type: "string" },
+          },
+          considerations: {
+            type: "array",
+            maxItems: 2,
+            items: { type: "string" },
+          },
+          questions: {
+            type: "array",
+            minItems: 1,
+            maxItems: 3,
+            items: { type: "string" },
+          },
+        },
+      },
+    },
+  },
+});
 
 const ANSWER_OPTIONS = {
   home: ["Apartment or condo", "House", "Townhome or duplex", "Other"],
@@ -99,11 +137,6 @@ export function validateModelResult(payload, petIds) {
   return matches;
 }
 
-function extractJson(content) {
-  const raw = String(content || "").trim().replace(/^```json\s*/i, "").replace(/```$/, "");
-  return JSON.parse(raw);
-}
-
 export default async function handler(request, response) {
   if (request.method !== "POST") {
     response.setHeader("Allow", "POST");
@@ -125,20 +158,24 @@ export default async function handler(request, response) {
     "Do not infer temperament, health, safety, or child/animal compatibility when absent.",
     "Unknown facts must become questions for the shelter.",
     "Never guarantee a match or make an adoption decision.",
-    "Return JSON only: {\"matches\":[{\"petId\":\"id\",\"score\":1-95,\"reasons\":[\"...\"],\"considerations\":[\"...\"],\"questions\":[\"...\"]}]}",
     "Return every supplied pet exactly once, ordered best fit first.",
   ].join(" ");
 
   try {
-    const result = await generateText({
+    const { output } = await generateText({
       model: MODEL,
+      output: Output.object({
+        schema: matchSchema,
+        name: "pet_compatibility_matches",
+        description: "Cautious compatibility suggestions for the supplied current pet listings.",
+      }),
       system,
       prompt: JSON.stringify({ adopterAnswers: answers, currentListings: pets }),
       temperature: 0.1,
-      maxOutputTokens: 1800,
+      maxOutputTokens: 3200,
       abortSignal: AbortSignal.timeout(20000),
     });
-    const matches = validateModelResult(extractJson(result.text), pets.map((pet) => pet.id));
+    const matches = validateModelResult(output, pets.map((pet) => pet.id));
     response.setHeader("Cache-Control", "no-store");
     return response.status(200).json({
       mode: "ai",
