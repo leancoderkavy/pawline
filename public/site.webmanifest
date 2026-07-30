@@ -2,8 +2,14 @@
   "name": "Pawline",
   "short_name": "Pawline",
   "description": "Find current adoptable dogs and cats near you.",
+  "id": "/",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "any",
+  "lang": "en-US",
+  "dir": "ltr",
+  "categories": ["lifestyle", "social"],
   "background_color": "#f7f5ef",
   "theme_color": "#17382f",
   "icons": [
@@ -11,6 +17,12 @@
       "src": "/favicon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
       "purpose": "any"
     }
   ]

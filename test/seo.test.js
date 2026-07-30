@@ -9,7 +9,16 @@ test("homepage publishes canonical search and social metadata", async () => {
   assert.match(html, /<link rel="canonical" href="https:\/\/www\.pawlineadopt\.com\/"/);
   assert.match(html, /<meta name="description" content="[^"]+"/);
   assert.match(html, /<meta property="og:title"/);
+  assert.match(html, /<meta property="og:locale" content="en_US"/);
+  assert.match(html, /<meta property="og:image" content="https:\/\/www\.pawlineadopt\.com\/social-card\.png"/);
+  assert.match(html, /<meta property="og:image:width" content="1200"/);
+  assert.match(html, /<meta property="og:image:height" content="630"/);
   assert.match(html, /<meta name="twitter:card" content="summary_large_image"/);
+  assert.match(html, /<meta name="twitter:image:alt"/);
+  assert.match(html, /<meta name="bingbot"/);
+  assert.match(html, /<meta name="apple-mobile-web-app-capable" content="yes"/);
+  assert.match(html, /<link rel="apple-touch-icon" href="\/apple-touch-icon\.png"/);
+  assert.match(html, /<link rel="alternate" type="text\/plain" href="https:\/\/www\.pawlineadopt\.com\/llms\.txt"/);
   assert.match(html, /<script type="application\/ld\+json">/);
   assert.doesNotThrow(() => {
     const json = html.match(/<script type="application\/ld\+json">\s*([\s\S]*?)\s*<\/script>/)[1];
