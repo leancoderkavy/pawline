@@ -34,6 +34,55 @@ export function submissionStorageReady(row) {
   return Boolean(row?.submission_files && row?.submission_log);
 }
 
+async function ensureSubmissionStorage(database) {
+  const storageRows = await database`
+    SELECT
+      to_regclass('public.pet_submission_files') AS submission_files,
+      to_regclass('public.pet_submission_log') AS submission_log
+  `;
+  if (submissionStorageReady(storageRows[0])) return;
+
+  await database`
+    CREATE TABLE IF NOT EXISTS pet_submission_files (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      pet_id uuid NOT NULL REFERENCES pets(id) ON DELETE CASCADE,
+      file_name text NOT NULL,
+      media_type text NOT NULL,
+      byte_size integer NOT NULL CHECK (byte_size > 0 AND byte_size <= 3145728),
+      content bytea NOT NULL,
+      is_primary_photo boolean NOT NULL DEFAULT false,
+      created_at timestamptz NOT NULL DEFAULT now()
+    )
+  `;
+  await database`
+    CREATE INDEX IF NOT EXISTS pet_submission_files_pet_id
+      ON pet_submission_files (pet_id, created_at)
+  `;
+  await database`
+    CREATE TABLE IF NOT EXISTS pet_submission_log (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      pet_id uuid NOT NULL REFERENCES pets(id) ON DELETE CASCADE,
+      event_type text NOT NULL
+        CHECK (event_type IN ('submitted', 'ai_extracted', 'reviewed', 'published', 'rejected')),
+      event_data jsonb NOT NULL DEFAULT '{}'::jsonb,
+      created_at timestamptz NOT NULL DEFAULT now()
+    )
+  `;
+  await database`
+    CREATE INDEX IF NOT EXISTS pet_submission_log_pet_id
+      ON pet_submission_log (pet_id, created_at DESC)
+  `;
+
+  const verificationRows = await database`
+    SELECT
+      to_regclass('public.pet_submission_files') AS submission_files,
+      to_regclass('public.pet_submission_log') AS submission_log
+  `;
+  if (!submissionStorageReady(verificationRows[0])) {
+    throw new Error("Submission storage migration did not complete.");
+  }
+}
+
 export default async function handler(request, response) {
   response.setHeader("Cache-Control", "no-store");
   if (request.method !== "POST") {
@@ -128,16 +177,7 @@ export default async function handler(request, response) {
     .digest("hex");
 
   try {
-    const storageRows = await database`
-      SELECT
-        to_regclass('public.pet_submission_files') AS submission_files,
-        to_regclass('public.pet_submission_log') AS submission_log
-    `;
-    if (!submissionStorageReady(storageRows[0])) {
-      return response.status(503).json({
-        error: "Submissions are temporarily unavailable while secure document storage is being prepared.",
-      });
-    }
+    await ensureSubmissionStorage(database);
     const rows = await database`
       INSERT INTO pets (
         fingerprint, name, species, breed, age, sex, size, description, city, country,
