@@ -1,5 +1,6 @@
+"use client";
+
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
-import "mapbox-gl/dist/mapbox-gl.css";
 import {
   AlertTriangle, ArrowLeft, CalendarDays, CheckCircle2, ChevronRight, Clock3,
   ExternalLink, FileText, Globe2, Heart, Info, LocateFixed, MapPin, Menu, PawPrint, Pencil,
@@ -686,7 +687,10 @@ function Matchmaker({ pets, feed, location, onLocationChange, onSpeciesChange, o
 }
 
 export default function App({ clerkConfigured = false }) {
-  const [saved, setSaved] = useState(() => JSON.parse(localStorage.getItem("pawline-saved") || "[]"));
+  const [saved, setSaved] = useState(() => {
+    if (typeof window === "undefined") return [];
+    try { return JSON.parse(localStorage.getItem("pawline-saved") || "[]"); } catch { return []; }
+  });
   const [species, setSpecies] = useState("All");
   const [location, setLocation] = useState("Pasadena, California, USA");
   const [submitOpen, setSubmitOpen] = useState(false);
