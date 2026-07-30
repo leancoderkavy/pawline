@@ -367,7 +367,6 @@ function InteractiveMap({ coordinates, points, location, onPointClick, onMoveSea
     {mapState.status === "loading" ? <div className="map-loading" role="status">Loading interactive map…</div> : null}
     {mapState.status === "error" ? <div className="map-unavailable" role="alert"><span className="map-unavailable-icon"><MapPin /></span><strong>Map temporarily unavailable</strong><span>{mapState.message}</span></div> : null}
     {mapState.status === "ready" ? <>
-      <span className="map-search-center" aria-hidden="true"><LocateFixed /></span>
       <span className="map-instructions">Move the map to search this area · Use +/− to zoom</span>
     </> : null}
   </>;

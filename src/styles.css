@@ -95,9 +95,6 @@ h1 em { color: var(--rust); font-weight: 400; }
 .interactive-map .mapboxgl-ctrl-attrib { font-size:9px; }
 .map-loading { position:absolute;inset:0;display:grid;place-items:center;color:#365c4e;font-size:12px;font-weight:700; }
 .map-instructions { position:absolute;left:12px;top:12px;padding:7px 10px;border-radius:7px;background:#17382fe8;color:white;font-size:9px;font-weight:700;pointer-events:none;box-shadow:0 2px 8px #17382f22; }
-.map-search-center { position:absolute;z-index:2;left:50%;top:50%;width:36px;height:36px;display:grid;place-items:center;transform:translate(-50%,-50%);border:2px solid rgba(23,56,47,.72);border-radius:50%;background:rgba(255,253,249,.82);color:var(--green);box-shadow:0 3px 14px rgba(23,56,47,.2);pointer-events:none; }
-.map-search-center::after { content:"";position:absolute;width:5px;height:5px;border-radius:50%;background:var(--rust); }
-.map-search-center svg { width:20px;height:20px;opacity:.72; }
 .map-legend { position:absolute;left:12px;bottom:12px;display:flex;align-items:center;gap:6px;padding:7px 9px;border-radius:6px;background:#fffef4e8;font-size:9px;font-weight:700;box-shadow:0 2px 8px #17382f1a;pointer-events:none; }.map-legend svg { width:12px;height:12px; }.pet-paw { color:#2f7458; }.event-paw { color:#ad5d35; }.discovery-paw { color:#7a5a9b; }
 .map-image { position:absolute;inset:0;width:100%;height:100%;object-fit:cover; }
 .map-roads { position:absolute;width:120%;height:13px;background:#e6ba57;transform:rotate(-13deg);left:-10%;top:64%;border:3px solid white; }.map-city { position:absolute;left:55%;top:52%;font:400 22px "DM Serif Display"; }
