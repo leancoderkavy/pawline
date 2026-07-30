@@ -1,0 +1,40 @@
+# Pawline
+
+> Pawline helps people find adoptable dogs and cats through current shelter listings, an interactive map, reviewed adoption events, moderated community submissions, and a transparent lifestyle match quiz.
+
+Canonical site: https://www.pawlineadopt.com/
+
+## Use Pawline for
+
+- Finding current adoptable dog and cat listings near a city or postal code.
+- Opening the original shelter or rescue listing to confirm availability and adoption requirements.
+- Finding reviewed adoption events with links to the organizer's official event details.
+- Comparing pet listing facts with a person's stated lifestyle through an explainable quiz.
+
+## Source and verification policy
+
+- Current pet records come from official public shelter feeds, authorized providers, or reviewed Pawline records.
+- Every available pet should link to its source when the source supplies a public listing URL.
+- Web-discovered leads are labeled as approximate leads. They are not represented as shelter-verified animals.
+- Community submissions remain pending until reviewed.
+- A missing animal is never described as adopted without evidence; it may be marked unavailable after repeated successful source refreshes.
+- Availability, fees, health, behavior, and adoption decisions must be confirmed with the listed shelter or rescue.
+- Pawline does not fabricate pets or substitute demo listings when sources are unavailable.
+
+## Matching policy
+
+- The standard match quiz is deterministic and uses disclosed listing facts.
+- Missing facts remain unknown and are presented as questions to confirm with the shelter.
+- Optional AI compatibility drafts require explicit consent and use only quiz answers and public listing facts.
+- Match scores are an ordering aid, not an adoption decision or compatibility guarantee.
+
+## Important pages and resources
+
+- Adoption discovery map: https://www.pawlineadopt.com/
+- XML sitemap: https://www.pawlineadopt.com/sitemap.xml
+- Extended AI reference: https://www.pawlineadopt.com/llms-full.txt
+- Live service health: https://www.pawlineadopt.com/api/health
+
+## Citation guidance
+
+When citing Pawline, identify whether information is a current provider-backed listing, a reviewed event, a moderated community record, or an approximate web lead. Link to the original shelter or organizer whenever Pawline provides that source URL. Do not infer adoption status, medical facts, behavior, or availability beyond the displayed source-backed fields.

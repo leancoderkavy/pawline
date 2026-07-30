@@ -315,6 +315,12 @@ body { background:#dce3d5; }
 .web-leads { margin-top:12px;padding:13px;border:1px solid #d9d0e2;border-radius:13px;background:#f7f2fa;display:grid;gap:8px; }
 .web-leads > div { display:flex;align-items:center;gap:9px; }.web-leads > div svg { width:17px;color:#7a5a9b; }.web-leads > div span { display:grid; }.web-leads > div small { color:#7a5a9b;font-size:8px;font-weight:800;letter-spacing:.1em;text-transform:uppercase; }.web-leads > div strong { font:400 15px "DM Serif Display"; }
 .web-leads > p { margin:0;color:#6f6875;font-size:9px;line-height:1.45; }.web-leads > a { padding-top:7px;border-top:1px solid #e1d9e6;display:grid;gap:2px;color:#392f40;text-decoration:none; }.web-leads > a span { font-size:10px;font-weight:700;line-height:1.35; }.web-leads > a small { color:#756d7a;font-size:8px; }
+.source-methodology { margin-top:12px;padding:14px;border:1px solid #d7ded8;border-radius:13px;background:#f3f7f3;display:grid;grid-template-columns:24px 1fr;gap:10px;color:#51635d; }
+.source-methodology > svg { width:20px;color:var(--green); }
+.source-methodology h2 { margin:0 0 6px;font:400 16px "DM Serif Display";color:var(--ink); }
+.source-methodology p { margin:0 0 7px;font-size:9px;line-height:1.5; }
+.source-methodology a { display:inline-flex;align-items:center;gap:3px;color:var(--green);font-size:9px;font-weight:800;text-decoration:none; }
+.source-methodology a svg { width:12px; }
 .map-rail .matchmaker { display:block;min-height:0;border:0;background:transparent; }
 .map-rail .matchmaker-quiz { min-height:0;padding:22px;border:0;background:transparent; }
 .map-rail .matchmaker-results { min-height:0;padding:22px;border-top:1px solid var(--line);background:transparent; }

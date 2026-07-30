@@ -867,6 +867,15 @@ export default function App({ clerkConfigured = false }) {
                 <span>{item.title}</span><small>{item.city} · {item.source_domain}</small>
               </a>)}
             </section> : null}
+            <section className="source-methodology" aria-labelledby="source-methodology-title">
+              <ShieldCheck />
+              <div>
+                <h2 id="source-methodology-title">How Pawline finds adoptable pets</h2>
+                <p>Current pet records come from official shelter feeds, authorized providers, or reviewed Pawline records. We link to the original listing so you can confirm availability and adoption requirements with the shelter.</p>
+                <p>Approximate web leads are labeled separately and never presented as verified animals. Pawline does not substitute demo pets when live sources are unavailable.</p>
+                <a href="/llms-full.txt">Read our source and matching methodology <ChevronRight /></a>
+              </div>
+            </section>
           </div> : null}
           {activePanel === "match" ? <Matchmaker pets={remotePets} feed={feed} location={location} onLocationChange={setLocation} onSpeciesChange={setSpecies} onFindLocation={findMatch} locationState={locationState} /> : null}
           {activePanel === "events" ? <EventPanel events={remoteEvents} /> : null}

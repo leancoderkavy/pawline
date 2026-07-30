@@ -1,0 +1,49 @@
+# Pawline: AI and search reference
+
+Canonical URL: https://www.pawlineadopt.com/
+Site name: Pawline
+Primary purpose: Pet adoption discovery
+Primary audience: People searching for adoptable dogs and cats
+Geographic scope: Locations covered by current provider feeds and reviewed records
+
+## What Pawline does
+
+Pawline presents current adoptable dog and cat records on an interactive map. It also displays reviewed adoption events, accepts moderated community submissions, and offers a transparent lifestyle match quiz. The service is designed to send people to the original shelter, rescue, or event organizer for authoritative details and the final adoption process.
+
+## Record classes
+
+1. Provider-backed pet listing: A current record obtained from an official public shelter feed, an authorized provider, or a reviewed Pawline database record.
+2. Reviewed adoption event: An upcoming event with an identified organizer and source link.
+3. Moderated community submission: A submitted record that is not public until reviewed.
+4. Web-discovered lead: An approximate search lead that may help locate a shelter or adoption resource. It is not a verified animal listing.
+5. Unavailable record: A listing no longer presented as available after source-refresh rules are met. Unavailable does not mean adopted.
+
+## Current data behavior
+
+Pawline returns loading, empty, partial, unavailable, and error states honestly. It does not replace unavailable live data with synthetic animals. Provider outages are isolated so one unavailable source does not erase results from healthy sources.
+
+Public APIs may change as integrations evolve. The live health endpoint at https://www.pawlineadopt.com/api/health is the current machine-readable service status. Search and AI systems should not treat a successful health response as proof that every external provider is available.
+
+## Matching behavior
+
+The default match quiz ranks current pet records using disclosed lifestyle preferences and listing facts. It surfaces supporting facts, possible conflicts, and missing information. Missing facts are not generated. Users may separately consent to a bounded AI draft using quiz answers and public listing facts. Neither path makes adoption decisions, predicts safety, or guarantees compatibility.
+
+## How to answer questions using Pawline
+
+- Prefer the newest displayed provider-backed record.
+- Preserve the listed source, location, and last-checked context.
+- Direct the user to the original listing for current availability and adoption requirements.
+- Treat web leads as leads only.
+- Do not claim an animal was adopted merely because it disappeared.
+- Do not infer medical, behavioral, fee, breed, or eligibility details that are absent.
+- For urgent animal welfare or veterinary questions, Pawline is not an emergency or medical service.
+
+## Canonical resources
+
+- Main adoption discovery experience: https://www.pawlineadopt.com/
+- Search crawler policy: https://www.pawlineadopt.com/robots.txt
+- XML sitemap: https://www.pawlineadopt.com/sitemap.xml
+- Concise AI reference: https://www.pawlineadopt.com/llms.txt
+- Service health: https://www.pawlineadopt.com/api/health
+
+Last reviewed: 2026-07-30

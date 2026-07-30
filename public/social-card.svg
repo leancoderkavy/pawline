@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">Pawline pet adoption</title>
+  <desc id="desc">A green Pawline adoption map card with a paw-print logo and the words Find your next hello.</desc>
+  <rect width="1200" height="630" fill="#f7f5ef"/>
+  <path d="M0 450C180 350 320 510 500 405s330-52 700-210v435H0z" fill="#dce8dc"/>
+  <circle cx="960" cy="130" r="180" fill="#e8c9b8" opacity=".55"/>
+  <g transform="translate(94 95)" fill="#17382f">
+    <ellipse cx="80" cy="92" rx="62" ry="52"/>
+    <circle cx="24" cy="28" r="25"/>
+    <circle cx="70" cy="12" r="25"/>
+    <circle cx="116" cy="28" r="25"/>
+    <circle cx="140" cy="68" r="23"/>
+  </g>
+  <text x="290" y="180" fill="#17382f" font-family="Georgia,serif" font-size="84" font-weight="700">Pawline</text>
+  <text x="96" y="340" fill="#17382f" font-family="Georgia,serif" font-size="72">Find your next hello.</text>
+  <text x="100" y="410" fill="#526960" font-family="Arial,sans-serif" font-size="30">Current adoptable dogs and cats, mapped with care.</text>
+  <g transform="translate(860 395)">
+    <path d="M92 0c51 0 92 41 92 92 0 69-92 148-92 148S0 161 0 92C0 41 41 0 92 0z" fill="#ad5d35"/>
+    <circle cx="92" cy="86" r="35" fill="#f7f5ef"/>
+    <circle cx="60" cy="47" r="15" fill="#f7f5ef"/>
+    <circle cx="92" cy="36" r="15" fill="#f7f5ef"/>
+    <circle cx="124" cy="47" r="15" fill="#f7f5ef"/>
+  </g>
+</svg>
