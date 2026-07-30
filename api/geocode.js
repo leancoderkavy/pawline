@@ -22,7 +22,7 @@ export default async function handler(request, response) {
   url.searchParams.set("language", "en");
 
   try {
-    const upstream = await fetch(url, {
+    const upstream = await fetch(url.toString(), {
       headers: { Accept: "application/json" },
       signal: AbortSignal.timeout(6000),
     });

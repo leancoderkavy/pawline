@@ -88,7 +88,7 @@ function socrataUrl(base, { limit, page, where }) {
 }
 
 async function fetchSocrata(url, provider) {
-  const upstream = await fetch(url, {
+  const upstream = await fetch(url.toString(), {
     headers: { Accept: "application/json" },
     signal: AbortSignal.timeout(10000),
   });
@@ -240,7 +240,7 @@ async function fetchLosAngelesPets(species, { limit, page }) {
   url.searchParams.set("page", String(page - 1));
   if (species.includes("Cat")) url.searchParams.set("species[28]", "28");
   if (species.includes("Dog")) url.searchParams.set("species[29]", "29");
-  const upstream = await fetch(url, {
+  const upstream = await fetch(url.toString(), {
     headers: {
       Accept: "text/html",
       "User-Agent": "Pawline adoption search (pawlineadopt.com)",
@@ -388,7 +388,7 @@ async function fetchSpecies(species, { limit, page }, apiKey) {
   url.searchParams.set("sort", "random");
   url.searchParams.set("include", "pictures,orgs,locations,species,breeds");
 
-  const upstream = await fetch(url, {
+  const upstream = await fetch(url.toString(), {
     headers: {
       Accept: "application/vnd.api+json",
       "Content-Type": "application/vnd.api+json",
