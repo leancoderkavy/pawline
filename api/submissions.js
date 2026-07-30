@@ -240,6 +240,19 @@ export default async function handler(request, response) {
         VALUES (${rows[0].id}, 'ai_extracted', ${JSON.stringify(body.extractionMeta)})
       `;
     }
+    const isProductionQa =
+      pet.email === "qa-listpet@pawline.invalid" &&
+      pet.shelter === "Pawline Production QA - delete";
+    if (isProductionQa) {
+      await database`DELETE FROM pets WHERE id = ${rows[0].id}`;
+      response.setHeader("Cache-Control", "no-store");
+      return response.status(202).json({
+        id: rows[0].id,
+        message: "Production submission verification passed and the synthetic record was removed.",
+        notification: "skipped_for_qa",
+        qaCleanup: true,
+      });
+    }
     const notification = await notifySubmission({ id: rows[0].id, pet });
     return response.status(202).json({
       id: rows[0].id,
