@@ -30,6 +30,10 @@ const parseFile = (file) => {
   };
 };
 
+export function submissionStorageReady(row) {
+  return Boolean(row?.submission_files && row?.submission_log);
+}
+
 export default async function handler(request, response) {
   if (request.method !== "POST") {
     response.setHeader("Allow", "POST");
@@ -123,6 +127,16 @@ export default async function handler(request, response) {
     .digest("hex");
 
   try {
+    const storageRows = await database`
+      SELECT
+        to_regclass('public.pet_submission_files') AS submission_files,
+        to_regclass('public.pet_submission_log') AS submission_log
+    `;
+    if (!submissionStorageReady(storageRows[0])) {
+      return response.status(503).json({
+        error: "Submissions are temporarily unavailable while secure document storage is being prepared.",
+      });
+    }
     const rows = await database`
       INSERT INTO pets (
         fingerprint, name, species, breed, age, sex, size, description, city, country,

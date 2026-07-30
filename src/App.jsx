@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import "mapbox-gl/dist/mapbox-gl.css";
 import {
   AlertTriangle, ArrowLeft, CalendarDays, CheckCircle2, ChevronRight, Clock3,
@@ -8,7 +8,8 @@ import {
 import heroImage from "./heroData";
 import { rankPets } from "./matching";
 import { buildMapView } from "./mapView";
-import Community from "./Community";
+
+const Community = lazy(() => import("./Community"));
 
 function Button({ className = "", variant = "primary", children, ...props }) {
   return <button className={`button ${variant === "outline" ? "button-outline" : ""} ${className}`} {...props}>{children}</button>;
@@ -880,7 +881,7 @@ export default function App({ clerkConfigured = false }) {
           {activePanel === "match" ? <Matchmaker pets={remotePets} feed={feed} location={location} onLocationChange={setLocation} onSpeciesChange={setSpecies} onFindLocation={findMatch} locationState={locationState} /> : null}
           {activePanel === "events" ? <EventPanel events={remoteEvents} /> : null}
           {activePanel === "community" ? clerkConfigured
-            ? <Community onLeadsChange={setCommunityLeads} />
+            ? <Suspense fallback={<div className="community-auth-state"><span><MessageCircle /></span><h2>Opening the community…</h2></div>}><Community onLeadsChange={setCommunityLeads} /></Suspense>
             : <div className="community-auth-state"><span><MessageCircle /></span><h2>Community needs Clerk</h2><p>Add the Pawline Clerk publishable key to enable account creation and sign-in. Chat stays closed until identity is configured.</p><div className="auth-safety"><ShieldCheck /><span><strong>Failing closed</strong>No anonymous or unverified chat access is allowed.</span></div></div>
           : null}
         </div>

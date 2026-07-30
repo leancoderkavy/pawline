@@ -1,6 +1,9 @@
 import { generateText, jsonSchema, Output } from "ai";
 
 const MAX_TOTAL_BYTES = 3 * 1024 * 1024;
+const WINDOW_MS = 60 * 60 * 1000;
+const MAX_REQUESTS_PER_WINDOW = 5;
+const buckets = new Map();
 const ALLOWED_TYPES = new Set([
   "application/pdf",
   "image/jpeg",
@@ -53,7 +56,22 @@ function parseDataUrl(file) {
   return data;
 }
 
+function rateLimited(request) {
+  const key = String(request.headers["x-forwarded-for"] || request.socket?.remoteAddress || "unknown")
+    .split(",")[0]
+    .trim();
+  const now = Date.now();
+  const current = buckets.get(key);
+  if (!current || now - current.startedAt >= WINDOW_MS) {
+    buckets.set(key, { startedAt: now, count: 1 });
+    return false;
+  }
+  current.count += 1;
+  return current.count > MAX_REQUESTS_PER_WINDOW;
+}
+
 export default async function handler(request, response) {
+  response.setHeader("Cache-Control", "no-store");
   if (request.method !== "POST") {
     response.setHeader("Allow", "POST");
     return response.status(405).json({ error: "Method not allowed" });
@@ -64,6 +82,9 @@ export default async function handler(request, response) {
 
   const files = Array.isArray(request.body?.files) ? request.body.files : [];
   if (!files.length) return response.status(400).json({ error: "Add at least one file." });
+  if (rateLimited(request)) {
+    return response.status(429).json({ error: "Document extraction limit reached. Enter details manually or try again later." });
+  }
 
   try {
     const parsed = files.map(file => ({ ...file, buffer: parseDataUrl(file) }));
@@ -100,7 +121,6 @@ Summarize clinical facts without diagnosing. Keep the public description factual
       timeout: { totalMs: 45000 },
     });
 
-    response.setHeader("Cache-Control", "no-store");
     return response.status(200).json({
       fields: output.fields,
       extraction: {
