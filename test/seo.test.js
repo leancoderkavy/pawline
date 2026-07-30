@@ -5,16 +5,13 @@ import test from "node:test";
 const read = path => readFile(new URL(`../${path}`, import.meta.url), "utf8");
 
 test("homepage publishes canonical search and social metadata", async () => {
-  const html = await read("index.html");
-  assert.match(html, /<link rel="canonical" href="https:\/\/www\.pawlineadopt\.com\/"/);
-  assert.match(html, /<meta name="description" content="[^"]+"/);
-  assert.match(html, /<meta property="og:title"/);
-  assert.match(html, /<meta name="twitter:card" content="summary_large_image"/);
-  assert.match(html, /<script type="application\/ld\+json">/);
-  assert.doesNotThrow(() => {
-    const json = html.match(/<script type="application\/ld\+json">\s*([\s\S]*?)\s*<\/script>/)[1];
-    JSON.parse(json);
-  });
+  const layout = await read("app/layout.jsx");
+  assert.match(layout, /alternates: \{ canonical: "\/" \}/);
+  assert.match(layout, /robots: \{ index: true, follow: true/);
+  assert.match(layout, /Find Adoptable Dogs & Cats Near You \| Pawline/);
+  assert.match(layout, /card: "summary_large_image"/);
+  assert.match(layout, /type="application\/ld\+json"/);
+  assert.match(layout, /"@type": "WebApplication"/);
 });
 
 test("crawler and AI discovery files use the canonical production domain", async () => {

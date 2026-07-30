@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useEffect, useRef, useState } from "react";
 import Ably from "ably";
 import { SignInButton, UserButton, useAuth, useUser } from "@clerk/react";
