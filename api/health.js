@@ -1,16 +1,15 @@
-export default function handler(_request, response) {
-  const communityDatabaseConfigured = Boolean(process.env.DATABASE_URL);
-  const rescueGroupsConfigured = Boolean(process.env.RESCUEGROUPS_API_KEY);
-  const mapboxConfigured = Boolean(process.env.MAPBOX_ACCESS_TOKEN);
+export function getHealth(environment = process.env) {
+  const communityDatabaseConfigured = Boolean(environment.DATABASE_URL);
+  const rescueGroupsConfigured = Boolean(environment.RESCUEGROUPS_API_KEY);
+  const mapboxConfigured = Boolean(environment.MAPBOX_ACCESS_TOKEN);
   const emailConfigured = Boolean(
-    process.env.RESEND_API_KEY &&
-      process.env.PAWLINE_FROM_EMAIL &&
-      process.env.PAWLINE_MODERATION_EMAIL,
+    environment.RESEND_API_KEY &&
+      environment.PAWLINE_FROM_EMAIL &&
+      environment.PAWLINE_MODERATION_EMAIL,
   );
-  const clerkConfigured = Boolean(process.env.CLERK_SECRET_KEY);
-  const realtimeConfigured = Boolean(process.env.ABLY_API_KEY);
-  response.setHeader("Cache-Control", "no-store");
-  response.status(200).json({
+  const clerkConfigured = Boolean(environment.CLERK_SECRET_KEY);
+  const realtimeConfigured = Boolean(environment.ABLY_API_KEY);
+  return {
     ok: true,
     service: "pawline",
     rescueGroupsConfigured,
@@ -18,18 +17,24 @@ export default function handler(_request, response) {
     emailConfigured,
     communityDatabaseConfigured,
     submissionsConfigured: communityDatabaseConfigured,
-    scheduledIngestionConfigured: communityDatabaseConfigured && Boolean(process.env.CRON_SECRET),
+    scheduledIngestionConfigured: communityDatabaseConfigured && Boolean(environment.CRON_SECRET),
     aiMatchingConfigured: Boolean(
-      process.env.VERCEL || process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN,
+      environment.VERCEL || environment.AI_GATEWAY_API_KEY || environment.VERCEL_OIDC_TOKEN,
     ),
-    tavilyDiscoveryConfigured: Boolean(process.env.TAVILY_API_KEY && process.env.CRON_SECRET),
+    tavilyDiscoveryConfigured: Boolean(environment.TAVILY_API_KEY && environment.CRON_SECRET),
     clerkConfigured,
     realtimeCommunityConfigured: clerkConfigured && communityDatabaseConfigured && realtimeConfigured,
     communityLinkParsingConfigured: clerkConfigured && communityDatabaseConfigured && Boolean(
-      process.env.VERCEL || process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN,
+      environment.VERCEL || environment.AI_GATEWAY_API_KEY || environment.VERCEL_OIDC_TOKEN,
     ),
     publicOpenDataProviders: 2,
+    officialDirectPetProviders: 3,
     activePetProviders:
-      2 + Number(rescueGroupsConfigured) + Number(communityDatabaseConfigured),
-  });
+      3 + Number(rescueGroupsConfigured) + Number(communityDatabaseConfigured),
+  };
+}
+
+export default function handler(_request, response) {
+  response.setHeader("Cache-Control", "no-store");
+  response.status(200).json(getHealth());
 }

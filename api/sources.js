@@ -5,6 +5,7 @@ const sourceCatalog = [
     scope: "United States and Canada",
     recordAccess: "Public adoptable-pet API",
     status: process.env.RESCUEGROUPS_API_KEY ? "active" : "awaiting_key",
+    onboarding: "requested",
   },
   {
     id: "mapbox",
@@ -38,6 +39,7 @@ const sourceCatalog = [
     scope: "United States and Canada",
     recordAccess: "Search API partnership required",
     status: "partner_approval_required",
+    onboarding: "requested",
   },
   {
     id: "shelterluv",
@@ -45,6 +47,7 @@ const sourceCatalog = [
     scope: "Per participating organization",
     recordAccess: "Shelter-authorized credentials required",
     status: "organization_credentials_required",
+    onboarding: "requested",
   },
   {
     id: "petpoint",
@@ -52,6 +55,7 @@ const sourceCatalog = [
     scope: "Per participating organization",
     recordAccess: "Shelter-specific integration required",
     status: "organization_credentials_required",
+    onboarding: "requested",
   },
   {
     id: "animal-shelter-manager",
@@ -59,6 +63,7 @@ const sourceCatalog = [
     scope: "Per participating organization, worldwide",
     recordAccess: "Shelter-enabled JSON/CSV adoptable-animal service",
     status: "organization_feed_required",
+    onboarding: "organization_by_organization",
   },
   {
     id: "montgomery-county-md",
