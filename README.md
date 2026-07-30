@@ -161,6 +161,21 @@ Each accepted submission triggers an internal review alert and a submitter
 acknowledgement. Email delivery failure is logged but does not discard the
 saved submission.
 
+### List a pet document intake
+
+The List a Pet flow accepts multiple PDF, TXT, JPG, PNG, and WebP files (3 MB
+combined). `/api/extract-submission` sends those files through the Vercel AI SDK
+and AI Gateway to create an editable draft from directly supported facts.
+Submitters must review the draft and attest to their authority, complete
+medical/behavior disclosure, and local transfer-law compliance before the
+listing is saved.
+
+Uploaded records are stored in `pet_submission_files`; they are not public.
+Only the selected primary photo becomes readable after moderators change the
+pet to `available`. `pet_submission_log` records submission and AI-extraction
+events. Apply `db/schema.sql` before enabling the flow. AI Gateway uses Vercel
+deployment OIDC when available, or `AI_GATEWAY_API_KEY` outside that environment.
+
 ### Provider readiness
 
 `GET /api/health` reports the two active public feeds and whether RescueGroups,

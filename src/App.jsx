@@ -2,8 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import "mapbox-gl/dist/mapbox-gl.css";
 import {
   AlertTriangle, ArrowLeft, CalendarDays, CheckCircle2, ChevronRight, Clock3,
-  ExternalLink, Globe2, Heart, Info, LocateFixed, MapPin, Menu, PawPrint, Pencil,
-  RotateCcw, Search, ShieldCheck, SlidersHorizontal, X
+  ExternalLink, FileText, Globe2, Heart, Info, LocateFixed, MapPin, Menu, PawPrint, Pencil,
+  RotateCcw, Search, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Upload, X
 } from "lucide-react";
 import heroImage from "./heroData";
 import { rankPets } from "./matching";
@@ -81,30 +81,115 @@ function Dialog({ title, children, onClose }) {
 }
 
 function SubmissionForm({ onClose }) {
-  const [form, setForm] = useState({ name: "", species: "Dog", breed: "", age: "", city: "", country: "", shelter: "", email: "", phone: "", imageUrl: "", sourceUrl: "", description: "", website: "" });
+  const [form, setForm] = useState({
+    name: "", species: "Dog", breed: "", age: "", sex: "Unknown", size: "",
+    city: "", region: "", postalCode: "", country: "United States", shelter: "",
+    email: "", phone: "", description: "", spayedNeutered: "Unknown",
+    rabiesStatus: "Unknown", vaccinationStatus: "Unknown", microchipStatus: "Unknown",
+    microchipId: "", medicalNotes: "", behaviorNotes: "", biteHistory: "Unknown",
+    goodWithChildren: "Unknown", goodWithDogs: "Unknown", goodWithCats: "Unknown",
+    houseTrained: "Unknown", rehomingReason: "", rehomingFee: "", website: "",
+    authorityConfirmed: false, disclosureConfirmed: false, localLawConfirmed: false,
+  });
+  const [files, setFiles] = useState([]);
+  const [dragging, setDragging] = useState(false);
   const [state, setState] = useState({ status: "idle", message: "" });
-  const update = e => setForm({ ...form, [e.target.name]: e.target.value });
+  const update = e => setForm(current => ({ ...current, [e.target.name]: e.target.type === "checkbox" ? e.target.checked : e.target.value }));
+  const addFiles = async selected => {
+    const allowed = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf", "text/plain"]);
+    const incoming = [...selected].filter(file => allowed.has(file.type));
+    const total = [...files, ...incoming].reduce((sum, file) => sum + file.size, 0);
+    if (total > 3 * 1024 * 1024) {
+      setState({ status: "error", message: "Photos and documents must total 3 MB or less." });
+      return;
+    }
+    setFiles(current => [...current, ...incoming]);
+    if (incoming.length !== selected.length) setState({ status: "error", message: "Use PDF, TXT, JPG, PNG, or WebP files." });
+  };
+  const encodedFiles = () => Promise.all(files.map(file => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve({ name: file.name, type: file.type, size: file.size, data: reader.result });
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  })));
   const submit = async e => {
     e.preventDefault();
-    setState({ status: "loading", message: "" });
+    setState({ status: "extracting", message: "Reading uploaded records and preparing an editable draft…" });
     try {
-      const response = await fetch("/api/submissions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+      const attachments = await encodedFiles();
+      let draft = form;
+      if (attachments.length) {
+        const extractionResponse = await fetch("/api/extract-submission", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ files: attachments }),
+        });
+        const extraction = await readJson(extractionResponse, "Document extraction is unavailable.");
+        if (!extractionResponse.ok) throw new Error(extraction.error || "We could not read those documents.");
+        draft = { ...form, ...Object.fromEntries(Object.entries(extraction.fields || {}).filter(([, value]) => value && value !== "Unknown")), extractionMeta: extraction.extraction };
+        setForm(draft);
+        setState({ status: "review", message: "We pre-filled what the records supported. Review every field, then submit again to save." });
+        return;
+      }
+      setState({ status: "saving", message: "Saving your listing for moderation…" });
+      const response = await fetch("/api/submissions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...draft, files: attachments }) });
       const body = await readJson(response, "Submissions require the configured Pawline API.");
       if (!response.ok) throw new Error(body.error || "Submission failed");
       setState({ status: "success", message: body.message });
     } catch (error) { setState({ status: "error", message: error.message }); }
   };
-  return <Dialog title="List a pet" onClose={onClose}>{state.status === "success" ? <div className="success"><Heart fill="currentColor" /><h3>Submitted for review</h3><p>{state.message}</p><Button onClick={onClose}>Done</Button></div> : <><p className="dialog-copy">Submit a dog or cat you are authorized to list. Pawline reviews every submission before it becomes public.</p><form onSubmit={submit}>
+  const finalSubmit = async () => {
+    setState({ status: "saving", message: "Saving your listing for moderation…" });
+    try {
+      const attachments = await encodedFiles();
+      const response = await fetch("/api/submissions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, files: attachments }) });
+      const body = await readJson(response, "Submissions require the configured Pawline API.");
+      if (!response.ok) throw new Error(body.error || "Submission failed");
+      setState({ status: "success", message: body.message });
+    } catch (error) { setState({ status: "error", message: error.message }); }
+  };
+  const choice = (name, label, options = ["Unknown", "Yes", "No"]) => <label>{label}<select name={name} value={form[name]} onChange={update}>{options.map(option => <option key={option}>{option}</option>)}</select></label>;
+  const busy = ["extracting", "saving"].includes(state.status);
+  return <Dialog title="List a pet" onClose={onClose}>{state.status === "success" ? <div className="success"><Heart fill="currentColor" /><h3>Submitted for review</h3><p>{state.message}</p><Button onClick={onClose}>Done</Button></div> : <><p className="dialog-copy">Upload a photo and available health or identity records. Pawline can extract a draft, but you must review it. Every listing stays private until moderation.</p><form onSubmit={submit}>
+    <section className="submission-section"><h3>Photos & records</h3>
+      <div className={`drop-zone ${dragging ? "is-dragging" : ""}`} onDragOver={e => { e.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={e => { e.preventDefault(); setDragging(false); addFiles(e.dataTransfer.files); }}>
+        <Upload /><strong>Drag and drop files here</strong><span>or choose as many PDF, TXT, JPG, PNG, or WebP files as fit within 3 MB total</span>
+        <label className="file-picker">Choose files<input type="file" multiple accept=".pdf,.txt,.jpg,.jpeg,.png,.webp" onChange={e => addFiles(e.target.files)} /></label>
+      </div>
+      {files.length ? <ul className="upload-list">{files.map((file, index) => <li key={`${file.name}-${index}`}><span>{file.type.startsWith("image/") ? <Upload /> : <FileText />}<span><strong>{file.name}</strong><small>{Math.ceil(file.size / 1024)} KB</small></span></span><button type="button" onClick={() => setFiles(current => current.filter((_, itemIndex) => itemIndex !== index))} aria-label={`Remove ${file.name}`}><Trash2 /></button></li>)}</ul> : null}
+    </section>
+    <section className="submission-section"><h3>Pet details</h3>
     <label>Pet name<input required name="name" value={form.name} onChange={update} placeholder="e.g. Poppy" /></label>
     <div className="form-row"><label>Species<select name="species" value={form.species} onChange={update}><option>Dog</option><option>Cat</option></select></label><label>Breed<input required name="breed" value={form.breed} onChange={update} /></label></div>
-    <div className="form-row"><label>City<input required name="city" value={form.city} onChange={update} /></label><label>Country<input required name="country" value={form.country} onChange={update} /></label></div>
+    <div className="form-row"><label>Age or date of birth<input name="age" value={form.age} onChange={update} /></label>{choice("sex", "Sex", ["Unknown", "Female", "Male"])}</div>
+    <div className="form-row">{choice("spayedNeutered", "Spayed or neutered")}{choice("microchipStatus", "Microchipped")}</div>
+    <label>Microchip ID (do not enter registration passwords)<input name="microchipId" value={form.microchipId} onChange={update} /></label>
+    </section>
+    <section className="submission-section"><h3>Health & behavior disclosures</h3>
+    <div className="form-row">{choice("rabiesStatus", "Rabies vaccination current")}{choice("vaccinationStatus", "Core vaccinations current")}</div>
+    <div className="form-row">{choice("biteHistory", "Known bite history")}{choice("houseTrained", "House trained")}</div>
+    <label>Known medical conditions, medications, allergies, or care needs<textarea name="medicalNotes" value={form.medicalNotes} onChange={update} maxLength={2000} /></label>
+    <label>Behavior history, triggers, training, or safety needs<textarea name="behaviorNotes" value={form.behaviorNotes} onChange={update} maxLength={2000} /></label>
+    <div className="form-row">{choice("goodWithChildren", "Lived safely with children")}{choice("goodWithDogs", "Lived safely with dogs")}</div>
+    {choice("goodWithCats", "Lived safely with cats")}
+    </section>
+    <section className="submission-section"><h3>Placement & contact</h3>
+    <div className="form-row"><label>City<input required name="city" value={form.city} onChange={update} /></label><label>State / region<input required name="region" value={form.region} onChange={update} /></label></div>
+    <div className="form-row"><label>Postal code<input required name="postalCode" value={form.postalCode} onChange={update} /></label><label>Country<input required name="country" value={form.country} onChange={update} /></label></div>
     <label>Shelter or contact name<input required name="shelter" value={form.shelter} onChange={update} /></label>
     <label>Contact email<input required type="email" name="email" value={form.email} onChange={update} /></label>
-    <label>Pet photo URL (optional)<input type="url" name="imageUrl" value={form.imageUrl} onChange={update} /></label>
-    <label>Description (optional)<textarea name="description" value={form.description} onChange={update} maxLength={2000} /></label>
+    <div className="form-row"><label>Phone (optional)<input name="phone" value={form.phone} onChange={update} /></label><label>Rehoming fee (optional)<input name="rehomingFee" value={form.rehomingFee} onChange={update} /></label></div>
+    <label>Reason for rehoming<textarea name="rehomingReason" value={form.rehomingReason} onChange={update} maxLength={1000} /></label>
+    <label>Public listing description<textarea name="description" value={form.description} onChange={update} maxLength={2000} /></label>
+    </section>
+    <section className="submission-section attestations"><h3>Your attestations</h3>
+      <label><input required type="checkbox" name="authorityConfirmed" checked={form.authorityConfirmed} onChange={update} />I own this pet or have documented authority to place them.</label>
+      <label><input required type="checkbox" name="disclosureConfirmed" checked={form.disclosureConfirmed} onChange={update} />I disclosed all known medical, bite, aggression, and behavioral history accurately.</label>
+      <label><input required type="checkbox" name="localLawConfirmed" checked={form.localLawConfirmed} onChange={update} />I will comply with licensing, transfer, health-certificate, and other rules where the pet is transferred.</label>
+      <p><Info /> Requirements vary by jurisdiction and lister type. Pawline does not replace advice from animal control, a veterinarian, or a lawyer.</p>
+    </section>
     <label className="honeypot" aria-hidden="true">Website<input tabIndex="-1" name="website" value={form.website} onChange={update} /></label>
-    {state.status === "error" && <p className="form-error" role="alert">{state.message}</p>}
-    <Button type="submit" disabled={state.status === "loading"}>{state.status === "loading" ? "Submitting…" : "Submit for review"}</Button>
+    {state.message && <p className={state.status === "error" ? "form-error" : "form-status"} role={state.status === "error" ? "alert" : "status"}>{state.message}</p>}
+    {state.status === "review" ? <Button type="button" onClick={finalSubmit} disabled={busy}>Submit reviewed listing</Button> : <Button type="submit" disabled={busy}>{busy ? "Working…" : files.length ? <><Sparkles /> Read records & pre-fill</> : "Submit for review"}</Button>}
   </form></>}</Dialog>;
 }
 
@@ -620,7 +705,7 @@ export default function App() {
   const [feed, setFeed] = useState({ mode: "loading", message: "Checking trusted adoption sources…" });
   const [integrations, setIntegrations] = useState({ mapboxConfigured: false });
   const [activePanel, setActivePanel] = useState("explore");
-  const [mobileRailCollapsed, setMobileRailCollapsed] = useState(true);
+  const [railCollapsed, setRailCollapsed] = useState(true);
   const [mapPetType, setMapPetType] = useState("All");
   const [mapDistance, setMapDistance] = useState("150");
   const [showMapEvents, setShowMapEvents] = useState(true);
@@ -704,7 +789,7 @@ export default function App() {
   };
   const openPanel = panel => {
     setActivePanel(panel);
-    setMobileRailCollapsed(false);
+    setRailCollapsed(false);
   };
   const resetMapFilters = () => {
     setMapPetType("All");
@@ -738,13 +823,13 @@ export default function App() {
       </div>
     </header>
 
-  <main id="discover" className={`map-workspace panel-${activePanel} ${mobileRailCollapsed ? "rail-collapsed" : ""}`}>
+  <main id="discover" className={`map-workspace panel-${activePanel} ${railCollapsed ? "rail-collapsed" : ""}`}>
       <MapPanel location={location} coordinates={coordinates} configured={integrations.mapboxConfigured} view={mapView} petType={mapPetType} showEvents={showMapEvents} onOpenPet={setSelectedPet} onOpenEvent={setSelectedEvent} onOpenDiscovery={setSelectedDiscovery} onMapMove={searchThisMapArea} />
 
-      <aside className={`map-rail ${mobileRailCollapsed ? "is-collapsed" : ""}`} aria-label="Map discovery tools">
-        <button className="rail-toggle" type="button" onClick={() => setMobileRailCollapsed(value => !value)} aria-expanded={!mobileRailCollapsed} aria-controls="map-rail-content">
+      <aside className={`map-rail ${railCollapsed ? "is-collapsed" : ""}`} aria-label="Map discovery tools">
+        <button className="rail-toggle" type="button" onClick={() => setRailCollapsed(value => !value)} aria-expanded={!railCollapsed} aria-controls="map-rail-content">
           <ChevronRight />
-          <span className="sr-only">{mobileRailCollapsed ? "Expand discovery tools" : "Collapse discovery tools"}</span>
+          <span className="sr-only">{railCollapsed ? "Show discovery tools" : "Hide discovery tools"}</span>
         </button>
         <nav className="rail-tabs" aria-label="Discovery views">
           <button className={activePanel === "explore" ? "active" : ""} onClick={() => openPanel("explore")}><Search />Explore</button>

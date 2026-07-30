@@ -66,6 +66,31 @@ CREATE INDEX IF NOT EXISTS pets_public_search
   ON pets (status, species, updated_at DESC);
 CREATE INDEX IF NOT EXISTS pets_source_id ON pets (source_id);
 
+CREATE TABLE IF NOT EXISTS pet_submission_files (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  pet_id uuid NOT NULL REFERENCES pets(id) ON DELETE CASCADE,
+  file_name text NOT NULL,
+  media_type text NOT NULL,
+  byte_size integer NOT NULL CHECK (byte_size > 0 AND byte_size <= 3145728),
+  content bytea NOT NULL,
+  is_primary_photo boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS pet_submission_files_pet_id
+  ON pet_submission_files (pet_id, created_at);
+
+CREATE TABLE IF NOT EXISTS pet_submission_log (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  pet_id uuid NOT NULL REFERENCES pets(id) ON DELETE CASCADE,
+  event_type text NOT NULL CHECK (event_type IN ('submitted', 'ai_extracted', 'reviewed', 'published', 'rejected')),
+  event_data jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS pet_submission_log_pet_id
+  ON pet_submission_log (pet_id, created_at DESC);
+
 CREATE TABLE IF NOT EXISTS ingestion_runs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   source_id uuid REFERENCES sources(id) ON DELETE CASCADE,
