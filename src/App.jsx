@@ -284,10 +284,11 @@ function addPawImage(map, id, color) {
   map.addImage(id, { width: size, height: size, data: context.getImageData(0, 0, size, size).data });
 }
 
-function InteractiveMap({ coordinates, points, location, onPointClick, onMoveSearch }) {
+function InteractiveMap({ coordinates, userCoordinates, points, location, onPointClick, onMoveSearch }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const geoJsonRef = useRef(null);
+  const userCoordinatesRef = useRef(userCoordinates);
   const pointClickRef = useRef(onPointClick);
   const moveSearchRef = useRef(onMoveSearch);
   const [mapState, setMapState] = useState({ status: "loading", message: "" });
@@ -303,6 +304,7 @@ function InteractiveMap({ coordinates, points, location, onPointClick, onMoveSea
       })),
   };
   geoJsonRef.current = geoJson;
+  userCoordinatesRef.current = userCoordinates;
   pointClickRef.current = onPointClick;
   moveSearchRef.current = onMoveSearch;
 
@@ -335,6 +337,34 @@ function InteractiveMap({ coordinates, points, location, onPointClick, onMoveSea
       map.on("load", () => {
         if (!active) return;
         map.addSource("pawline-points", { type: "geojson", data: geoJsonRef.current });
+        map.addSource("pawline-user-location", {
+          type: "geojson",
+          data: {
+            type: "FeatureCollection",
+            features: userCoordinatesRef.current ? [{
+              type: "Feature",
+              geometry: { type: "Point", coordinates: [userCoordinatesRef.current.longitude, userCoordinatesRef.current.latitude] },
+              properties: {},
+            }] : [],
+          },
+        });
+        map.addLayer({
+          id: "pawline-user-location-halo",
+          type: "circle",
+          source: "pawline-user-location",
+          paint: { "circle-radius": 14, "circle-color": "#2578d4", "circle-opacity": 0.2 },
+        });
+        map.addLayer({
+          id: "pawline-user-location",
+          type: "circle",
+          source: "pawline-user-location",
+          paint: {
+            "circle-radius": 7,
+            "circle-color": "#2578d4",
+            "circle-stroke-color": "#ffffff",
+            "circle-stroke-width": 3,
+          },
+        });
         addPawImage(map, "pawline-pet-marker", "#2f7458");
         addPawImage(map, "pawline-event-marker", "#ad5d35");
         addPawImage(map, "pawline-discovery-marker", "#7a5a9b");
@@ -443,6 +473,19 @@ function InteractiveMap({ coordinates, points, location, onPointClick, onMoveSea
   }, [points, coordinates]);
 
   useEffect(() => {
+    const source = mapRef.current?.getSource("pawline-user-location");
+    if (!source) return;
+    source.setData({
+      type: "FeatureCollection",
+      features: userCoordinates ? [{
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [userCoordinates.longitude, userCoordinates.latitude] },
+        properties: {},
+      }] : [],
+    });
+  }, [userCoordinates?.longitude, userCoordinates?.latitude]);
+
+  useEffect(() => {
     const map = mapRef.current;
     if (!map || !coordinates) return;
     const current = map.getCenter();
@@ -500,7 +543,7 @@ function MapResults({ view, onOpenPet, onOpenEvent, onOpenDiscovery }) {
   </section>;
 }
 
-function MapPanel({ location, coordinates, configured, view, petType, showEvents, onOpenPet, onOpenEvent, onOpenDiscovery, onMapMove }) {
+function MapPanel({ location, coordinates, userCoordinates, locationPrompt, configured, view, petType, showEvents, onOpenPet, onOpenEvent, onOpenDiscovery, onMapMove, onRequestLocation, onDismissLocation }) {
   const { pets: visiblePets, events: visibleEvents, discoveries: visibleDiscoveries } = view;
   const points = [
     ...visiblePets.slice(0, 30)
@@ -530,7 +573,13 @@ function MapPanel({ location, coordinates, configured, view, petType, showEvents
       <div className="map-count" aria-live="polite"><strong>{visiblePets.length}</strong><span>mapped pets in this view</span></div>
     </header>
     <div className="map-canvas">
-      {configured ? <InteractiveMap coordinates={coordinates} points={points} location={location} onPointClick={openPoint} onMoveSearch={onMapMove} /> : <div className="map-unavailable"><span className="map-unavailable-icon"><MapPin /></span><strong>Map preview is waiting for its connection</strong><span>Filters are ready to use. Connect Mapbox to turn on live location search and the map preview.</span></div>}
+      {configured ? <InteractiveMap coordinates={coordinates} userCoordinates={userCoordinates} points={points} location={location} onPointClick={openPoint} onMoveSearch={onMapMove} /> : <div className="map-unavailable"><span className="map-unavailable-icon"><MapPin /></span><strong>Map preview is waiting for its connection</strong><span>Filters are ready to use. Connect Mapbox to turn on live location search and the map preview.</span></div>}
+      {configured && locationPrompt.status !== "hidden" && !userCoordinates ? <div className="location-permission" role="dialog" aria-labelledby="location-permission-title" aria-describedby="location-permission-description">
+        <span className="location-permission-icon" aria-hidden="true"><LocateFixed /></span>
+        <div><strong id="location-permission-title">See where you are</strong><span id="location-permission-description">{locationPrompt.message || "Share your location to show your position on the map."}</span></div>
+        <button type="button" className="button primary" onClick={onRequestLocation} disabled={locationPrompt.status === "loading"}>{locationPrompt.status === "loading" ? "Locating…" : "Use my location"}</button>
+        <button type="button" className="location-permission-dismiss" onClick={onDismissLocation}>Not now</button>
+      </div> : null}
       <span className="map-legend"><PawPrint className="pet-paw" /> {petType === "All" ? "Pets" : `${petType}s`} {showEvents ? <><PawPrint className="event-paw" /> Events</> : null} <PawPrint className="discovery-paw" /> Web leads</span>
       <span className="map-attribution">Verified listings + current web leads · Always confirm with the shelter</span>
     </div>
@@ -709,6 +758,8 @@ export default function App({ clerkConfigured = false }) {
     name: "Pasadena, California, USA",
   });
   const [locationState, setLocationState] = useState({ status: "idle", message: "" });
+  const [userCoordinates, setUserCoordinates] = useState(null);
+  const [locationPrompt, setLocationPrompt] = useState({ status: "idle", message: "" });
   const [feed, setFeed] = useState({ mode: "loading", message: "Checking trusted adoption sources…" });
   const [integrations, setIntegrations] = useState({ mapboxConfigured: false });
   const [activePanel, setActivePanel] = useState("explore");
@@ -806,6 +857,34 @@ export default function App({ clerkConfigured = false }) {
       setLocationState({ status: "error", message: error.message });
     }
   };
+  const requestUserLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationPrompt({ status: "error", message: "Location sharing is not supported by this browser." });
+      return;
+    }
+    setLocationPrompt({ status: "loading", message: "Waiting for your browser…" });
+    navigator.geolocation.getCurrentPosition(
+      position => {
+        const next = {
+          longitude: position.coords.longitude,
+          latitude: position.coords.latitude,
+        };
+        setUserCoordinates(next);
+        setCoordinates({ ...next, name: "Your location" });
+        setLocation("Your location");
+        setMapSearchMoved(false);
+        setLocationState({ status: "success", message: "Your location is shown on the map." });
+        setLocationPrompt({ status: "hidden", message: "" });
+      },
+      error => {
+        const message = error.code === error.PERMISSION_DENIED
+          ? "Location access was denied. You can enable it in your browser settings."
+          : "We couldn’t get your location. Check your connection and try again.";
+        setLocationPrompt({ status: "error", message });
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
+    );
+  };
   const openPanel = panel => {
     setActivePanel(panel);
     setRailCollapsed(false);
@@ -843,7 +922,7 @@ export default function App({ clerkConfigured = false }) {
     </header>
 
   <main id="discover" className={`map-workspace panel-${activePanel} ${railCollapsed ? "rail-collapsed" : ""}`}>
-      <MapPanel location={location} coordinates={coordinates} configured={integrations.mapboxConfigured} view={mapView} petType={mapPetType} showEvents={showMapEvents} onOpenPet={setSelectedPet} onOpenEvent={setSelectedEvent} onOpenDiscovery={setSelectedDiscovery} onMapMove={searchThisMapArea} />
+      <MapPanel location={location} coordinates={coordinates} userCoordinates={userCoordinates} locationPrompt={locationPrompt} configured={integrations.mapboxConfigured} view={mapView} petType={mapPetType} showEvents={showMapEvents} onOpenPet={setSelectedPet} onOpenEvent={setSelectedEvent} onOpenDiscovery={setSelectedDiscovery} onMapMove={searchThisMapArea} onRequestLocation={requestUserLocation} onDismissLocation={() => setLocationPrompt({ status: "hidden", message: "" })} />
 
       <aside className={`map-rail ${railCollapsed ? "is-collapsed" : ""}`} aria-label="Map discovery tools">
         <button className="rail-toggle" type="button" onClick={() => setRailCollapsed(value => !value)} aria-expanded={!railCollapsed} aria-controls="map-rail-content">
