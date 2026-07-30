@@ -1,44 +1,25 @@
-import ablyToken from "../../../api/ably-token";
-import communityLeads from "../../../api/community-leads";
-import communityMessages from "../../../api/community-messages";
-import communityParseLink from "../../../api/community-parse-link";
-import communityReport from "../../../api/community-report";
-import cronDiscover from "../../../api/cron/discover";
-import discoveries from "../../../api/discoveries";
-import events from "../../../api/events";
-import extractSubmission from "../../../api/extract-submission";
-import geocode from "../../../api/geocode";
-import health from "../../../api/health";
-import mapToken from "../../../api/map-token";
-import mapImage from "../../../api/map";
-import matches from "../../../api/matches";
-import petMedia from "../../../api/pet-media";
-import pets from "../../../api/pets";
-import sources from "../../../api/sources";
-import submissions from "../../../api/submissions";
-
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const handlers = {
-  "ably-token": ablyToken,
-  "community-leads": communityLeads,
-  "community-messages": communityMessages,
-  "community-parse-link": communityParseLink,
-  "community-report": communityReport,
-  "cron/discover": cronDiscover,
-  discoveries,
-  events,
-  "extract-submission": extractSubmission,
-  geocode,
-  health,
-  "map-token": mapToken,
-  map: mapImage,
-  matches,
-  "pet-media": petMedia,
-  pets,
-  sources,
-  submissions,
+  "ably-token": () => import("../../../api/ably-token"),
+  "community-leads": () => import("../../../api/community-leads"),
+  "community-messages": () => import("../../../api/community-messages"),
+  "community-parse-link": () => import("../../../api/community-parse-link"),
+  "community-report": () => import("../../../api/community-report"),
+  "cron/discover": () => import("../../../api/cron/discover"),
+  discoveries: () => import("../../../api/discoveries"),
+  events: () => import("../../../api/events"),
+  "extract-submission": () => import("../../../api/extract-submission"),
+  geocode: () => import("../../../api/geocode"),
+  health: () => import("../../../api/health"),
+  "map-token": () => import("../../../api/map-token"),
+  map: () => import("../../../api/map"),
+  matches: () => import("../../../api/matches"),
+  "pet-media": () => import("../../../api/pet-media"),
+  pets: () => import("../../../api/pets"),
+  sources: () => import("../../../api/sources"),
+  submissions: () => import("../../../api/submissions"),
 };
 
 class LegacyResponse {
@@ -76,8 +57,9 @@ class LegacyResponse {
 async function dispatch(nextRequest, context) {
   const { path = [] } = await context.params;
   const key = path.join("/");
-  const handler = handlers[key];
-  if (!handler) return Response.json({ error: "API route not found" }, { status: 404 });
+  const loadHandler = handlers[key];
+  if (!loadHandler) return Response.json({ error: "API route not found" }, { status: 404 });
+  const { default: handler } = await loadHandler();
   const url = new URL(nextRequest.url);
   let body;
   if (!["GET", "HEAD"].includes(nextRequest.method)) {
