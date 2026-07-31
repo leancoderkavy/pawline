@@ -10,8 +10,8 @@ import heroImage from "./heroData";
 import { rankPets } from "./matching";
 import { buildMapView } from "./mapView";
 
-const Community = lazy(() => import("./Community"));
-const FavoritesSync = lazy(() => import("./FavoritesSync"));
+const CommunityWithAuth = lazy(() => import("./CommunityWithAuth"));
+const FavoritesSyncWithAuth = lazy(() => import("./FavoritesSyncWithAuth"));
 
 function Button({ className = "", variant = "primary", children, ...props }) {
   return <button className={`button ${variant === "outline" ? "button-outline" : ""} ${className}`} {...props}>{children}</button>;
@@ -327,10 +327,20 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
   const userCoordinatesRef = useRef(userCoordinates);
   const pointClickRef = useRef(onPointClick);
   const moveSearchRef = useRef(onMoveSearch);
-  const [mapState, setMapState] = useState({ status: "loading", message: "" });
+  const [interactive, setInteractive] = useState(false);
+  const [mapState, setMapState] = useState({ status: "preview", message: "" });
   const center = coordinates
     ? [Number(coordinates.longitude), Number(coordinates.latitude)]
     : DEFAULT_MAP_CENTER;
+  const previewParams = new URLSearchParams({
+    longitude: String(center[0]),
+    latitude: String(center[1]),
+  });
+  const previewPoints = points.slice(0, 40).map(point =>
+    `${point.longitude},${point.latitude},${point.type === "event" ? "e" : "p"}`,
+  ).join("|");
+  if (previewPoints) previewParams.set("points", previewPoints);
+  const previewUrl = `/api/map?${previewParams}`;
   const geoJson = {
     type: "FeatureCollection",
     features: points.map(point => ({
@@ -345,9 +355,10 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
   moveSearchRef.current = onMoveSearch;
 
   useEffect(() => {
-    if (!containerRef.current) return undefined;
+    if (!interactive || !containerRef.current) return undefined;
     let active = true;
     let map;
+    setMapState({ status: "loading", message: "" });
 
     Promise.all([
       fetch("/api/map-token").then(response => readJson(response, "Interactive maps are unavailable."))
@@ -499,7 +510,7 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
       mapRef.current = null;
       if (map) map.remove();
     };
-  }, []);
+  }, [interactive]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -530,7 +541,15 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
   }, [coordinates?.longitude, coordinates?.latitude]);
 
   return <>
-    <div ref={containerRef} className="interactive-map" role="region" aria-label={`Interactive pet map centered on ${location}`} />
+    {interactive
+      ? <div ref={containerRef} className="interactive-map" role="region" aria-label={`Interactive pet map centered on ${location}`} />
+      : <div className="map-facade">
+          <img src={previewUrl} width="1800" height="1240" alt={`Map preview centered on ${location}`} fetchPriority="high" decoding="async" />
+          <button type="button" className="map-activate" onClick={() => setInteractive(true)}>
+            <LocateFixed />
+            <span><strong>Explore the interactive map</strong><small>Drag, zoom, and open current listings</small></span>
+          </button>
+        </div>}
     {mapState.status === "loading" ? <div className="map-loading" role="status">Loading interactive map…</div> : null}
     {mapState.status === "error" ? <div className="map-unavailable" role="alert"><span className="map-unavailable-icon"><MapPin /></span><strong>Map temporarily unavailable</strong><span>{mapState.message}</span></div> : null}
     {mapState.status === "ready" ? <>
@@ -614,8 +633,8 @@ function MapPanel({ location, coordinates, userCoordinates, locationPrompt, conf
       <div className="map-count" aria-live="polite"><strong>{visiblePets.length}</strong><span>mapped pets in this view</span></div>
     </header>
     <div className="map-canvas">
-      {configured ? <InteractiveMap coordinates={coordinates} userCoordinates={userCoordinates} points={points} location={location} onPointClick={openPoint} onMoveSearch={onMapMove} /> : <div className="map-unavailable"><span className="map-unavailable-icon"><MapPin /></span><strong>Map preview is waiting for its connection</strong><span>Filters are ready to use. Connect Mapbox to turn on live location search and the map preview.</span></div>}
-      {configured && locationPrompt.status !== "hidden" && !userCoordinates ? <div className="location-permission" role="dialog" aria-labelledby="location-permission-title" aria-describedby="location-permission-description">
+      {configured !== false ? <InteractiveMap coordinates={coordinates} userCoordinates={userCoordinates} points={points} location={location} onPointClick={openPoint} onMoveSearch={onMapMove} /> : <div className="map-unavailable"><span className="map-unavailable-icon"><MapPin /></span><strong>Map preview is waiting for its connection</strong><span>Filters are ready to use. Connect Mapbox to turn on live location search and the map preview.</span></div>}
+      {configured === true && locationPrompt.status !== "hidden" && !userCoordinates ? <div className="location-permission" role="dialog" aria-labelledby="location-permission-title" aria-describedby="location-permission-description">
         <span className="location-permission-icon" aria-hidden="true"><LocateFixed /></span>
         <div><strong id="location-permission-title">See where you are</strong><span id="location-permission-description">{locationPrompt.message || "Share your location to show your position on the map."}</span></div>
         <button type="button" className="button primary" onClick={onRequestLocation} disabled={locationPrompt.status === "loading"}>{locationPrompt.status === "loading" ? "Locating…" : "Use my location"}</button>
@@ -776,11 +795,10 @@ function Matchmaker({ pets, feed, location, onLocationChange, onSpeciesChange, o
   </section>;
 }
 
-export default function App({ clerkConfigured = false }) {
-  const [saved, setSaved] = useState(() => {
-    if (typeof window === "undefined") return [];
-    try { return JSON.parse(localStorage.getItem("pawline-saved") || "[]"); } catch { return []; }
-  });
+export default function App({ clerkPublishableKey = "" }) {
+  const clerkConfigured = Boolean(clerkPublishableKey);
+  const [saved, setSaved] = useState([]);
+  const [savedHydrated, setSavedHydrated] = useState(false);
   const [species, setSpecies] = useState("All");
   const [location, setLocation] = useState("Pasadena, California, USA");
   const [submitOpen, setSubmitOpen] = useState(false);
@@ -802,7 +820,7 @@ export default function App({ clerkConfigured = false }) {
   const [userCoordinates, setUserCoordinates] = useState(null);
   const [locationPrompt, setLocationPrompt] = useState({ status: "idle", message: "" });
   const [feed, setFeed] = useState({ mode: "loading", message: "Checking trusted adoption sources…" });
-  const [integrations, setIntegrations] = useState({ mapboxConfigured: false });
+  const [integrations, setIntegrations] = useState({ mapboxConfigured: null });
   const [activePanel, setActivePanel] = useState("explore");
   const [railCollapsed, setRailCollapsed] = useState(true);
   const [mapPetType, setMapPetType] = useState("All");
@@ -810,6 +828,7 @@ export default function App({ clerkConfigured = false }) {
   const [showMapEvents, setShowMapEvents] = useState(true);
   const [mapSearchMoved, setMapSearchMoved] = useState(false);
   const [showSavedOnly, setShowSavedOnly] = useState(false);
+  const [accountSyncReady, setAccountSyncReady] = useState(false);
   const favoriteSyncRef = useRef(null);
   const loadAccountFavorites = useCallback(items => setSaved(items), []);
   const setFavoriteSession = useCallback(saveFavorite => {
@@ -837,7 +856,13 @@ export default function App({ clerkConfigured = false }) {
     showEvents: showMapEvents,
   }), [remotePets, remoteEvents, remoteDiscoveries, communityDiscoveries, coordinates, mapPetType, mapDistance, showMapEvents]);
 
-  useEffect(() => localStorage.setItem("pawline-saved", JSON.stringify(saved)), [saved]);
+  useEffect(() => {
+    try { setSaved(JSON.parse(localStorage.getItem("pawline-saved") || "[]")); } catch { setSaved([]); }
+    setSavedHydrated(true);
+  }, []);
+  useEffect(() => {
+    if (savedHydrated) localStorage.setItem("pawline-saved", JSON.stringify(saved));
+  }, [saved, savedHydrated]);
   useEffect(() => {
     const controller = new AbortController();
     const params = new URLSearchParams();
@@ -876,11 +901,14 @@ export default function App({ clerkConfigured = false }) {
       .catch(() => setIntegrations({ mapboxConfigured: false }));
   }, []);
 
-  const toggleSave = id => setSaved(items => {
-    const favorite = !items.includes(id);
-    favoriteSyncRef.current?.(id, favorite).catch(() => {});
-    return favorite ? [...items, id] : items.filter(item => item !== id);
-  });
+  const toggleSave = id => {
+    if (clerkConfigured) setAccountSyncReady(true);
+    setSaved(items => {
+      const favorite = !items.includes(id);
+      favoriteSyncRef.current?.(id, favorite).catch(() => {});
+      return favorite ? [...items, id] : items.filter(item => item !== id);
+    });
+  };
   const findMatch = async () => {
     if (!location.trim()) {
       setLocationState({ status: "error", message: "Enter a city, state, or postal code." });
@@ -937,6 +965,7 @@ export default function App({ clerkConfigured = false }) {
     );
   };
   const openPanel = panel => {
+    if (panel === "community" && clerkConfigured) setAccountSyncReady(true);
     setActivePanel(panel);
     setRailCollapsed(false);
   };
@@ -953,7 +982,7 @@ export default function App({ clerkConfigured = false }) {
     setMapSearchMoved(true);
   };
   return <div className="app map-app">
-    {clerkConfigured ? <Suspense fallback={null}><FavoritesSync localFavorites={saved} onLoad={loadAccountFavorites} onSessionChange={setFavoriteSession} /></Suspense> : null}
+    {clerkConfigured && accountSyncReady ? <Suspense fallback={null}><FavoritesSyncWithAuth publishableKey={clerkPublishableKey} localFavorites={saved} onLoad={loadAccountFavorites} onSessionChange={setFavoriteSession} /></Suspense> : null}
     <header className="map-app-header">
       <a className="brand" href="#map" aria-label="Pawline home"><span className="brand-mark"><PawPrint /></span><span>Pawline</span></a>
       <form className={`global-location ${locationState.status === "error" ? "is-error" : ""}`} onSubmit={event => { event.preventDefault(); findMatch(); }}>
@@ -1016,7 +1045,7 @@ export default function App({ clerkConfigured = false }) {
           {activePanel === "match" ? <Matchmaker pets={remotePets} feed={feed} location={location} onLocationChange={setLocation} onSpeciesChange={setSpecies} onFindLocation={findMatch} locationState={locationState} /> : null}
           {activePanel === "events" ? <EventPanel events={remoteEvents} /> : null}
           {activePanel === "community" ? clerkConfigured
-            ? <Suspense fallback={<div className="community-auth-state" role="status"><span><MessageCircle /></span><h2>Opening the community…</h2></div>}><Community onLeadsChange={setCommunityLeads} /></Suspense>
+            ? <Suspense fallback={<div className="community-auth-state" role="status"><span><MessageCircle /></span><h2>Opening the community…</h2></div>}><CommunityWithAuth publishableKey={clerkPublishableKey} onLeadsChange={setCommunityLeads} /></Suspense>
             : <div className="community-auth-state"><span><MessageCircle /></span><h2>Community needs Clerk</h2><p>Add the Pawline Clerk publishable key to enable account creation and sign-in. Chat stays closed until identity is configured.</p><div className="auth-safety"><ShieldCheck /><span><strong>Failing closed</strong>No anonymous or unverified chat access is allowed.</span></div></div>
           : null}
         </div>
