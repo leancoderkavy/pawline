@@ -1,6 +1,5 @@
 "use client";
 
-import { ClerkProvider } from "@clerk/nextjs";
 import dynamic from "next/dynamic";
 
 const PawlineApp = dynamic(() => import("../src/App"), {
@@ -10,12 +9,5 @@ const PawlineApp = dynamic(() => import("../src/App"), {
 
 export default function HomePage() {
   const clerkKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
-  const application = <PawlineApp clerkConfigured={Boolean(clerkKey)} />;
-  return clerkKey
-    ? (
-      <ClerkProvider publishableKey={clerkKey} proxyUrl="/__clerk">
-        {application}
-      </ClerkProvider>
-    )
-    : application;
+  return <PawlineApp clerkConfigured={Boolean(clerkKey)} />;
 }

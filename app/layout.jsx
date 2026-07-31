@@ -1,5 +1,6 @@
 import "mapbox-gl/dist/mapbox-gl.css";
 import "../src/styles.css";
+import { ClerkProvider } from "@clerk/nextjs";
 import { DM_Sans, DM_Serif_Display } from "next/font/google";
 
 const sans = DM_Sans({ subsets: ["latin"], variable: "--font-dm-sans", display: "swap" });
@@ -35,6 +36,18 @@ export const viewport = {
 };
 
 export default function RootLayout({ children }) {
+  const clerkKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+  const application = clerkKey
+    ? (
+      <ClerkProvider
+        publishableKey={clerkKey}
+        proxyUrl="https://www.pawlineadopt.com/__clerk"
+      >
+        {children}
+      </ClerkProvider>
+    )
+    : children;
+
   return <html lang="en" className={`${sans.variable} ${serif.variable}`}>
     <body>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
@@ -45,7 +58,7 @@ export default function RootLayout({ children }) {
           { "@type": "WebApplication", "@id": "https://www.pawlineadopt.com/#app", name: "Pawline", url: "https://www.pawlineadopt.com/", applicationCategory: "LifestyleApplication", operatingSystem: "Any", isAccessibleForFree: true, browserRequirements: "Requires JavaScript and a modern web browser.", image: "https://www.pawlineadopt.com/social-card.png", offers: { "@type": "Offer", price: "0", priceCurrency: "USD" }, publisher: { "@id": "https://www.pawlineadopt.com/#organization" } },
         ],
       }).replace(/</g, "\\u003c") }} />
-      {children}
+      {application}
     </body>
   </html>;
 }
