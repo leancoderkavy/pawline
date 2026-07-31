@@ -39,10 +39,7 @@ export default function RootLayout({ children }) {
   const clerkKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
   const application = clerkKey
     ? (
-      <ClerkProvider
-        publishableKey={clerkKey}
-        proxyUrl="https://www.pawlineadopt.com/__clerk"
-      >
+      <ClerkProvider publishableKey={clerkKey}>
         {children}
       </ClerkProvider>
     )
