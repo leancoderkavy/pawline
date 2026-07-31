@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import Ably from "ably";
-import { SignInButton, UserButton, useAuth, useUser } from "@clerk/react";
+import { SignInButton, UserButton, useAuth, useUser } from "@clerk/nextjs";
 import {
   AlertTriangle, CheckCircle2, ExternalLink, Flag, Globe2, Link2,
   LoaderCircle, LockKeyhole, MapPin, MessageCircle, Send, ShieldCheck, Users,
