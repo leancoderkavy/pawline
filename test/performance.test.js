@@ -13,13 +13,16 @@ test("the homepage server-renders without eagerly loading Clerk", async () => {
 });
 
 test("the map uses a lightweight preview before loading Mapbox", async () => {
-  const app = await read("src/App.jsx");
+  const [app, mapApi] = await Promise.all([read("src/App.jsx"), read("api/map.js")]);
   assert.match(app, /const \[interactive, setInteractive\] = useState\(false\)/);
   assert.match(app, /className="map-facade"/);
   assert.match(app, /fetchPriority="high"/);
   assert.match(app, /if \(!interactive \|\| !containerRef\.current\)/);
   assert.match(app, /configured !== false/);
   assert.match(app, /mapboxConfigured: null/);
+  assert.match(app, /variant=mobile/);
+  assert.match(mapApi, /"450x760" : "900x620"/);
+  assert.doesNotMatch(mapApi, /@2x/);
   assert.match(app, /lazy\(\(\) => import\("\.\/CommunityWithAuth"\)\)/);
   assert.match(app, /clerkConfigured && accountSyncReady/);
 });

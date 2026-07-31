@@ -341,6 +341,7 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
   ).join("|");
   if (previewPoints) previewParams.set("points", previewPoints);
   const previewUrl = `/api/map?${previewParams}`;
+  const mobilePreviewUrl = `${previewUrl}&variant=mobile`;
   const geoJson = {
     type: "FeatureCollection",
     features: points.map(point => ({
@@ -544,7 +545,10 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
     {interactive
       ? <div ref={containerRef} className="interactive-map" role="region" aria-label={`Interactive pet map centered on ${location}`} />
       : <div className="map-facade">
-          <img src={previewUrl} width="1800" height="1240" alt={`Map preview centered on ${location}`} fetchPriority="high" decoding="async" />
+          <picture>
+            <source media="(max-width: 700px)" srcSet={mobilePreviewUrl} width="450" height="760" />
+            <img src={previewUrl} width="900" height="620" alt={`Map preview centered on ${location}`} fetchPriority="high" decoding="async" />
+          </picture>
           <button type="button" className="map-activate" onClick={() => setInteractive(true)}>
             <LocateFixed />
             <span><strong>Explore the interactive map</strong><small>Drag, zoom, and open current listings</small></span>
