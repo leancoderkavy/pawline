@@ -170,6 +170,16 @@ CREATE TABLE IF NOT EXISTS community_messages (
 CREATE INDEX IF NOT EXISTS community_messages_room_created
   ON community_messages (room, created_at DESC);
 
+CREATE TABLE IF NOT EXISTS user_favorites (
+  clerk_user_id text NOT NULL,
+  listing_id text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (clerk_user_id, listing_id)
+);
+
+CREATE INDEX IF NOT EXISTS user_favorites_user_created
+  ON user_favorites (clerk_user_id, created_at DESC);
+
 CREATE TABLE IF NOT EXISTS community_reports (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   message_id uuid NOT NULL REFERENCES community_messages(id) ON DELETE CASCADE,

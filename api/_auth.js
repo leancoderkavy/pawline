@@ -8,7 +8,7 @@ function bearerToken(request) {
 export async function requireUser(request) {
   const token = bearerToken(request);
   if (!token || !process.env.CLERK_SECRET_KEY) {
-    const error = new Error("Sign in with Pawline to use the community.");
+    const error = new Error("Sign in with Pawline to use this feature.");
     error.statusCode = 401;
     throw error;
   }
@@ -37,4 +37,3 @@ export async function requireUser(request) {
     throw error;
   }
 }
-

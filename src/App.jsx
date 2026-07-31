@@ -1,9 +1,9 @@
 "use client";
 
-import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle, ArrowLeft, CalendarDays, CheckCircle2, ChevronRight, Clock3,
-  ExternalLink, FileText, Globe2, Heart, Info, LocateFixed, MapPin, Menu, PawPrint, Pencil,
+  Building2, ExternalLink, FileText, Globe2, Heart, Info, LocateFixed, LockKeyhole, MapPin, Menu, PawPrint, Pencil,
   MessageCircle, RotateCcw, Search, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Upload, X
 } from "lucide-react";
 import heroImage from "./heroData";
@@ -11,6 +11,7 @@ import { rankPets } from "./matching";
 import { buildMapView } from "./mapView";
 
 const Community = lazy(() => import("./Community"));
+const FavoritesSync = lazy(() => import("./FavoritesSync"));
 
 function Button({ className = "", variant = "primary", children, ...props }) {
   return <button className={`button ${variant === "outline" ? "button-outline" : ""} ${className}`} {...props}>{children}</button>;
@@ -84,6 +85,8 @@ function Dialog({ title, children, onClose }) {
 }
 
 function SubmissionForm({ onClose }) {
+  const [listingRole, setListingRole] = useState("");
+  const [flowStep, setFlowStep] = useState("role");
   const [form, setForm] = useState({
     name: "", species: "Dog", breed: "", age: "", sex: "Unknown", size: "",
     city: "", region: "", postalCode: "", country: "United States", shelter: "",
@@ -152,7 +155,40 @@ function SubmissionForm({ onClose }) {
   };
   const choice = (name, label, options = ["Unknown", "Yes", "No"]) => <label>{label}<select name={name} value={form[name]} onChange={update}>{options.map(option => <option key={option}>{option}</option>)}</select></label>;
   const busy = ["extracting", "saving"].includes(state.status);
-  return <Dialog title="List a pet" onClose={onClose}>{state.status === "success" ? <div className="success"><Heart fill="currentColor" /><h3>Submitted for review</h3><p>{state.message}</p><Button onClick={onClose}>Done</Button></div> : <><p className="dialog-copy">Upload a photo and available health or identity records. Pawline can extract a draft, but you must review it. Every listing stays private until moderation.</p><form onSubmit={submit}>
+  const chooseRole = role => {
+    setListingRole(role);
+    setForm(current => ({ ...current, shelter: role === "personal" ? current.shelter : "" }));
+  };
+  const beginDetails = () => {
+    if (!listingRole) return;
+    setFlowStep("details");
+  };
+  const roleLabel = listingRole === "organization" ? "Shelter or rescue" : "My pet";
+  return <Dialog title="List a pet" onClose={onClose}>{state.status === "success" ? <div className="success"><Heart fill="currentColor" /><h3>Submitted for review</h3><p>{state.message}</p><Button onClick={onClose}>Done</Button></div> : <>
+    <ol className="listing-progress" aria-label="Listing progress">
+      <li className={flowStep === "role" ? "active" : "complete"}><span>1</span>Your role</li>
+      <li className={flowStep === "details" ? "active" : ""}><span>2</span>Pet details</li>
+      <li><span>3</span>Review</li>
+    </ol>
+    {flowStep === "role" ? <section className="listing-role-step">
+      <div className="listing-role-copy"><p>Let’s find the right path</p><h3>Who are you listing for?</h3><span>Pick the path that fits. We’ll tailor the questions and keep the listing private until review.</span></div>
+      <div className="listing-role-choices" role="radiogroup" aria-label="Who are you listing for?">
+        <button type="button" role="radio" aria-checked={listingRole === "personal"} className={listingRole === "personal" ? "selected" : ""} onClick={() => chooseRole("personal")}>
+          <span className="role-icon personal"><Heart /><PawPrint /></span>
+          <span><strong>My pet</strong><small>I’m rehoming a pet I own or care for</small></span>
+          <i>{listingRole === "personal" ? <CheckCircle2 /> : null}</i>
+        </button>
+        <button type="button" role="radio" aria-checked={listingRole === "organization"} className={listingRole === "organization" ? "selected" : ""} onClick={() => chooseRole("organization")}>
+          <span className="role-icon"><Building2 /></span>
+          <span><strong>A shelter or rescue</strong><small>I’m listing on behalf of an organization</small></span>
+          <i>{listingRole === "organization" ? <CheckCircle2 /> : null}</i>
+        </button>
+      </div>
+      <div className="listing-path-preview" aria-hidden="true"><span><PawPrint /></span><i /><span><PawPrint /></span><i /><strong>Next: tell us about the pet</strong></div>
+      <footer className="listing-flow-actions"><p><LockKeyhole />Saved as a private draft until review</p><Button type="button" onClick={beginDetails} disabled={!listingRole}>Continue <ChevronRight /></Button></footer>
+    </section> : <>
+      <div className="listing-details-intro"><button type="button" onClick={() => setFlowStep("role")}><ArrowLeft /> Change path</button><span><PawPrint />{roleLabel}</span><h3>Tell us about the pet</h3><p>Start with a photo or record, or fill in what you know. You’ll review everything before it is submitted.</p></div>
+      <form className="listing-details-form" onSubmit={submit}>
     <section className="submission-section"><h3>Photos & records</h3>
       <div className={`drop-zone ${dragging ? "is-dragging" : ""}`} onDragOver={e => { e.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={e => { e.preventDefault(); setDragging(false); addFiles(e.dataTransfer.files); }}>
         <Upload /><strong>Drag and drop files here</strong><span>or choose as many PDF, TXT, JPG, PNG, or WebP files as fit within 3 MB total</span>
@@ -178,14 +214,14 @@ function SubmissionForm({ onClose }) {
     <section className="submission-section"><h3>Placement & contact</h3>
     <div className="form-row"><label>City<input required name="city" value={form.city} onChange={update} /></label><label>State / region<input required name="region" value={form.region} onChange={update} /></label></div>
     <div className="form-row"><label>Postal code<input required name="postalCode" value={form.postalCode} onChange={update} /></label><label>Country<input required name="country" value={form.country} onChange={update} /></label></div>
-    <label>Shelter or contact name<input required name="shelter" value={form.shelter} onChange={update} /></label>
+    <label>{listingRole === "organization" ? "Shelter or rescue name" : "Your name or current caretaker"}<input required name="shelter" value={form.shelter} onChange={update} /></label>
     <label>Contact email<input required type="email" name="email" value={form.email} onChange={update} /></label>
     <div className="form-row"><label>Phone (optional)<input name="phone" value={form.phone} onChange={update} /></label><label>Rehoming fee (optional)<input name="rehomingFee" value={form.rehomingFee} onChange={update} /></label></div>
-    <label>Reason for rehoming<textarea name="rehomingReason" value={form.rehomingReason} onChange={update} maxLength={1000} /></label>
+    {listingRole === "personal" ? <label>Reason for rehoming<textarea name="rehomingReason" value={form.rehomingReason} onChange={update} maxLength={1000} /></label> : null}
     <label>Public listing description<textarea name="description" value={form.description} onChange={update} maxLength={2000} /></label>
     </section>
     <section className="submission-section attestations"><h3>Your attestations</h3>
-      <label><input required type="checkbox" name="authorityConfirmed" checked={form.authorityConfirmed} onChange={update} />I own this pet or have documented authority to place them.</label>
+      <label><input required type="checkbox" name="authorityConfirmed" checked={form.authorityConfirmed} onChange={update} />{listingRole === "organization" ? "I am authorized to submit listings for this shelter or rescue." : "I own this pet or have documented authority to place them."}</label>
       <label><input required type="checkbox" name="disclosureConfirmed" checked={form.disclosureConfirmed} onChange={update} />I disclosed all known medical, bite, aggression, and behavioral history accurately.</label>
       <label><input required type="checkbox" name="localLawConfirmed" checked={form.localLawConfirmed} onChange={update} />I will comply with licensing, transfer, health-certificate, and other rules where the pet is transferred.</label>
       <p><Info /> Requirements vary by jurisdiction and lister type. Pawline does not replace advice from animal control, a veterinarian, or a lawyer.</p>
@@ -193,7 +229,7 @@ function SubmissionForm({ onClose }) {
     <label className="honeypot" aria-hidden="true">Website<input tabIndex="-1" name="website" value={form.website} onChange={update} /></label>
     {state.message && <p className={state.status === "error" ? "form-error" : "form-status"} role={state.status === "error" ? "alert" : "status"}>{state.message}</p>}
     {state.status === "review" ? <Button type="button" onClick={finalSubmit} disabled={busy}>Submit reviewed listing</Button> : <Button type="submit" disabled={busy}>{busy ? "Working…" : files.length ? <><Sparkles /> Read records & pre-fill</> : "Submit for review"}</Button>}
-  </form></>}</Dialog>;
+  </form></>}</>}</Dialog>;
 }
 
 function PetTile({ pet, saved, onSave, onOpen }) {
@@ -512,11 +548,13 @@ function MapFilters({ petType, distance, showEvents, onPetTypeChange, onDistance
   </div>;
 }
 
-function MapResults({ view, onOpenPet, onOpenEvent, onOpenDiscovery }) {
+function MapResults({ view, saved, showSavedOnly, onToggleSavedOnly, onSave, onOpenPet, onOpenEvent, onOpenDiscovery }) {
   const items = [
-    ...view.pets.slice(0, 4).map(item => ({ ...item, resultType: "pet" })),
+    ...view.pets.filter(item => !showSavedOnly || saved.includes(item.id)).slice(0, showSavedOnly ? 12 : 4).map(item => ({ ...item, resultType: "pet" })),
+    ...(showSavedOnly ? [] : [
     ...view.events.slice(0, 2).map(item => ({ ...item, resultType: "event" })),
     ...view.discoveries.slice(0, 2).map(item => ({ ...item, resultType: "discovery" })),
+    ]),
   ];
   const open = item => {
     if (item.resultType === "pet") onOpenPet(item);
@@ -532,14 +570,17 @@ function MapResults({ view, onOpenPet, onOpenEvent, onOpenDiscovery }) {
     : `Open ${item.name || item.title || item.resultType} details`;
 
   return <section className="map-results" aria-labelledby="map-results-title">
-    <div><strong id="map-results-title">On this map</strong><span>{view.pets.length + view.events.length + view.discoveries.length} results</span></div>
+    <div><strong id="map-results-title">{showSavedOnly ? "Favorite listings" : "On this map"}</strong><button type="button" className={`favorites-filter ${showSavedOnly ? "is-active" : ""}`} onClick={onToggleSavedOnly} aria-pressed={showSavedOnly}><Heart fill={showSavedOnly ? "currentColor" : "none"} />{showSavedOnly ? "Show all" : `${saved.length} saved`}</button></div>
     {items.length ? <div className="map-result-list">{items.map(item =>
-      <button type="button" key={`${item.resultType}-${item.id}`} onClick={() => open(item)} aria-label={accessibleName(item)}>
-        <span className={`map-result-icon result-${item.resultType}`}>{icon(item.resultType)}</span>
-        <span><strong>{item.name || item.title}</strong><small>{detail(item)}</small></span>
-        <ChevronRight />
-      </button>,
-    )}</div> : <p>No coordinate-backed results match this map area and filters.</p>}
+      <div className="map-result-row" key={`${item.resultType}-${item.id}`}>
+        <button type="button" className="map-result-open" onClick={() => open(item)} aria-label={accessibleName(item)}>
+          <span className={`map-result-icon result-${item.resultType}`}>{icon(item.resultType)}</span>
+          <span><strong>{item.name || item.title}</strong><small>{detail(item)}</small></span>
+          <ChevronRight />
+        </button>
+        {item.resultType === "pet" ? <button type="button" className={`map-result-heart ${saved.includes(item.id) ? "is-saved" : ""}`} onClick={() => onSave(item.id)} aria-pressed={saved.includes(item.id)} aria-label={`${saved.includes(item.id) ? "Remove" : "Add"} ${item.name} ${saved.includes(item.id) ? "from" : "to"} favorites`}><Heart fill={saved.includes(item.id) ? "currentColor" : "none"} /></button> : null}
+      </div>,
+    )}</div> : <p>{showSavedOnly ? "No favorite listings are visible in this map area yet. Heart a pet to keep it here." : "No coordinate-backed results match this map area and filters."}</p>}
   </section>;
 }
 
@@ -768,6 +809,12 @@ export default function App({ clerkConfigured = false }) {
   const [mapDistance, setMapDistance] = useState("150");
   const [showMapEvents, setShowMapEvents] = useState(true);
   const [mapSearchMoved, setMapSearchMoved] = useState(false);
+  const [showSavedOnly, setShowSavedOnly] = useState(false);
+  const favoriteSyncRef = useRef(null);
+  const loadAccountFavorites = useCallback(items => setSaved(items), []);
+  const setFavoriteSession = useCallback(saveFavorite => {
+    favoriteSyncRef.current = saveFavorite;
+  }, []);
   const communityDiscoveries = useMemo(() => communityLeads
     .filter(item => Number.isFinite(Number(item.latitude)) && Number.isFinite(Number(item.longitude)))
     .map(item => ({
@@ -829,7 +876,11 @@ export default function App({ clerkConfigured = false }) {
       .catch(() => setIntegrations({ mapboxConfigured: false }));
   }, []);
 
-  const toggleSave = id => setSaved(items => items.includes(id) ? items.filter(item => item !== id) : [...items, id]);
+  const toggleSave = id => setSaved(items => {
+    const favorite = !items.includes(id);
+    favoriteSyncRef.current?.(id, favorite).catch(() => {});
+    return favorite ? [...items, id] : items.filter(item => item !== id);
+  });
   const findMatch = async () => {
     if (!location.trim()) {
       setLocationState({ status: "error", message: "Enter a city, state, or postal code." });
@@ -902,6 +953,7 @@ export default function App({ clerkConfigured = false }) {
     setMapSearchMoved(true);
   };
   return <div className="app map-app">
+    {clerkConfigured ? <Suspense fallback={null}><FavoritesSync localFavorites={saved} onLoad={loadAccountFavorites} onSessionChange={setFavoriteSession} /></Suspense> : null}
     <header className="map-app-header">
       <a className="brand" href="#map" aria-label="Pawline home"><span className="brand-mark"><PawPrint /></span><span>Pawline</span></a>
       <form className={`global-location ${locationState.status === "error" ? "is-error" : ""}`} onSubmit={event => { event.preventDefault(); findMatch(); }}>
@@ -916,7 +968,7 @@ export default function App({ clerkConfigured = false }) {
         <span id="global-location-status" className="sr-only" role={locationState.status === "error" ? "alert" : "status"} aria-live="polite">{locationState.status === "loading" ? "Searching for pets nearby" : locationState.message}</span>
       </form>
       <div className="map-app-actions">
-        <button className="saved-action" aria-label={`${saved.length} saved pets`}><Heart fill={saved.length ? "currentColor" : "none"} /><span>Saved</span>{saved.length ? <strong>{saved.length}</strong> : null}</button>
+        <button className={`saved-action ${showSavedOnly ? "is-active" : ""}`} onClick={() => { openPanel("explore"); setShowSavedOnly(value => !value); }} aria-label={`${saved.length} favorite pets. ${showSavedOnly ? "Show all listings" : "Show favorites"}`} aria-pressed={showSavedOnly}><Heart fill={saved.length ? "currentColor" : "none"} /><span>Favorites</span>{saved.length ? <strong>{saved.length}</strong> : null}</button>
         <Button onClick={() => setSubmitOpen(true)} aria-label="List a pet"><span>List a pet</span><PawPrint /></Button>
       </div>
     </header>
@@ -941,7 +993,7 @@ export default function App({ clerkConfigured = false }) {
             <div><h1>Pets in this area</h1><span className={`live-state feed-${feed.mode}`}><i />{feed.mode === "live" ? "Live" : feed.mode === "loading" ? "Checking" : "Unavailable"}</span></div>
             <p>{feed.mode === "live" ? `${mapView.pets.length} mapped within ${mapDistance} mi · ${feed.count || remotePets.length} verified records total.` : feed.message || "No synthetic pet profiles are shown."}</p>
             {mapSearchMoved ? <p className="map-area-status" role="status">Showing results around the map center.</p> : null}
-            <MapResults view={mapView} onOpenPet={setSelectedPet} onOpenEvent={setSelectedEvent} onOpenDiscovery={setSelectedDiscovery} />
+            <MapResults view={mapView} saved={saved} showSavedOnly={showSavedOnly} onToggleSavedOnly={() => setShowSavedOnly(value => !value)} onSave={toggleSave} onOpenPet={setSelectedPet} onOpenEvent={setSelectedEvent} onOpenDiscovery={setSelectedDiscovery} />
             <Button onClick={() => openPanel("match")}><PawPrint />Find my match</Button>
             <button className="quiz-teaser" onClick={() => openPanel("match")}><span className="quiz-ring">0%</span><span><small>Match quiz progress</small><strong>Tell us about your lifestyle</strong><em>About 2 minutes</em></span><ChevronRight /></button>
             {remoteDiscoveries.length ? <section className="web-leads" aria-label="Current web adoption leads">
