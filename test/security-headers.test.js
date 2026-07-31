@@ -10,3 +10,15 @@ test("production CSP permits the configured Clerk custom domain", async () => {
     assert.match(line || "", /https:\/\/clerk\.pawlineadopt\.com/);
   }
 });
+
+test("production exposes the Clerk frontend API proxy route", async () => {
+  const route = await readFile(
+    new URL("../app/%255F%255Fclerk/[[...path]]/route.js", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(route, /clerkFrontendApiProxy/);
+  assert.match(route, /proxyPath: "\/__clerk"/);
+  assert.match(route, /export const GET = proxy/);
+  assert.match(route, /export const POST = proxy/);
+});
