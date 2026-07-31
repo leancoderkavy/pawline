@@ -13,9 +13,11 @@ test("production CSP permits the configured Clerk custom domain", async () => {
 
 test("production Clerk loads directly from its configured custom domain", async () => {
   const layout = await readFile(new URL("../app/layout.jsx", import.meta.url), "utf8");
+  const page = await readFile(new URL("../app/page.jsx", import.meta.url), "utf8");
   const middleware = await readFile(new URL("../proxy.js", import.meta.url), "utf8");
 
   assert.doesNotMatch(layout, /proxyUrl/);
+  assert.doesNotMatch(page, /proxyUrl/);
   assert.doesNotMatch(middleware, /frontendApiProxy/);
   assert.doesNotMatch(middleware, /\/__clerk/);
 });
