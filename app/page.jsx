@@ -1,7 +1,12 @@
 "use client";
 
+import { ClerkProvider } from "@clerk/nextjs";
 import PawlineApp from "../src/App";
 
 export default function HomePage() {
-  return <PawlineApp clerkPublishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || ""} />;
+  const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || "";
+  const application = <PawlineApp clerkPublishableKey={publishableKey} />;
+  return publishableKey
+    ? <ClerkProvider publishableKey={publishableKey}>{application}</ClerkProvider>
+    : application;
 }
