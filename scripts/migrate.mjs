@@ -16,10 +16,12 @@ const [verification] = await sql`
     to_regclass('public.pets') AS pets,
     to_regclass('public.pet_submission_files') AS submission_files,
     to_regclass('public.pet_submission_log') AS submission_log,
-    to_regclass('public.user_favorites') AS user_favorites
+    to_regclass('public.user_favorites') AS user_favorites,
+    to_regclass('public.direct_conversations') AS direct_conversations,
+    to_regclass('public.direct_messages') AS direct_messages
 `;
 
-if (!verification?.pets || !verification?.submission_files || !verification?.submission_log || !verification?.user_favorites) {
+if (!verification?.pets || !verification?.submission_files || !verification?.submission_log || !verification?.user_favorites || !verification?.direct_conversations || !verification?.direct_messages) {
   throw new Error("Database migration did not create every required table.");
 }
 
