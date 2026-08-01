@@ -2,6 +2,19 @@
 
 Pawline combines authorized adoption feeds and moderated community submissions.
 
+## MCP server
+
+Pawline's read-only MCP server exposes current pet search, adoption-source
+status, and service health to compatible AI clients:
+
+```bash
+npx -y pawline-mcp
+```
+
+See [`mcp/README.md`](mcp/README.md) for client configuration and capability
+boundaries. Availability is time-sensitive and must be confirmed with the
+linked shelter.
+
 ## Database and ingestion
 
 1. Create a Postgres database and run `db/schema.sql`.

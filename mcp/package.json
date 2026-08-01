@@ -1,0 +1,44 @@
+{
+  "name": "pawline-mcp",
+  "version": "1.0.0",
+  "description": "Read-only MCP server for current adoptable pet listings from Pawline",
+  "type": "module",
+  "bin": {
+    "pawline-mcp": "src/index.js"
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "pet-adoption",
+    "animal-shelter",
+    "pawline"
+  ],
+  "author": "leancoderkavy",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/leancoderkavy/pawline.git",
+    "directory": "mcp"
+  },
+  "homepage": "https://www.pawlineadopt.com",
+  "bugs": "https://github.com/leancoderkavy/pawline/issues",
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^4.4.3"
+  }
+}
