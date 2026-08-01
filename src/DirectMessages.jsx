@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import Ably from "ably";
 import { SignInButton, UserButton, useAuth } from "@clerk/nextjs";
 import {
-  AlertTriangle, CheckCircle2, Flag, LoaderCircle, LockKeyhole,
+  AlertTriangle, ArrowLeft, CheckCircle2, Flag, LoaderCircle, LockKeyhole,
   MessageCircle, PawPrint, Send, ShieldCheck, Users,
 } from "lucide-react";
 
@@ -194,7 +194,14 @@ export default function DirectMessages({ initialListing, onInitialListingHandled
     <div className="auth-safety"><ShieldCheck /><span><strong>Private by design</strong>Every conversation is tied to one listing and protected by Pawline moderation.</span></div>
   </div>;
 
-  return <div className="direct-workspace">
+  const returnToInbox = () => {
+    setSelected(null);
+    setMessages([]);
+    setBody("");
+    setStatus({ mode: "idle", message: "" });
+  };
+
+  return <div className={`direct-workspace ${selected ? "has-selection" : ""}`}>
     <aside className="direct-inbox-list" aria-label="Private conversations">
       <header><div><h1>Conversations</h1><p>Private adoption questions and replies.</p></div><UserButton /></header>
       <div className="direct-inbox-scroll">
@@ -204,7 +211,7 @@ export default function DirectMessages({ initialListing, onInitialListingHandled
     </aside>
     <section className="direct-thread" aria-label="Private conversation">
       {selected ? <>
-        <header className="direct-thread-title"><ListingThumb listing={selected.listing} /><div><h2>{selected.listing.name}</h2><p>{selected.listing.shelter || selected.other.name} · {selected.role === "listing_contact" ? "Adoption inquiry" : "Private conversation"}</p></div></header>
+        <header className="direct-thread-title"><button type="button" className="direct-mobile-back" aria-label="Back to conversations" onClick={returnToInbox}><ArrowLeft /></button><ListingThumb listing={selected.listing} /><div><h2>{selected.listing.name}</h2><p>{selected.listing.shelter || selected.other.name} · {selected.role === "listing_contact" ? "Adoption inquiry" : "Private conversation"}</p></div></header>
         <div className="direct-privacy-strip"><LockKeyhole />Private to this listing. Keep personal contact details and payments off Pawline.</div>
         <div className="direct-message-list" aria-live="polite">
           {!messages.length ? <div className="direct-empty"><MessageCircle /><strong>Start the conversation</strong><p>Ask about routine, behavior, medical history, or the adoption process.</p></div> : messages.map((message) => <DirectMessage key={message.id} message={message} onReport={report} />)}
