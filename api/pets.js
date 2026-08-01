@@ -1,4 +1,5 @@
 import { getDatabase } from "./_db.js";
+import { buildRescueGroupsUrl } from "./_rescuegroups.js";
 
 const API_BASE =
   process.env.RESCUEGROUPS_API_BASE_URL || "https://api.rescuegroups.org/v5";
@@ -379,14 +380,16 @@ function normalizeAnimal(animal, included, index) {
 
 async function fetchSpecies(species, { limit, page }, apiKey) {
   const view = species === "Cat" ? "cats" : "dogs";
-  const url = new URL(
-    `/public/animals/search/available/${view}/`,
+  const url = buildRescueGroupsUrl(
     API_BASE,
+    `public/animals/search/available/${view}/`,
+    {
+      limit,
+      page,
+      sort: "random",
+      include: "pictures,orgs,locations,species,breeds",
+    },
   );
-  url.searchParams.set("limit", String(limit));
-  url.searchParams.set("page", String(page));
-  url.searchParams.set("sort", "random");
-  url.searchParams.set("include", "pictures,orgs,locations,species,breeds");
 
   const upstream = await fetch(url.toString(), {
     headers: {
