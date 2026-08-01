@@ -17,6 +17,7 @@ export default async function handler(request, response) {
     clientId: user.id,
     capability: {
       "pawline:community": ["subscribe", "presence"],
+      [`pawline:direct:${user.id}`]: ["subscribe"],
     },
   });
   return response.status(200).json(tokenRequest);

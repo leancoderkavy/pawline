@@ -45,6 +45,9 @@ CREATE TABLE IF NOT EXISTS pets (
     CHECK (status IN ('pending', 'available', 'unavailable', 'adopted', 'rejected')),
   missed_syncs integer NOT NULL DEFAULT 0,
   submitted_by_email text,
+  claimed_by_clerk_user_id text,
+  claimed_by_display_name text,
+  claimed_at timestamptz,
   raw_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
   verified_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -53,6 +56,10 @@ CREATE TABLE IF NOT EXISTS pets (
 
 ALTER TABLE pets
   ADD COLUMN IF NOT EXISTS missed_syncs integer NOT NULL DEFAULT 0;
+ALTER TABLE pets
+  ADD COLUMN IF NOT EXISTS claimed_by_clerk_user_id text,
+  ADD COLUMN IF NOT EXISTS claimed_by_display_name text,
+  ADD COLUMN IF NOT EXISTS claimed_at timestamptz;
 ALTER TABLE pets
   DROP CONSTRAINT IF EXISTS pets_status_check;
 ALTER TABLE pets
@@ -179,6 +186,51 @@ CREATE TABLE IF NOT EXISTS user_favorites (
 
 CREATE INDEX IF NOT EXISTS user_favorites_user_created
   ON user_favorites (clerk_user_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS direct_conversations (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  listing_id uuid NOT NULL REFERENCES pets(id) ON DELETE CASCADE,
+  owner_clerk_user_id text NOT NULL,
+  owner_name text NOT NULL,
+  owner_image_url text,
+  inquirer_clerk_user_id text NOT NULL,
+  inquirer_name text NOT NULL,
+  inquirer_image_url text,
+  last_message_at timestamptz NOT NULL DEFAULT now(),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CHECK (owner_clerk_user_id <> inquirer_clerk_user_id),
+  UNIQUE (listing_id, owner_clerk_user_id, inquirer_clerk_user_id)
+);
+
+CREATE INDEX IF NOT EXISTS direct_conversations_owner_recent
+  ON direct_conversations (owner_clerk_user_id, last_message_at DESC);
+CREATE INDEX IF NOT EXISTS direct_conversations_inquirer_recent
+  ON direct_conversations (inquirer_clerk_user_id, last_message_at DESC);
+
+CREATE TABLE IF NOT EXISTS direct_messages (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  conversation_id uuid NOT NULL REFERENCES direct_conversations(id) ON DELETE CASCADE,
+  sender_clerk_user_id text NOT NULL,
+  author_name text NOT NULL,
+  author_image_url text,
+  body text NOT NULL,
+  moderation_state text NOT NULL DEFAULT 'visible'
+    CHECK (moderation_state IN ('visible', 'held', 'removed')),
+  report_count integer NOT NULL DEFAULT 0,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS direct_messages_conversation_created
+  ON direct_messages (conversation_id, created_at);
+
+CREATE TABLE IF NOT EXISTS direct_message_reports (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  message_id uuid NOT NULL REFERENCES direct_messages(id) ON DELETE CASCADE,
+  reporter_clerk_user_id text NOT NULL,
+  reason text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (message_id, reporter_clerk_user_id)
+);
 
 CREATE TABLE IF NOT EXISTS community_reports (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

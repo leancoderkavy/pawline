@@ -1,16 +1,18 @@
 "use client";
 
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { SignInButton, useAuth } from "@clerk/nextjs";
 import {
   AlertTriangle, ArrowLeft, CalendarDays, CheckCircle2, ChevronRight, Clock3,
-  Building2, ExternalLink, FileText, Globe2, Heart, Info, LocateFixed, LockKeyhole, MapPin, Menu, PawPrint, Pencil,
-  MessageCircle, RotateCcw, Search, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Upload, X
+  Building2, CalendarClock, Check, Compass, ExternalLink, FileText, Globe2, Heart, Info, Layers3, ListChecks, LocateFixed, LockKeyhole, MapPin, Menu, PawPrint, Pencil,
+  MessageCircle, Route, RotateCcw, Search, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Upload, X
 } from "lucide-react";
 import heroImage from "./heroData";
 import { rankPets } from "./matching";
 import { buildMapView } from "./mapView";
 
 const CommunityWithAuth = lazy(() => import("./CommunityWithAuth"));
+const DirectMessages = lazy(() => import("./DirectMessages"));
 const FavoritesSyncWithAuth = lazy(() => import("./FavoritesSyncWithAuth"));
 
 function Button({ className = "", variant = "primary", children, ...props }) {
@@ -22,6 +24,12 @@ async function readJson(response, fallbackMessage) {
     throw new Error(fallbackMessage);
   }
   return response.json();
+}
+
+function suppliedHours(item) {
+  if (typeof item?.hours === "string" && item.hours.trim()) return item.hours.trim();
+  if (typeof item?.todayHours === "string" && item.todayHours.trim()) return item.todayHours.trim();
+  return null;
 }
 
 function Header({ saved, onSubmit, menuOpen, onToggleMenu }) {
@@ -84,7 +92,7 @@ function Dialog({ title, children, onClose }) {
   return <div className="overlay" onMouseDown={onClose}><div ref={dialogRef} className="dialog" onMouseDown={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby={titleId}><div className="dialog-head"><h2 id={titleId}>{title}</h2><button type="button" onClick={onClose} aria-label="Close dialog"><X /></button></div>{children}</div></div>;
 }
 
-function SubmissionForm({ onClose }) {
+function SubmissionForm({ onClose, getToken }) {
   const [listingRole, setListingRole] = useState("");
   const [flowStep, setFlowStep] = useState("role");
   const [form, setForm] = useState({
@@ -118,6 +126,11 @@ function SubmissionForm({ onClose }) {
     reader.onerror = reject;
     reader.readAsDataURL(file);
   })));
+  const authorizedFetch = async (url, options = {}) => {
+    const token = await getToken();
+    if (!token) throw new Error("Sign in with Pawline to register a pet.");
+    return fetch(url, { ...options, headers: { ...options.headers, Authorization: `Bearer ${token}` } });
+  };
   const submit = async e => {
     e.preventDefault();
     setState({ status: "extracting", message: "Reading uploaded records and preparing an editable draft…" });
@@ -125,7 +138,7 @@ function SubmissionForm({ onClose }) {
       const attachments = await encodedFiles();
       let draft = form;
       if (attachments.length) {
-        const extractionResponse = await fetch("/api/extract-submission", {
+        const extractionResponse = await authorizedFetch("/api/extract-submission", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ files: attachments }),
         });
@@ -137,7 +150,7 @@ function SubmissionForm({ onClose }) {
         return;
       }
       setState({ status: "saving", message: "Saving your listing for moderation…" });
-      const response = await fetch("/api/submissions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...draft, files: attachments }) });
+      const response = await authorizedFetch("/api/submissions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...draft, files: attachments }) });
       const body = await readJson(response, "Submissions require the configured Pawline API.");
       if (!response.ok) throw new Error(body.error || "Submission failed");
       setState({ status: "success", message: body.message });
@@ -147,7 +160,7 @@ function SubmissionForm({ onClose }) {
     setState({ status: "saving", message: "Saving your listing for moderation…" });
     try {
       const attachments = await encodedFiles();
-      const response = await fetch("/api/submissions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, files: attachments }) });
+      const response = await authorizedFetch("/api/submissions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, files: attachments }) });
       const body = await readJson(response, "Submissions require the configured Pawline API.");
       if (!response.ok) throw new Error(body.error || "Submission failed");
       setState({ status: "success", message: body.message });
@@ -250,6 +263,9 @@ function PetDetail({ pet, onClose, saved, onSave }) {
   const detailTags = [...new Set([pet.species, pet.age, pet.size, pet.sex])]
     .filter(value => value && !unavailableDetails.has(value));
   const hasSpecificBreed = pet.breed && !unavailableDetails.has(pet.breed);
+  const directionsUrl = Number.isFinite(Number(pet.latitude)) && Number.isFinite(Number(pet.longitude))
+    ? `https://www.google.com/maps/dir/?api=1&destination=${pet.latitude},${pet.longitude}`
+    : null;
   return <Dialog title={pet.name} onClose={onClose}>
     <div className="pet-detail">
       <div className="pet-detail-media"><img src={pet.image} alt={`${pet.name}${hasSpecificBreed ? `, a ${pet.breed}` : ""}`} /></div>
@@ -257,11 +273,14 @@ function PetDetail({ pet, onClose, saved, onSave }) {
       {hasSpecificBreed ? <h3>{pet.breed}</h3> : null}
       <p className="detail-location"><MapPin /><span><strong>{pet.locationAccuracy === "shelter" ? "Current shelter location" : "Location"}</strong>{pet.address || pet.city}{pet.address && pet.city ? <small>{pet.city}</small> : null}</span></p>
       <p><ShieldCheck /> {pet.shelter} · verified source</p>
+      <p className="detail-hours"><CalendarClock /><span><strong>Shelter hours</strong>{suppliedHours(pet) || "Not supplied by this listing—confirm before visiting."}</span></p>
       {pet.locationAccuracy === "shelter" ? <p className="detail-note">The map marker shows the shelter caring for {pet.name}, not a private or foster address. Confirm current availability before visiting.</p> : null}
       {pet.description ? <p>{pet.description}</p> : null}
+      <aside className="pet-visit-questions"><ListChecks /><div><strong>Good questions for {pet.name}</strong><span>Ask about daily routine, medical history, behavior observations, adoption fees, and the best first week at home.</span></div></aside>
       <div className="detail-actions">
         <Button variant="outline" onClick={() => onSave(pet.id)}><Heart fill={saved ? "currentColor" : "none"} />{saved ? "Saved" : "Save"}</Button>
         {pet.sourceUrl ? <a className="button" href={pet.sourceUrl} target="_blank" rel="noreferrer">View adoption listing <ChevronRight /></a> : <span className="button button-disabled" aria-disabled="true">Contact the listed rescue</span>}
+        {directionsUrl ? <a className="button button-outline detail-directions" href={directionsUrl} target="_blank" rel="noreferrer"><Compass /> Directions</a> : null}
       </div>
     </div>
   </Dialog>;
@@ -269,29 +288,52 @@ function PetDetail({ pet, onClose, saved, onSave }) {
 
 function EventDetail({ event, onClose }) {
   const item = normalizeEvent(event);
+  const directionsUrl = item.address
+    ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(item.address)}`
+    : Number.isFinite(Number(item.latitude)) && Number.isFinite(Number(item.longitude))
+      ? `https://www.google.com/maps/dir/?api=1&destination=${item.latitude},${item.longitude}`
+      : null;
   return <Dialog title={item.title || "Adoption event"} onClose={onClose}>
     <div className="map-point-detail">
-      <span className="point-detail-label"><CalendarDays /> Verified adoption event</span>
-      <p><Clock3 /> {item.date ? `${item.date} · ${item.time}` : item.time || "Confirm the current time with the organizer"}</p>
-      <p><MapPin /> {item.place || item.city}</p>
-      {item.description ? <p>{item.description}</p> : null}
-      {item.source_url ? <a className="button" href={item.source_url} target="_blank" rel="noreferrer">Official event details <ExternalLink /></a> : <span className="button button-disabled" aria-disabled="true">Confirm with the organizer</span>}
+      <div className="point-detail-hero"><span className="point-detail-icon"><CalendarDays /></span><div><span className="point-detail-label"><ShieldCheck /> Source reviewed</span><p>A Pawline field note for meeting adoptable pets nearby.</p></div></div>
+      <dl className="point-detail-facts">
+        <div><dt><Clock3 /> When</dt><dd>{item.date ? `${item.date} · ${item.time}` : item.time || "Confirm the current time with the organizer"}</dd></div>
+        <div><dt><MapPin /> Where</dt><dd>{item.place || item.city || "See the official event page"}</dd></div>
+      </dl>
+      {item.description ? <p className="point-detail-description">{item.description}</p> : null}
+      <aside className="visit-note"><PawPrint /><div><strong>Before you head out</strong><span>Confirm the event time, bring household questions, and ask what each pet needs after adoption.</span></div></aside>
+      <div className="point-detail-actions">
+        {item.source_url ? <a className="button" href={item.source_url} target="_blank" rel="noreferrer">Official details <ExternalLink /></a> : <span className="button button-disabled" aria-disabled="true">Confirm with organizer</span>}
+        {directionsUrl ? <a className="button button-outline" href={directionsUrl} target="_blank" rel="noreferrer">Directions <Compass /></a> : null}
+      </div>
     </div>
   </Dialog>;
 }
 
 function DiscoveryDetail({ discovery, onClose }) {
+  const directionsUrl = Number.isFinite(Number(discovery.latitude)) && Number.isFinite(Number(discovery.longitude))
+    ? `https://www.google.com/maps/dir/?api=1&destination=${discovery.latitude},${discovery.longitude}`
+    : null;
   return <Dialog title={discovery.title || "Adoption lead"} onClose={onClose}>
     <div className="map-point-detail">
-      <span className="point-detail-label"><Globe2 /> Current web adoption lead</span>
-      <p><MapPin /> {discovery.city}</p>
-      <p>This is an approximate web lead, not a shelter-verified pet listing. Confirm availability and details with the source.</p>
-      <a className="button" href={discovery.source_url} target="_blank" rel="noreferrer">Open source website <ExternalLink /></a>
+      <div className="point-detail-hero is-lead"><span className="point-detail-icon"><Globe2 /></span><div><span className="point-detail-label"><Info /> Needs confirmation</span><p>A fresh lead found on the web—not yet a shelter-verified Pawline listing.</p></div></div>
+      <dl className="point-detail-facts"><div><dt><MapPin /> Approximate area</dt><dd>{discovery.city || "Location supplied by the source"}</dd></div><div><dt><Globe2 /> Source</dt><dd>{discovery.source_domain || "External website"}</dd></div></dl>
+      <aside className="visit-note is-caution"><ShieldCheck /><div><strong>Check before you trust it</strong><span>Confirm availability, fees, identity, and a safe public handoff. Never send a deposit before verifying the organization or caretaker.</span></div></aside>
+      <div className="point-detail-actions"><a className="button" href={discovery.source_url} target="_blank" rel="noreferrer">Verify at source <ExternalLink /></a>{directionsUrl ? <a className="button button-outline" href={directionsUrl} target="_blank" rel="noreferrer">View area <Compass /></a> : null}</div>
     </div>
   </Dialog>;
 }
 
 const DEFAULT_MAP_CENTER = [-118.1445, 34.1478];
+
+function routeGeoJson(pets) {
+  const coordinates = pets
+    .filter(pet => Number.isFinite(pet.longitude) && Number.isFinite(pet.latitude))
+    .map(pet => [pet.longitude, pet.latitude]);
+  return coordinates.length > 1
+    ? { type: "Feature", geometry: { type: "LineString", coordinates }, properties: {} }
+    : { type: "FeatureCollection", features: [] };
+}
 
 function addPawImage(map, id, color) {
   if (map.hasImage(id)) return;
@@ -320,13 +362,15 @@ function addPawImage(map, id, color) {
   map.addImage(id, { width: size, height: size, data: context.getImageData(0, 0, size, size).data });
 }
 
-function InteractiveMap({ coordinates, userCoordinates, points, location, onPointClick, onMoveSearch }) {
+function InteractiveMap({ coordinates, userCoordinates, points, location, onPointClick, onMoveSearch, densityMode, routePets }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const geoJsonRef = useRef(null);
   const userCoordinatesRef = useRef(userCoordinates);
   const pointClickRef = useRef(onPointClick);
   const moveSearchRef = useRef(onMoveSearch);
+  const densityRef = useRef(densityMode);
+  const routeRef = useRef(routePets);
   const [interactive, setInteractive] = useState(false);
   const [mapState, setMapState] = useState({ status: "preview", message: "" });
   const center = coordinates
@@ -354,6 +398,8 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
   userCoordinatesRef.current = userCoordinates;
   pointClickRef.current = onPointClick;
   moveSearchRef.current = onMoveSearch;
+  densityRef.current = densityMode;
+  routeRef.current = routePets;
 
   useEffect(() => {
     if (!interactive || !containerRef.current) return undefined;
@@ -374,7 +420,8 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
       mapboxgl.accessToken = accessToken;
       map = new mapboxgl.Map({
         container: containerRef.current,
-        style: "mapbox://styles/mapbox/streets-v12",
+        style: "mapbox://styles/mapbox/standard",
+        config: { basemap: { theme: "monochrome", lightPreset: "day", showPointOfInterestLabels: false, showTransitLabels: false } },
         center,
         zoom: 10,
         attributionControl: true,
@@ -385,6 +432,7 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
       map.on("load", () => {
         if (!active) return;
         map.addSource("pawline-points", { type: "geojson", data: geoJsonRef.current });
+        map.addSource("pawline-visit-route", { type: "geojson", data: routeGeoJson(routeRef.current) });
         map.addSource("pawline-user-location", {
           type: "geojson",
           data: {
@@ -416,6 +464,27 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
         addPawImage(map, "pawline-pet-marker", "#2f7458");
         addPawImage(map, "pawline-event-marker", "#ad5d35");
         addPawImage(map, "pawline-discovery-marker", "#7a5a9b");
+        map.addLayer({ id: "pawline-density", type: "heatmap", source: "pawline-points", filter: ["==", ["get", "type"], "pet"], maxzoom: 13, layout: { visibility: densityRef.current ? "visible" : "none" }, paint: {
+          "heatmap-weight": 1,
+          "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 7, 0.7, 13, 1.5],
+          "heatmap-color": ["interpolate", ["linear"], ["heatmap-density"], 0, "rgba(23,56,47,0)", 0.25, "#dce8df", 0.55, "#91b09d", 0.8, "#c95f3c", 1, "#8f3e27"],
+          "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 7, 22, 13, 44],
+          "heatmap-opacity": 0.68,
+        } });
+        map.addLayer({ id: "pawline-visit-route-shadow", type: "line", source: "pawline-visit-route", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#fffaf1", "line-width": 8, "line-opacity": 0.9 } });
+        map.addLayer({ id: "pawline-visit-route", type: "line", source: "pawline-visit-route", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#c95f3c", "line-width": 4, "line-dasharray": [1, 1.6] } });
+        map.addLayer({
+          id: "pawline-marker-halos",
+          type: "circle",
+          source: "pawline-points",
+          paint: {
+            "circle-radius": 22,
+            "circle-color": ["match", ["get", "type"], "event", "#f4dfd2", "discovery", "#eee6f3", "#deebe2"],
+            "circle-opacity": 0.9,
+            "circle-stroke-color": "#fffaf1",
+            "circle-stroke-width": 2,
+          },
+        });
         map.addLayer({
           id: "pawline-pets",
           type: "symbol",
@@ -535,6 +604,18 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
 
   useEffect(() => {
     const map = mapRef.current;
+    if (!map?.getLayer("pawline-density")) return;
+    map.setLayoutProperty("pawline-density", "visibility", densityMode ? "visible" : "none");
+  }, [densityMode]);
+
+  useEffect(() => {
+    const source = mapRef.current?.getSource("pawline-visit-route");
+    if (!source) return;
+    source.setData(routeGeoJson(routePets));
+  }, [routePets]);
+
+  useEffect(() => {
+    const map = mapRef.current;
     if (!map || !coordinates) return;
     const current = map.getCenter();
     if (Math.abs(current.lng - center[0]) < 0.0001 && Math.abs(current.lat - center[1]) < 0.0001) return;
@@ -562,11 +643,13 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
   </>;
 }
 
-function MapFilters({ petType, distance, showEvents, onPetTypeChange, onDistanceChange, onShowEventsChange, onReset }) {
+function MapFilters({ petType, distance, showEvents, densityMode, hoursFilter, onPetTypeChange, onDistanceChange, onShowEventsChange, onDensityChange, onHoursFilterChange, onReset }) {
   return <div className="map-toolbar" role="group" aria-label="Map filters">
     <label className="map-select"><SlidersHorizontal /><span>Pet type</span><select value={petType} onChange={event => onPetTypeChange(event.target.value)} aria-label="Filter map by pet type"><option>All</option><option>Dog</option><option>Cat</option></select></label>
     <label className="map-select"><LocateFixed /><span>Radius</span><select value={distance} onChange={event => onDistanceChange(event.target.value)} aria-label="Map search radius"><option value="25">25 mi</option><option value="50">50 mi</option><option value="100">100 mi</option><option value="150">150 mi</option></select></label>
+    <label className="map-select"><CalendarClock /><span>Shelter hours</span><select value={hoursFilter} onChange={event => onHoursFilterChange(event.target.value)} aria-label="Filter by supplied shelter hours"><option value="all">All listings</option><option value="known">Hours supplied</option></select></label>
     <button type="button" className={`map-toggle ${showEvents ? "is-active" : ""}`} onClick={() => onShowEventsChange(value => !value)} aria-pressed={showEvents}><CalendarDays /> Events</button>
+    <button type="button" className={`map-toggle ${densityMode ? "is-active" : ""}`} onClick={() => onDensityChange(value => !value)} aria-pressed={densityMode}><Layers3 /> Pawprint density</button>
     <button type="button" className="map-reset" onClick={onReset} aria-label="Reset map filters"><RotateCcw /> Reset</button>
   </div>;
 }
@@ -598,7 +681,7 @@ function MapResults({ view, saved, showSavedOnly, onToggleSavedOnly, onSave, onO
       <div className="map-result-row" key={`${item.resultType}-${item.id}`}>
         <button type="button" className="map-result-open" onClick={() => open(item)} aria-label={accessibleName(item)}>
           <span className={`map-result-icon result-${item.resultType}`}>{icon(item.resultType)}</span>
-          <span><strong>{item.name || item.title}</strong><small>{detail(item)}</small></span>
+          <span><strong>{item.name || item.title}</strong><small>{detail(item)}</small>{item.resultType === "pet" ? <em className="listing-freshness"><i /> Checked this session{suppliedHours(item) ? " · Hours supplied" : " · Confirm shelter hours"}</em> : null}</span>
           <ChevronRight />
         </button>
         {item.resultType === "pet" ? <button type="button" className={`map-result-heart ${saved.includes(item.id) ? "is-saved" : ""}`} onClick={() => onSave(item.id)} aria-pressed={saved.includes(item.id)} aria-label={`${saved.includes(item.id) ? "Remove" : "Add"} ${item.name} ${saved.includes(item.id) ? "from" : "to"} favorites`}><Heart fill={saved.includes(item.id) ? "currentColor" : "none"} /></button> : null}
@@ -607,7 +690,29 @@ function MapResults({ view, saved, showSavedOnly, onToggleSavedOnly, onSave, onO
   </section>;
 }
 
-function MapPanel({ location, coordinates, userCoordinates, locationPrompt, configured, view, petType, showEvents, onOpenPet, onOpenEvent, onOpenDiscovery, onMapMove, onRequestLocation, onDismissLocation }) {
+function VisitPlanner({ pets, location }) {
+  const [checked, setChecked] = useState([]);
+  const routeStops = pets.slice(0, 8);
+  const routeUrl = routeStops.length
+    ? `https://www.google.com/maps/dir/?api=1&destination=${routeStops[routeStops.length - 1].latitude},${routeStops[routeStops.length - 1].longitude}${routeStops.length > 1 ? `&waypoints=${routeStops.slice(0, -1).map(pet => `${pet.latitude},${pet.longitude}`).join("|")}` : ""}`
+    : null;
+  const checklist = [
+    "Confirm each pet is still available",
+    "Check shelter hours and appointment rules",
+    "Bring household and resident-pet questions",
+    "Ask about medical history, fees, and next steps",
+  ];
+  const toggle = item => setChecked(items => items.includes(item) ? items.filter(value => value !== item) : [...items, item]);
+
+  return <section className="visit-planner" aria-labelledby="visit-planner-title">
+    <header><span><Route /></span><div><small>Your adoption trail</small><h2 id="visit-planner-title">Plan a thoughtful visit</h2><p>{routeStops.length ? `${routeStops.length} saved ${routeStops.length === 1 ? "stop" : "stops"} near ${location}.` : "Save pets to build a nearby shelter route."}</p></div></header>
+    {routeStops.length ? <ol className="visit-stops">{routeStops.map((pet, index) => <li key={pet.id}><span>{index + 1}</span><div><strong>{pet.name}</strong><small>{pet.shelter || pet.city}</small><em>{suppliedHours(pet) ? "Shelter hours supplied" : "Confirm hours before leaving"}</em></div></li>)}</ol> : <div className="visit-empty"><Heart /><span><strong>Your route starts with a heart</strong>Save a listing and Pawline will place it here.</span></div>}
+    <fieldset className="visit-checklist"><legend><ListChecks /> Visit checklist</legend>{checklist.map(item => <label key={item}><input type="checkbox" checked={checked.includes(item)} onChange={() => toggle(item)} /><span className="check-box"><Check /></span><span>{item}</span></label>)}</fieldset>
+    {routeUrl ? <a className="button visit-route-link" href={routeUrl} target="_blank" rel="noreferrer"><Route /> Open adoption trail <ExternalLink /></a> : <span className="visit-route-note">Routes include coordinate-backed saved listings only.</span>}
+  </section>;
+}
+
+function MapPanel({ location, coordinates, userCoordinates, locationPrompt, configured, view, petType, showEvents, densityMode, routePets, onOpenPet, onOpenEvent, onOpenDiscovery, onMapMove, onRequestLocation, onDismissLocation }) {
   const { pets: visiblePets, events: visibleEvents, discoveries: visibleDiscoveries } = view;
   const points = [
     ...visiblePets.slice(0, 30)
@@ -637,7 +742,7 @@ function MapPanel({ location, coordinates, userCoordinates, locationPrompt, conf
       <div className="map-count" aria-live="polite"><strong>{visiblePets.length}</strong><span>mapped pets in this view</span></div>
     </header>
     <div className="map-canvas">
-      {configured !== false ? <InteractiveMap coordinates={coordinates} userCoordinates={userCoordinates} points={points} location={location} onPointClick={openPoint} onMoveSearch={onMapMove} /> : <div className="map-unavailable"><span className="map-unavailable-icon"><MapPin /></span><strong>Map preview is waiting for its connection</strong><span>Filters are ready to use. Connect Mapbox to turn on live location search and the map preview.</span></div>}
+      {configured !== false ? <InteractiveMap coordinates={coordinates} userCoordinates={userCoordinates} points={points} location={location} onPointClick={openPoint} onMoveSearch={onMapMove} densityMode={densityMode} routePets={routePets} /> : <div className="map-unavailable"><span className="map-unavailable-icon"><MapPin /></span><strong>Map preview is waiting for its connection</strong><span>Filters are ready to use. Connect Mapbox to turn on live location search and the map preview.</span></div>}
       {configured === true && locationPrompt.status !== "hidden" && !userCoordinates ? <div className="location-permission" role="dialog" aria-labelledby="location-permission-title" aria-describedby="location-permission-description">
         <span className="location-permission-icon" aria-hidden="true"><LocateFixed /></span>
         <div><strong id="location-permission-title">See where you are</strong><span id="location-permission-description">{locationPrompt.message || "Share your location to show your position on the map."}</span></div>
@@ -645,7 +750,7 @@ function MapPanel({ location, coordinates, userCoordinates, locationPrompt, conf
         <button type="button" className="location-permission-dismiss" onClick={onDismissLocation}>Not now</button>
       </div> : null}
       <span className="map-legend"><PawPrint className="pet-paw" /> {petType === "All" ? "Pets" : `${petType}s`} {showEvents ? <><PawPrint className="event-paw" /> Events</> : null} <PawPrint className="discovery-paw" /> Web leads</span>
-      <span className="map-attribution">Verified listings + current web leads · Always confirm with the shelter</span>
+      <span className="map-attribution">Markers checked this session · Listing update times vary by provider</span>
     </div>
   </section>;
 }
@@ -830,6 +935,8 @@ export default function App({ clerkPublishableKey = "" }) {
   const [mapPetType, setMapPetType] = useState("All");
   const [mapDistance, setMapDistance] = useState("150");
   const [showMapEvents, setShowMapEvents] = useState(true);
+  const [densityMode, setDensityMode] = useState(false);
+  const [hoursFilter, setHoursFilter] = useState("all");
   const [mapSearchMoved, setMapSearchMoved] = useState(false);
   const [showSavedOnly, setShowSavedOnly] = useState(false);
   const [accountSyncReady, setAccountSyncReady] = useState(false);
@@ -850,15 +957,17 @@ export default function App({ clerkPublishableKey = "" }) {
       city: [item.city, item.country].filter(Boolean).join(", "),
       communityLead: true,
     })), [communityLeads]);
+  const hoursFilteredPets = useMemo(() => hoursFilter === "known" ? remotePets.filter(pet => suppliedHours(pet)) : remotePets, [remotePets, hoursFilter]);
   const mapView = useMemo(() => buildMapView({
-    pets: remotePets,
+    pets: hoursFilteredPets,
     events: remoteEvents,
     discoveries: [...remoteDiscoveries, ...communityDiscoveries],
     center: coordinates,
     petType: mapPetType,
     distance: mapDistance,
     showEvents: showMapEvents,
-  }), [remotePets, remoteEvents, remoteDiscoveries, communityDiscoveries, coordinates, mapPetType, mapDistance, showMapEvents]);
+  }), [hoursFilteredPets, remoteEvents, remoteDiscoveries, communityDiscoveries, coordinates, mapPetType, mapDistance, showMapEvents]);
+  const routePets = useMemo(() => mapView.pets.filter(pet => saved.includes(pet.id)).slice(0, 8), [mapView.pets, saved]);
 
   useEffect(() => {
     try { setSaved(JSON.parse(localStorage.getItem("pawline-saved") || "[]")); } catch { setSaved([]); }
@@ -977,6 +1086,8 @@ export default function App({ clerkPublishableKey = "" }) {
     setMapPetType("All");
     setMapDistance("150");
     setShowMapEvents(true);
+    setDensityMode(false);
+    setHoursFilter("all");
   };
   const searchThisMapArea = ({ longitude, latitude }) => {
     setCoordinates(current => {
@@ -1007,7 +1118,7 @@ export default function App({ clerkPublishableKey = "" }) {
     </header>
 
   <main id="discover" className={`map-workspace panel-${activePanel} ${railCollapsed ? "rail-collapsed" : ""}`}>
-      <MapPanel location={location} coordinates={coordinates} userCoordinates={userCoordinates} locationPrompt={locationPrompt} configured={integrations.mapboxConfigured} view={mapView} petType={mapPetType} showEvents={showMapEvents} onOpenPet={setSelectedPet} onOpenEvent={setSelectedEvent} onOpenDiscovery={setSelectedDiscovery} onMapMove={searchThisMapArea} onRequestLocation={requestUserLocation} onDismissLocation={() => setLocationPrompt({ status: "hidden", message: "" })} />
+      <MapPanel location={location} coordinates={coordinates} userCoordinates={userCoordinates} locationPrompt={locationPrompt} configured={integrations.mapboxConfigured} view={mapView} petType={mapPetType} showEvents={showMapEvents} densityMode={densityMode} routePets={routePets} onOpenPet={setSelectedPet} onOpenEvent={setSelectedEvent} onOpenDiscovery={setSelectedDiscovery} onMapMove={searchThisMapArea} onRequestLocation={requestUserLocation} onDismissLocation={() => setLocationPrompt({ status: "hidden", message: "" })} />
 
       <aside className={`map-rail ${railCollapsed ? "is-collapsed" : ""}`} aria-label="Map discovery tools">
         <button className="rail-toggle" type="button" onClick={() => setRailCollapsed(value => !value)} aria-expanded={!railCollapsed} aria-controls="map-rail-content">
@@ -1022,11 +1133,12 @@ export default function App({ clerkPublishableKey = "" }) {
         </nav>
         <div id="map-rail-content" className="rail-content">
           {activePanel === "explore" ? <div className="explore-intro">
-            <MapFilters petType={mapPetType} distance={mapDistance} showEvents={showMapEvents} onPetTypeChange={setMapPetType} onDistanceChange={setMapDistance} onShowEventsChange={setShowMapEvents} onReset={resetMapFilters} />
+            <MapFilters petType={mapPetType} distance={mapDistance} showEvents={showMapEvents} densityMode={densityMode} hoursFilter={hoursFilter} onPetTypeChange={setMapPetType} onDistanceChange={setMapDistance} onShowEventsChange={setShowMapEvents} onDensityChange={setDensityMode} onHoursFilterChange={setHoursFilter} onReset={resetMapFilters} />
             <div><h1>Pets in this area</h1><span className={`live-state feed-${feed.mode}`}><i />{feed.mode === "live" ? "Live" : feed.mode === "loading" ? "Checking" : "Unavailable"}</span></div>
             <p>{feed.mode === "live" ? `${mapView.pets.length} mapped within ${mapDistance} mi · ${feed.count || remotePets.length} verified records total.` : feed.message || "No synthetic pet profiles are shown."}</p>
             {mapSearchMoved ? <p className="map-area-status" role="status">Showing results around the map center.</p> : null}
             <MapResults view={mapView} saved={saved} showSavedOnly={showSavedOnly} onToggleSavedOnly={() => setShowSavedOnly(value => !value)} onSave={toggleSave} onOpenPet={setSelectedPet} onOpenEvent={setSelectedEvent} onOpenDiscovery={setSelectedDiscovery} />
+            <VisitPlanner pets={routePets} location={location} />
             <Button onClick={() => openPanel("match")}><PawPrint />Find my match</Button>
             <button className="quiz-teaser" onClick={() => openPanel("match")}><span className="quiz-ring">0%</span><span><small>Match quiz progress</small><strong>Tell us about your lifestyle</strong><em>About 2 minutes</em></span><ChevronRight /></button>
             {remoteDiscoveries.length ? <section className="web-leads" aria-label="Current web adoption leads">
