@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { normalizePasadenaEvent } from "../api/events.js";
+import { normalizePasadenaEvent, safeEventUrl } from "../api/events.js";
 
 test("normalizes an official dog adoption event", () => {
   const event = normalizePasadenaEvent({
@@ -35,4 +35,11 @@ test("does not mistake promotion dates for street addresses", () => {
   });
   assert.equal(event.address, null);
   assert.equal(event.city, "Pasadena");
+});
+
+test("event navigation allows only valid HTTP URLs", () => {
+  assert.equal(safeEventUrl("javascript:alert(1)"), null);
+  assert.equal(safeEventUrl("data:text/html,hello"), null);
+  assert.equal(safeEventUrl("not a URL"), null);
+  assert.equal(safeEventUrl("https://pasadenahumane.org/events/1"), "https://pasadenahumane.org/events/1");
 });

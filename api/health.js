@@ -34,7 +34,11 @@ export function getHealth(environment = process.env) {
   };
 }
 
-export default function handler(_request, response) {
+export default function handler(request, response) {
   response.setHeader("Cache-Control", "no-store");
+  if (request.method !== "GET") {
+    response.setHeader("Allow", "GET");
+    return response.status(405).json({ error: "Method not allowed" });
+  }
   response.status(200).json(getHealth());
 }

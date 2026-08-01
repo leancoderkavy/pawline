@@ -61,55 +61,15 @@ export function publicDirectMessage(row, userId) {
 }
 
 export async function ensureDirectMessageTables(database) {
-  await database`
-    ALTER TABLE pets
-      ADD COLUMN IF NOT EXISTS claimed_by_clerk_user_id text,
-      ADD COLUMN IF NOT EXISTS claimed_by_display_name text,
-      ADD COLUMN IF NOT EXISTS claimed_at timestamptz
+  const schema = await database`
+    SELECT
+      to_regclass('public.direct_conversations') AS conversations,
+      to_regclass('public.direct_messages') AS messages,
+      to_regclass('public.direct_message_reports') AS reports
   `;
-  await database`
-    CREATE TABLE IF NOT EXISTS direct_conversations (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-      listing_id uuid NOT NULL REFERENCES pets(id) ON DELETE CASCADE,
-      owner_clerk_user_id text NOT NULL,
-      owner_name text NOT NULL,
-      owner_image_url text,
-      inquirer_clerk_user_id text NOT NULL,
-      inquirer_name text NOT NULL,
-      inquirer_image_url text,
-      last_message_at timestamptz NOT NULL DEFAULT now(),
-      created_at timestamptz NOT NULL DEFAULT now(),
-      CHECK (owner_clerk_user_id <> inquirer_clerk_user_id),
-      UNIQUE (listing_id, owner_clerk_user_id, inquirer_clerk_user_id)
-    )
-  `;
-  await database`CREATE INDEX IF NOT EXISTS direct_conversations_owner_recent ON direct_conversations (owner_clerk_user_id, last_message_at DESC)`;
-  await database`CREATE INDEX IF NOT EXISTS direct_conversations_inquirer_recent ON direct_conversations (inquirer_clerk_user_id, last_message_at DESC)`;
-  await database`
-    CREATE TABLE IF NOT EXISTS direct_messages (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-      conversation_id uuid NOT NULL REFERENCES direct_conversations(id) ON DELETE CASCADE,
-      sender_clerk_user_id text NOT NULL,
-      author_name text NOT NULL,
-      author_image_url text,
-      body text NOT NULL,
-      moderation_state text NOT NULL DEFAULT 'visible'
-        CHECK (moderation_state IN ('visible', 'held', 'removed')),
-      report_count integer NOT NULL DEFAULT 0,
-      created_at timestamptz NOT NULL DEFAULT now()
-    )
-  `;
-  await database`CREATE INDEX IF NOT EXISTS direct_messages_conversation_created ON direct_messages (conversation_id, created_at)`;
-  await database`
-    CREATE TABLE IF NOT EXISTS direct_message_reports (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-      message_id uuid NOT NULL REFERENCES direct_messages(id) ON DELETE CASCADE,
-      reporter_clerk_user_id text NOT NULL,
-      reason text NOT NULL,
-      created_at timestamptz NOT NULL DEFAULT now(),
-      UNIQUE (message_id, reporter_clerk_user_id)
-    )
-  `;
+  if (!schema[0]?.conversations || !schema[0]?.messages || !schema[0]?.reports) {
+    throw new Error("Direct messaging migration is missing.");
+  }
 }
 
 export async function findConversation(database, conversationId, userId) {

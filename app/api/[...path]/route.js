@@ -14,6 +14,7 @@ const handlers = {
   discoveries: () => import("../../../api/discoveries"),
   events: () => import("../../../api/events"),
   "extract-submission": () => import("../../../api/extract-submission"),
+  favorites: () => import("../../../api/favorites"),
   geocode: () => import("../../../api/geocode"),
   health: () => import("../../../api/health"),
   "map-token": () => import("../../../api/map-token"),

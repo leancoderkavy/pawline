@@ -1,4 +1,5 @@
 import { getDatabase } from "./_db.js";
+import { cleanupUsageLimits } from "./_usage-limit.js";
 
 const TAVILY_SEARCH_URL = "https://api.tavily.com/search";
 const FRESH_DAYS = 14;
@@ -70,30 +71,13 @@ export function normalizeTavilyResult(result, area) {
   };
 }
 
-export async function ensureDiscoveryTable(database) {
-  await database`
-    CREATE TABLE IF NOT EXISTS web_discoveries (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-      title text NOT NULL,
-      snippet text,
-      source_url text NOT NULL UNIQUE,
-      source_domain text NOT NULL,
-      city text NOT NULL,
-      latitude double precision NOT NULL,
-      longitude double precision NOT NULL,
-      species text CHECK (species IS NULL OR species IN ('Dog', 'Cat')),
-      status text NOT NULL DEFAULT 'current'
-        CHECK (status IN ('current', 'stale', 'rejected')),
-      first_seen_at timestamptz NOT NULL DEFAULT now(),
-      last_seen_at timestamptz NOT NULL DEFAULT now(),
-      created_at timestamptz NOT NULL DEFAULT now(),
-      updated_at timestamptz NOT NULL DEFAULT now()
-    )
+export async function requireDiscoverySchema(database) {
+  const rows = await database`
+    SELECT to_regclass('public.web_discoveries') IS NOT NULL AS web_discoveries
   `;
-  await database`
-    CREATE INDEX IF NOT EXISTS web_discoveries_fresh
-      ON web_discoveries (status, last_seen_at DESC)
-  `;
+  if (!rows[0]?.web_discoveries) {
+    throw new Error("Web discovery migration is missing.");
+  }
 }
 
 async function searchArea(area, apiKey) {
@@ -136,7 +120,8 @@ export async function runTavilyDiscovery() {
   const apiKey = process.env.TAVILY_API_KEY;
   if (!database) throw new Error("DATABASE_URL is required");
   if (!apiKey) throw new Error("TAVILY_API_KEY is required");
-  await ensureDiscoveryTable(database);
+  await requireDiscoverySchema(database);
+  const expiredUsageLimits = await cleanupUsageLimits(database);
 
   const settled = await Promise.allSettled(
     DISCOVERY_AREAS.map((area) => searchArea(area, apiKey)),
@@ -190,7 +175,8 @@ export async function runTavilyDiscovery() {
     searches: DISCOVERY_AREAS.length,
     credits,
     upserted,
+    expiredUsageLimits,
     errors,
   }));
-  return { searches: DISCOVERY_AREAS.length, credits, upserted, errors };
+  return { searches: DISCOVERY_AREAS.length, credits, upserted, expiredUsageLimits, errors };
 }

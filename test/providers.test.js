@@ -7,8 +7,26 @@ import {
   normalizeKingCountyPet,
   normalizeLosAngelesPet,
   normalizeMontgomeryPet,
+  normalizePetQuery,
   parseLosAngelesPets,
+  safeHttpUrl,
 } from "../api/pets.js";
+
+test("provider navigation URLs reject active and malformed schemes", () => {
+  assert.equal(safeHttpUrl("javascript:alert(1)"), null);
+  assert.equal(safeHttpUrl("data:text/html,unsafe"), null);
+  assert.equal(safeHttpUrl("not a url"), null);
+  assert.equal(safeHttpUrl("https://example.org/pet/1"), "https://example.org/pet/1");
+});
+
+test("pet feed provider fan-out has bounded query pagination", () => {
+  assert.deepEqual(normalizePetQuery({ page: "999", limit: "999", species: "Lizard" }), {
+    species: ["Dog", "Cat"], limit: 50, page: 20,
+  });
+  assert.deepEqual(normalizePetQuery({ page: "-5", limit: "0", species: "Dog" }), {
+    species: ["Dog"], limit: 24, page: 1,
+  });
+});
 
 test("normalizes Montgomery County adoptable pet records", () => {
   const pet = normalizeMontgomeryPet({

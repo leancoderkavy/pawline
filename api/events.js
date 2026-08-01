@@ -1,4 +1,5 @@
 import { getDatabase } from "./_db.js";
+import { consumeUsageChain, requestClientKey } from "./_usage-limit.js";
 
 const PASADENA_EVENTS =
   "https://pasadenahumane.org/wp-json/tribe/events/v1/events";
@@ -12,6 +13,16 @@ function cleanText(value) {
     .replace(/&#8217;/g, "’")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+export function safeEventUrl(value) {
+  if (typeof value !== "string") return null;
+  try {
+    const url = new URL(value);
+    return ["http:", "https:"].includes(url.protocol) ? url.href : null;
+  } catch {
+    return null;
+  }
 }
 
 function isDogAdoptionEvent(event) {
@@ -47,7 +58,7 @@ export function normalizePasadenaEvent(event) {
     ends_at: event.utc_end_date || event.end_date
       ? `${(event.utc_end_date || event.end_date).replace(" ", "T")}Z`
       : null,
-    source_url: event.url || null,
+    source_url: safeEventUrl(event.url),
     source: "Pasadena Humane · Live",
     latitude: null,
     longitude: null,
@@ -103,6 +114,7 @@ async function fetchDatabaseEvents() {
   `;
   return rows.map((row) => ({
     ...row,
+    source_url: safeEventUrl(row.source_url),
     id: `database-${row.id}`,
     source: "Pawline reviewed event",
     latitude: null,
@@ -114,6 +126,21 @@ export default async function handler(request, response) {
   if (request.method !== "GET") {
     response.setHeader("Allow", "GET");
     return response.status(405).json({ error: "Method not allowed" });
+  }
+  const database = getDatabase();
+  if (!database) {
+    return response.status(503).json({ mode: "error", events: [], message: "Event feed safety checks are unavailable." });
+  }
+  try {
+    const reservation = await consumeUsageChain(database, [
+      { scope: "event_feed_client", subject: requestClientKey(request), limit: 60, windowMs: 60 * 60 * 1000 },
+      { scope: "event_feed_global", subject: "all", limit: 1000, windowMs: 60 * 60 * 1000 },
+    ]);
+    if (!reservation.allowed) {
+      return response.status(429).json({ mode: "error", events: [], message: "Event feed request limit reached. Try again later." });
+    }
+  } catch {
+    return response.status(503).json({ mode: "error", events: [], message: "Event feed safety checks are unavailable." });
   }
 
   const settled = await Promise.allSettled([fetchDatabaseEvents(), fetchPasadenaEvents()]);

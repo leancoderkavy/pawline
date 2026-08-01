@@ -3,6 +3,7 @@ import { getDatabase } from "./_db.js";
 import { requireUser } from "./_auth.js";
 import { ensureDirectMessageTables, findConversation, parseConversationId, publicDirectMessage } from "./_direct.js";
 import { moderateMessage } from "./_community.js";
+import { consumeUsageChain } from "./_usage-limit.js";
 
 const buckets = new Map();
 function limited(userId) {
@@ -54,6 +55,15 @@ export default async function handler(request, response) {
     return response.status(405).json({ error: "Method not allowed" });
   }
   if (limited(user.id)) return response.status(429).json({ error: "You’re sending messages too quickly. Pause for a moment." });
+  try {
+    const reservation = await consumeUsageChain(database, [
+      { scope: "direct_message_user_minute", subject: user.id, limit: 18, windowMs: 60 * 1000 },
+      { scope: "direct_message_user_day", subject: user.id, limit: 750, windowMs: 24 * 60 * 60 * 1000 },
+    ]);
+    if (!reservation.allowed) return response.status(429).json({ error: "Private message limit reached. Try again later." });
+  } catch {
+    return response.status(503).json({ error: "Private messaging safety checks are temporarily unavailable." });
+  }
   const moderated = moderateMessage(request.body?.body);
   if (!moderated.allowed) return response.status(422).json({ error: moderated.message, moderationCode: moderated.code });
   const rows = await database`

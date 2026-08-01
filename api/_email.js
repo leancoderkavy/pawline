@@ -22,6 +22,7 @@ async function sendEmail({ to, subject, text, replyTo }) {
       text,
       ...(replyTo ? { reply_to: replyTo } : {}),
     }),
+    signal: AbortSignal.timeout(10000),
   });
 
   if (!response.ok) {
@@ -30,7 +31,7 @@ async function sendEmail({ to, subject, text, replyTo }) {
   }
 }
 
-export async function notifySubmission({ id, pet }) {
+export async function notifySubmission({ id, pet, acknowledgementEmail }) {
   if (!emailConfigured()) return { configured: false };
 
   const reviewText = [
@@ -58,20 +59,21 @@ export async function notifySubmission({ id, pet }) {
     "Please reply to this email if the pet is adopted or the listing should be withdrawn.",
   ].join("\n");
 
-  const results = await Promise.allSettled([
+  const tasks = [
     sendEmail({
       to: process.env.PAWLINE_MODERATION_EMAIL,
       replyTo: pet.email,
       subject: `Review Pawline listing: ${pet.name}`,
       text: reviewText,
     }),
-    sendEmail({
-      to: pet.email,
+  ];
+  if (acknowledgementEmail) tasks.push(sendEmail({
+      to: acknowledgementEmail,
       replyTo: process.env.PAWLINE_MODERATION_EMAIL,
       subject: `${pet.name}'s Pawline submission is pending review`,
       text: acknowledgementText,
-    }),
-  ]);
+    }));
+  const results = await Promise.allSettled(tasks);
 
   const failures = results.filter((result) => result.status === "rejected");
   if (failures.length) {
@@ -81,5 +83,11 @@ export async function notifySubmission({ id, pet }) {
     );
   }
 
-  return { configured: true, sent: results.length - failures.length };
+  return { configured: true, attempted: tasks.length, sent: results.length - failures.length };
+}
+
+export function notificationStatus(result) {
+  if (!result?.configured) return "not_configured";
+  if (result.sent === result.attempted) return "sent";
+  return result.sent > 0 ? "partial_failure" : "failed";
 }

@@ -1,26 +1,119 @@
 import dns from "node:dns/promises";
+import https from "node:https";
 import net from "node:net";
-import { generateText } from "ai";
+import { generateText, jsonSchema, Output } from "ai";
 import { getDatabase } from "./_db.js";
 import { requireUser } from "./_auth.js";
 import { ensureCommunityTables } from "./_community.js";
+import { consumeUsageChain } from "./_usage-limit.js";
 
 const MODEL = process.env.PAWLINE_AI_MODEL || "google/gemini-2.5-flash-lite";
 const MAX_HTML = 600_000;
+const WINDOW_MS = 60 * 60 * 1000;
+const MAX_REQUESTS_PER_WINDOW = 10;
 const buckets = new Map();
+const parsedListingSchema = jsonSchema({
+  type: "object",
+  additionalProperties: false,
+  required: ["name", "species", "breed", "age", "city", "country", "description", "imageUrl"],
+  properties: {
+    name: { type: "string" },
+    species: { type: "string", enum: ["", "Dog", "Cat"] },
+    breed: { type: "string" },
+    age: { type: "string" },
+    city: { type: "string" },
+    country: { type: "string" },
+    description: { type: "string" },
+    imageUrl: { type: "string" },
+  },
+});
 
-function isPrivateIp(address) {
-  if (!net.isIP(address)) return true;
-  return /^(?:10\.|127\.|169\.254\.|192\.168\.|0\.|::1$|fc|fd|fe80)/i.test(address) ||
-    /^172\.(?:1[6-9]|2\d|3[01])\./.test(address);
+function mappedIpv4(address) {
+  const value = String(address).toLowerCase();
+  if (!value.startsWith("::ffff:")) return null;
+  const suffix = value.slice(7);
+  if (net.isIP(suffix) === 4) return suffix;
+  const words = suffix.split(":");
+  if (words.length !== 2 || words.some(word => !/^[0-9a-f]{1,4}$/.test(word))) return null;
+  const high = Number.parseInt(words[0], 16);
+  const low = Number.parseInt(words[1], 16);
+  return `${high >> 8}.${high & 255}.${low >> 8}.${low & 255}`;
+}
+
+export function isPrivateIp(address) {
+  const family = net.isIP(address);
+  if (!family) return true;
+  const mapped = family === 6 ? mappedIpv4(address) : null;
+  if (mapped) return isPrivateIp(mapped);
+  if (family === 6) {
+    return /^(?:::|::1$|f[cd][0-9a-f]{2}:|fe[89ab][0-9a-f]:|ff[0-9a-f]{2}:|2001:db8:)/i.test(address);
+  }
+  const octets = address.split(".").map(Number);
+  const [a, b, c] = octets;
+  return a === 0 || a === 10 || a === 127 || a >= 224 ||
+    (a === 100 && b >= 64 && b <= 127) ||
+    (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && (b === 168 || (b === 0 && (c === 0 || c === 2)))) ||
+    (a === 198 && (b === 18 || b === 19 || (b === 51 && c === 100))) ||
+    (a === 203 && b === 0 && c === 113);
 }
 
 async function safeUrl(input) {
   const url = new URL(String(input || ""));
-  if (url.protocol !== "https:" || url.username || url.password) throw new Error("Use a public HTTPS listing link.");
+  if (url.protocol !== "https:" || url.username || url.password || (url.port && url.port !== "443")) {
+    throw new Error("Use a public HTTPS listing link on the standard secure port.");
+  }
   const records = await dns.lookup(url.hostname, { all: true });
   if (!records.length || records.some((record) => isPrivateIp(record.address))) throw new Error("That link cannot be fetched safely.");
-  return url;
+  return { url, address: records[0].address, family: records[0].family };
+}
+
+function fetchSafeHtml({ url, address, family }) {
+  return new Promise((resolve, reject) => {
+    const request = https.request(url, {
+      method: "GET",
+      headers: { "User-Agent": "PawlineLinkPreview/1.0 (+https://www.pawlineadopt.com)" },
+      servername: url.hostname,
+      lookup: (_hostname, _options, callback) => callback(null, address, family),
+    }, (upstream) => {
+      const status = Number(upstream.statusCode || 0);
+      const contentType = String(upstream.headers["content-type"] || "");
+      const length = Number(upstream.headers["content-length"] || 0);
+      if (status < 200 || status >= 300 || upstream.headers.location || !contentType.includes("text/html")) {
+        upstream.resume();
+        reject(new Error("That page did not return a readable pet listing."));
+        return;
+      }
+      if (length > MAX_HTML) {
+        upstream.resume();
+        reject(new Error("That listing page is too large to parse safely."));
+        return;
+      }
+      const chunks = [];
+      let received = 0;
+      upstream.on("data", (chunk) => {
+        received += chunk.length;
+        if (received > MAX_HTML) {
+          request.destroy(new Error("That listing page is too large to parse safely."));
+          return;
+        }
+        chunks.push(chunk);
+      });
+      upstream.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+    });
+    request.setTimeout(12_000, () => request.destroy(new Error("That listing page timed out.")));
+    request.on("error", (error) => {
+      const safeMessages = [
+        "That listing page is too large to parse safely.",
+        "That listing page timed out.",
+      ];
+      reject(new Error(safeMessages.includes(error.message)
+        ? error.message
+        : "That listing page could not be fetched safely."));
+    });
+    request.end();
+  });
 }
 
 function decode(value) {
@@ -36,10 +129,6 @@ function meta(html, key) {
     new RegExp(`<meta[^>]+content=["']([^"']*)["'][^>]+(?:property|name)=["']${escaped}["']`, "i"),
   ];
   return decode(patterns.map((pattern) => html.match(pattern)?.[1]).find(Boolean));
-}
-
-function jsonPayload(text) {
-  return JSON.parse(String(text || "").trim().replace(/^```json\s*/i, "").replace(/```$/, ""));
 }
 
 function validateParsed(payload, fallback) {
@@ -91,44 +180,53 @@ export default async function handler(request, response) {
   try { user = await requireUser(request); } catch (error) {
     return response.status(error.statusCode || 401).json({ error: error.message });
   }
-  if (rateLimited(user.id)) return response.status(429).json({ error: "Link parsing limit reached. Try again later." });
+  if (rateLimited(user.id)) {
+    return response.status(429).json({ error: "Link parsing limit reached. Try again later." });
+  }
+  try {
+    const reservation = await consumeUsageChain(database, [
+      { scope: "community_link_parse_user", subject: user.id, limit: MAX_REQUESTS_PER_WINDOW, windowMs: WINDOW_MS },
+      { scope: "community_link_parse_global", subject: "all", limit: 200, windowMs: WINDOW_MS },
+    ]);
+    if (!reservation.allowed) {
+      return response.status(429).json({ error: "Link parsing limit reached. Try again later." });
+    }
+  } catch {
+    return response.status(503).json({ error: "Link parsing safety checks are temporarily unavailable." });
+  }
   if (!process.env.VERCEL && !process.env.AI_GATEWAY_API_KEY && !process.env.VERCEL_OIDC_TOKEN) {
     return response.status(503).json({ error: "Pet link parsing is not configured." });
   }
   try {
-    const url = await safeUrl(request.body?.url);
-    const upstream = await fetch(url, {
-      redirect: "error",
-      headers: { "User-Agent": "PawlineLinkPreview/1.0 (+https://www.pawlineadopt.com)" },
-      signal: AbortSignal.timeout(12_000),
-    });
-    if (!upstream.ok || !String(upstream.headers.get("content-type") || "").includes("text/html")) {
-      throw new Error("That page did not return a readable pet listing.");
-    }
-    const length = Number(upstream.headers.get("content-length") || 0);
-    if (length > MAX_HTML) throw new Error("That listing page is too large to parse safely.");
-    const html = (await upstream.text()).slice(0, MAX_HTML);
+    const target = await safeUrl(request.body?.url);
+    const { url } = target;
+    const html = await fetchSafeHtml(target);
     const fallback = {
       title: meta(html, "og:title") || decode(html.match(/<title[^>]*>([^<]*)<\/title>/i)?.[1]).slice(0, 180),
       description: meta(html, "og:description") || meta(html, "description"),
       imageUrl: meta(html, "og:image"),
     };
     const visibleText = decode(html.replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<style[\s\S]*?<\/style>/gi, " ").replace(/<[^>]+>/g, " ")).slice(0, 12_000);
-    const result = await generateText({
+    const { output } = await generateText({
       model: MODEL,
+      output: Output.object({
+        schema: parsedListingSchema,
+        name: "community_pet_listing",
+        description: "Explicit public facts extracted from a third-party pet listing.",
+      }),
       system: [
         "Extract only explicit public pet-listing facts from the supplied webpage.",
         "Never infer a pet's temperament, health, ownership, precise address, availability, or identity.",
         "Never output contact details, exact street addresses, microchip IDs, or personal names.",
-        "Return JSON only with keys name, species (Dog, Cat, or null), breed, age, city, country, description, imageUrl.",
-        "Use null for unsupported fields. The description must be a neutral summary under 500 characters.",
+        "Return the requested structured fields; species is Dog, Cat, or an empty string.",
+        "Use an empty string for unsupported fields. The description must be a neutral summary under 500 characters.",
       ].join(" "),
       prompt: JSON.stringify({ url: url.href, metadata: fallback, pageText: visibleText }),
       temperature: 0,
       maxOutputTokens: 600,
       abortSignal: AbortSignal.timeout(20_000),
     });
-    const pet = validateParsed(jsonPayload(result.text), fallback);
+    const pet = validateParsed(output, fallback);
     if (!pet.species && !/\b(?:dog|cat|puppy|kitten|pet)\b/i.test(`${pet.name} ${pet.description}`)) {
       throw new Error("That page does not appear to contain a dog or cat listing.");
     }
@@ -147,7 +245,8 @@ export default async function handler(request, response) {
         name=EXCLUDED.name, species=EXCLUDED.species, breed=EXCLUDED.breed,
         age=EXCLUDED.age, description=EXCLUDED.description, image_url=EXCLUDED.image_url,
         city=EXCLUDED.city, country=EXCLUDED.country, latitude=EXCLUDED.latitude,
-        longitude=EXCLUDED.longitude, updated_at=now()
+        longitude=EXCLUDED.longitude, verification_state='needs_confirmation',
+        parser_state='parsed', updated_at=now()
       RETURNING id
     `;
     return response.status(200).json({

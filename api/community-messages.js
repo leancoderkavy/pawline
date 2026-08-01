@@ -2,6 +2,7 @@ import Ably from "ably";
 import { getDatabase } from "./_db.js";
 import { requireUser } from "./_auth.js";
 import { ensureCommunityTables, moderateMessage, publicMessage } from "./_community.js";
+import { consumeUsageChain } from "./_usage-limit.js";
 
 const buckets = new Map();
 function limited(userId) {
@@ -19,6 +20,20 @@ async function publish(message) {
   if (!process.env.ABLY_API_KEY) return;
   const ably = new Ably.Rest({ key: process.env.ABLY_API_KEY });
   await ably.channels.get("pawline:community").publish("message.created", message);
+}
+
+export function normalizeLinkPreview(preview, urls = []) {
+  if (!preview || typeof preview !== "object") return null;
+  return {
+    id: String(preview.id || "").slice(0, 100),
+    name: String(preview.name || "Pet listing").slice(0, 120),
+    species: ["Dog", "Cat"].includes(preview.species) ? preview.species : null,
+    city: String(preview.city || "").slice(0, 140),
+    sourceUrl: urls.includes(preview.sourceUrl) ? preview.sourceUrl : urls[0] || null,
+    sourceDomain: String(preview.sourceDomain || "").slice(0, 160),
+    imageUrl: /^https:\/\//.test(preview.imageUrl || "") ? preview.imageUrl : null,
+    verificationState: "needs_confirmation",
+  };
 }
 
 export default async function handler(request, response) {
@@ -48,20 +63,19 @@ export default async function handler(request, response) {
     return response.status(405).json({ error: "Method not allowed" });
   }
   if (limited(user.id)) return response.status(429).json({ error: "You’re sending messages too quickly. Pause for a moment." });
+  try {
+    const reservation = await consumeUsageChain(database, [
+      { scope: "community_message_user_minute", subject: user.id, limit: 12, windowMs: 60 * 1000 },
+      { scope: "community_message_user_day", subject: user.id, limit: 500, windowMs: 24 * 60 * 60 * 1000 },
+    ]);
+    if (!reservation.allowed) return response.status(429).json({ error: "Community message limit reached. Try again later." });
+  } catch {
+    return response.status(503).json({ error: "Community safety checks are temporarily unavailable." });
+  }
   const moderated = moderateMessage(request.body?.body);
   if (!moderated.allowed) return response.status(422).json({ error: moderated.message, moderationCode: moderated.code });
 
-  const preview = request.body?.linkPreview;
-  const safePreview = preview && typeof preview === "object" ? {
-    id: String(preview.id || "").slice(0, 100),
-    name: String(preview.name || "Pet listing").slice(0, 120),
-    species: ["Dog", "Cat"].includes(preview.species) ? preview.species : null,
-    city: String(preview.city || "").slice(0, 140),
-    sourceUrl: moderated.urls.includes(preview.sourceUrl) ? preview.sourceUrl : moderated.urls[0] || null,
-    sourceDomain: String(preview.sourceDomain || "").slice(0, 160),
-    imageUrl: /^https:\/\//.test(preview.imageUrl || "") ? preview.imageUrl : null,
-    verificationState: preview.verificationState === "provider_verified" ? "provider_verified" : "needs_confirmation",
-  } : null;
+  const safePreview = normalizeLinkPreview(request.body?.linkPreview, moderated.urls);
   const rows = await database`
     INSERT INTO community_messages (clerk_user_id, author_name, author_image_url, body, link_preview)
     VALUES (${user.id}, ${user.displayName}, ${user.imageUrl}, ${moderated.text}, ${safePreview})
@@ -71,4 +85,3 @@ export default async function handler(request, response) {
   await publish(message).catch((error) => console.error("Community realtime publish failed", error.message));
   return response.status(201).json({ message });
 }
-

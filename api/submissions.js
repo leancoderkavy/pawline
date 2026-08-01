@@ -1,7 +1,8 @@
 import crypto from "node:crypto";
 import { getDatabase } from "./_db.js";
-import { notifySubmission } from "./_email.js";
+import { notificationStatus, notifySubmission } from "./_email.js";
 import { requireUser } from "./_auth.js";
+import { consumeUsageChain } from "./_usage-limit.js";
 
 const clean = (value, max = 240) =>
   typeof value === "string" ? value.trim().slice(0, max) : "";
@@ -16,6 +17,7 @@ const validHttpUrl = (value) => {
   }
 };
 const allowedFileTypes = new Set(["application/pdf", "image/jpeg", "image/png", "image/webp", "text/plain"]);
+const MAX_FILES = 8;
 const parseFile = (file) => {
   if (!file || !allowedFileTypes.has(file.type) || typeof file.data !== "string") throw new Error("Unsupported attachment.");
   const prefix = `data:${file.type};base64,`;
@@ -36,12 +38,26 @@ export function submissionStorageReady(row) {
 }
 
 export async function ensureListingOwnership(database) {
-  await database`
-    ALTER TABLE pets
-      ADD COLUMN IF NOT EXISTS claimed_by_clerk_user_id text,
-      ADD COLUMN IF NOT EXISTS claimed_by_display_name text,
-      ADD COLUMN IF NOT EXISTS claimed_at timestamptz
+  const rows = await database`
+    SELECT count(*)::integer AS column_count
+    FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='pets'
+      AND column_name IN ('claimed_by_clerk_user_id', 'claimed_by_display_name', 'claimed_at')
   `;
+  if (Number(rows[0]?.column_count) !== 3) throw new Error("Listing ownership migration is missing.");
+}
+
+export function normalizeExtractionMeta(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const boundedInteger = (input) => Number.isInteger(Number(input))
+    ? Math.min(Math.max(Number(input), 0), 10_000_000)
+    : null;
+  const model = typeof value.model === "string" ? value.model.trim().slice(0, 160) : "";
+  return model ? {
+    model,
+    inputTokens: boundedInteger(value.inputTokens),
+    outputTokens: boundedInteger(value.outputTokens),
+  } : null;
 }
 
 async function ensureSubmissionStorage(database) {
@@ -51,46 +67,7 @@ async function ensureSubmissionStorage(database) {
       to_regclass('public.pet_submission_log') AS submission_log
   `;
   if (submissionStorageReady(storageRows[0])) return;
-
-  await database`
-    CREATE TABLE IF NOT EXISTS pet_submission_files (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-      pet_id uuid NOT NULL REFERENCES pets(id) ON DELETE CASCADE,
-      file_name text NOT NULL,
-      media_type text NOT NULL,
-      byte_size integer NOT NULL CHECK (byte_size > 0 AND byte_size <= 3145728),
-      content bytea NOT NULL,
-      is_primary_photo boolean NOT NULL DEFAULT false,
-      created_at timestamptz NOT NULL DEFAULT now()
-    )
-  `;
-  await database`
-    CREATE INDEX IF NOT EXISTS pet_submission_files_pet_id
-      ON pet_submission_files (pet_id, created_at)
-  `;
-  await database`
-    CREATE TABLE IF NOT EXISTS pet_submission_log (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-      pet_id uuid NOT NULL REFERENCES pets(id) ON DELETE CASCADE,
-      event_type text NOT NULL
-        CHECK (event_type IN ('submitted', 'ai_extracted', 'reviewed', 'published', 'rejected')),
-      event_data jsonb NOT NULL DEFAULT '{}'::jsonb,
-      created_at timestamptz NOT NULL DEFAULT now()
-    )
-  `;
-  await database`
-    CREATE INDEX IF NOT EXISTS pet_submission_log_pet_id
-      ON pet_submission_log (pet_id, created_at DESC)
-  `;
-
-  const verificationRows = await database`
-    SELECT
-      to_regclass('public.pet_submission_files') AS submission_files,
-      to_regclass('public.pet_submission_log') AS submission_log
-  `;
-  if (!submissionStorageReady(verificationRows[0])) {
-    throw new Error("Submission storage migration did not complete.");
-  }
+  throw new Error("Submission storage migration is missing.");
 }
 
 export default async function handler(request, response) {
@@ -174,9 +151,22 @@ export default async function handler(request, response) {
   if (!body.authorityConfirmed || !body.disclosureConfirmed || !body.localLawConfirmed) {
     return response.status(400).json({ error: "Confirm all required attestations." });
   }
+  try {
+    const reservation = await consumeUsageChain(database, [
+      { scope: "pet_submission_user", subject: user.id, limit: 3, windowMs: 60 * 60 * 1000 },
+      { scope: "pet_submission_recipient", subject: pet.email, limit: 3, windowMs: 24 * 60 * 60 * 1000 },
+    ]);
+    if (!reservation.allowed) {
+      return response.status(429).json({ error: "Submission limit reached. Try again later or contact Pawline support." });
+    }
+  } catch {
+    return response.status(503).json({ error: "Submission safety checks are temporarily unavailable." });
+  }
   let files;
   try {
-    files = (Array.isArray(body.files) ? body.files : []).map(parseFile);
+    const rawFiles = Array.isArray(body.files) ? body.files : [];
+    if (rawFiles.length > MAX_FILES) return response.status(413).json({ error: `Add no more than ${MAX_FILES} files.` });
+    files = rawFiles.map(parseFile);
     if (files.reduce((sum, file) => sum + file.size, 0) > 3 * 1024 * 1024) {
       return response.status(413).json({ error: "Attachments must total 3 MB or less." });
     }
@@ -218,7 +208,7 @@ export default async function handler(request, response) {
           },
           placement: { rehomingReason: pet.rehomingReason, rehomingFee: pet.rehomingFee },
           attestations: { authority: true, disclosure: true, localLaw: true },
-          extraction: body.extractionMeta || null,
+          extraction: normalizeExtractionMeta(body.extractionMeta),
         })}
       )
       ON CONFLICT (fingerprint) DO UPDATE SET
@@ -260,10 +250,11 @@ export default async function handler(request, response) {
       INSERT INTO pet_submission_log (pet_id, event_type, event_data)
       VALUES (${rows[0].id}, 'submitted', ${JSON.stringify({ attachmentCount: files.length, status: "pending" })})
     `;
-    if (body.extractionMeta) {
+    const extractionMeta = normalizeExtractionMeta(body.extractionMeta);
+    if (extractionMeta) {
       await database`
         INSERT INTO pet_submission_log (pet_id, event_type, event_data)
-        VALUES (${rows[0].id}, 'ai_extracted', ${JSON.stringify(body.extractionMeta)})
+        VALUES (${rows[0].id}, 'ai_extracted', ${JSON.stringify(extractionMeta)})
       `;
     }
     const isProductionQa =
@@ -279,11 +270,11 @@ export default async function handler(request, response) {
         qaCleanup: true,
       });
     }
-    const notification = await notifySubmission({ id: rows[0].id, pet });
+    const notification = await notifySubmission({ id: rows[0].id, pet, acknowledgementEmail: user.email });
     return response.status(202).json({
       id: rows[0].id,
       message: "Thank you — your pet was submitted for review. After approval, you can answer adoption questions in Messages.",
-      notification: notification.configured ? "queued" : "not_configured",
+      notification: notificationStatus(notification),
     });
   } catch (error) {
     console.error("Pet submission failed", error);

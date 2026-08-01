@@ -10,7 +10,7 @@ async function readJson(response) {
   return response.json();
 }
 
-export default function FavoritesSync({ localFavorites, onLoad, onSessionChange }) {
+export default function FavoritesSync({ localFavorites, onLoad, onSessionChange, onError }) {
   const { isLoaded, isSignedIn, userId, getToken } = useAuth();
   const localRef = useRef(localFavorites);
   localRef.current = localFavorites;
@@ -44,16 +44,25 @@ export default function FavoritesSync({ localFavorites, onLoad, onSessionChange 
         const body = await readJson(response);
         if (!response.ok) throw new Error(body.error || "Favorites could not be loaded.");
         const remote = Array.isArray(body.favorites) ? body.favorites : [];
-        const merged = [...new Set([...remote, ...localRef.current])];
-        await Promise.all(localRef.current.filter(id => !remote.includes(id)).map(id => save(id, true)));
+        let priorAccount = "storage-unavailable";
+        try { priorAccount = localStorage.getItem("pawline-favorites-account"); } catch {}
+        const legacyFavorites = priorAccount === null ? localRef.current : [];
+        if (priorAccount && priorAccount !== "storage-unavailable" && priorAccount !== userId && active) {
+          onLoad([]);
+        }
+        const merged = [...new Set([...remote, ...legacyFavorites])];
+        await Promise.all(legacyFavorites.filter(id => !remote.includes(id)).map(id => save(id, true)));
+        try { localStorage.setItem("pawline-favorites-account", userId); } catch {}
         if (active) onLoad(merged);
       })
-      .catch(() => {});
+      .catch((error) => {
+        if (active) onError(error.message || "Favorites could not be synchronized.");
+      });
     return () => {
       active = false;
       onSessionChange(null);
     };
-  }, [isLoaded, isSignedIn, userId, getToken, onLoad, onSessionChange]);
+  }, [isLoaded, isSignedIn, userId, getToken, onLoad, onSessionChange, onError]);
 
   return null;
 }

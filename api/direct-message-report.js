@@ -1,8 +1,9 @@
 import { getDatabase } from "./_db.js";
 import { requireUser } from "./_auth.js";
 import { ensureDirectMessageTables } from "./_direct.js";
+import { consumeUsage } from "./_usage-limit.js";
 
-const UUID_PATTERN = /^[0-9a-f-]{36}$/i;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export default async function handler(request, response) {
   response.setHeader("Cache-Control", "no-store");
@@ -28,6 +29,14 @@ export default async function handler(request, response) {
     LIMIT 1
   `;
   if (!visible[0]) return response.status(404).json({ error: "That message is not available to this account." });
+  try {
+    const allowed = await consumeUsage(database, {
+      scope: "direct_report_user_day", subject: user.id, limit: 30, windowMs: 24 * 60 * 60 * 1000,
+    });
+    if (!allowed) return response.status(429).json({ error: "Report limit reached. Contact Pawline support for urgent help." });
+  } catch {
+    return response.status(503).json({ error: "Reporting safety checks are temporarily unavailable." });
+  }
   const reason = String(request.body?.reason || "safety").trim().slice(0, 240);
   await database`
     INSERT INTO direct_message_reports (message_id, reporter_clerk_user_id, reason)
@@ -36,12 +45,8 @@ export default async function handler(request, response) {
   `;
   await database`
     UPDATE direct_messages
-    SET report_count = (SELECT count(*) FROM direct_message_reports WHERE message_id = ${messageId}),
-        moderation_state = CASE
-          WHEN (SELECT count(*) FROM direct_message_reports WHERE message_id = ${messageId}) >= 3 THEN 'held'
-          ELSE moderation_state
-        END
+    SET report_count = (SELECT count(*) FROM direct_message_reports WHERE message_id = ${messageId})
     WHERE id = ${messageId}
   `;
-  return response.status(202).json({ message: "Report received. Repeatedly reported messages are hidden for review." });
+  return response.status(202).json({ message: "Report received for moderator review." });
 }

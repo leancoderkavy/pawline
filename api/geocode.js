@@ -1,3 +1,6 @@
+import { getDatabase } from "./_db.js";
+import { consumeUsageChain, requestClientKey } from "./_usage-limit.js";
+
 const MAPBOX_GEOCODING_URL = "https://api.mapbox.com/search/geocode/v6/forward";
 
 export default async function handler(request, response) {
@@ -12,6 +15,17 @@ export default async function handler(request, response) {
   }
   if (!process.env.MAPBOX_ACCESS_TOKEN) {
     return response.status(503).json({ error: "Location search is not configured." });
+  }
+  const database = getDatabase();
+  if (!database) return response.status(503).json({ error: "Location search safety checks are unavailable." });
+  try {
+    const reservation = await consumeUsageChain(database, [
+      { scope: "geocode_client", subject: requestClientKey(request), limit: 60, windowMs: 60 * 60 * 1000 },
+      { scope: "geocode_global", subject: "all", limit: 2000, windowMs: 60 * 60 * 1000 },
+    ]);
+    if (!reservation.allowed) return response.status(429).json({ error: "Location search limit reached. Try again later." });
+  } catch {
+    return response.status(503).json({ error: "Location search safety checks are unavailable." });
   }
 
   const url = new URL(MAPBOX_GEOCODING_URL);

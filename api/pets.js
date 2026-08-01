@@ -1,5 +1,6 @@
 import { getDatabase } from "./_db.js";
 import { buildRescueGroupsUrl } from "./_rescuegroups.js";
+import { consumeUsageChain, requestClientKey } from "./_usage-limit.js";
 
 const API_BASE =
   process.env.RESCUEGROUPS_API_BASE_URL || "https://api.rescuegroups.org/v5";
@@ -9,6 +10,18 @@ const KING_COUNTY_API =
   "https://data.kingcounty.gov/resource/yaai-7frk.json";
 const LOS_ANGELES_PETS_URL =
   "https://www.laanimalservices.com/search/pets";
+const PET_FEED_WINDOW_MS = 60 * 60 * 1000;
+
+export function normalizePetQuery(query = {}) {
+  const requestedSpecies = query.species;
+  return {
+    species: requestedSpecies === "Dog" || requestedSpecies === "Cat"
+      ? [requestedSpecies]
+      : ["Dog", "Cat"],
+    limit: Math.min(Math.max(Number(query.limit) || 24, 1), 50),
+    page: Math.min(Math.max(Number(query.page) || 1, 1), 20),
+  };
+}
 const MONTGOMERY_ADOPTION_URL =
   "https://www.montgomerycountymd.gov/animalservices/adoption/index.html";
 const LOS_ANGELES_CENTERS = {
@@ -58,6 +71,16 @@ export function cleanText(value) {
     .replace(/&#39;/g, "'")
     .replace(/\s+/g, " ")
     .trim() || null;
+}
+
+export function safeHttpUrl(value) {
+  if (typeof value !== "string") return null;
+  try {
+    const url = new URL(value);
+    return ["http:", "https:"].includes(url.protocol) ? url.href : null;
+  } catch {
+    return null;
+  }
 }
 
 function decodeHtml(value) {
@@ -129,7 +152,7 @@ export function normalizeMontgomeryPet(pet, index) {
     reviews: null,
     source: "Montgomery County Open Data · Live",
     sourceUrl: MONTGOMERY_ADOPTION_URL,
-    image: pet.url?.url?.replace(/^http:/, "https:") || null,
+    image: safeHttpUrl(pet.url?.url?.replace(/^http:/, "https:")),
     latitude: null,
     longitude: null,
     x: 18 + ((index * 17) % 70),
@@ -155,8 +178,8 @@ export function normalizeKingCountyPet(pet, index) {
     rating: null,
     reviews: null,
     source: "King County Open Data · Live",
-    sourceUrl: pet.link?.url || null,
-    image: pet.image?.url?.replace(/^http:/, "https:") || null,
+    sourceUrl: safeHttpUrl(pet.link?.url),
+    image: safeHttpUrl(pet.image?.url?.replace(/^http:/, "https:")),
     description: cleanText(pet.memo),
     latitude: Number.isFinite(Number(pet.obfuscated_latitude))
       ? Number(pet.obfuscated_latitude) : null,
@@ -210,7 +233,7 @@ export function normalizeLosAngelesPet(record) {
     reviews: null,
     source: "LA Animal Services · Live",
     sourceUrl: `https://www.laanimalservices.com/pet/${record.id.toLowerCase()}`,
-    image: record.image ? decodeHtml(record.image).replace(/^http:/, "https:") : null,
+    image: safeHttpUrl(record.image ? decodeHtml(record.image).replace(/^http:/, "https:") : null),
     latitude: center.latitude,
     longitude: center.longitude,
     locationAccuracy: "shelter",
@@ -270,16 +293,6 @@ function safeDatabaseText(value, fallback, maxLength = 240) {
   const text = cleanText(value);
   if (!text || text.length > maxLength || /^[\[{]/.test(text)) return fallback;
   return text;
-}
-
-function safeHttpUrl(value) {
-  if (typeof value !== "string") return null;
-  try {
-    const url = new URL(value);
-    return ["http:", "https:"].includes(url.protocol) ? url.href : null;
-  } catch {
-    return null;
-  }
 }
 
 export function normalizeDatabasePet(pet, index) {
@@ -366,12 +379,9 @@ function normalizeAnimal(animal, included, index) {
     rating: null,
     reviews: null,
     source: "RescueGroups · Live",
-    sourceUrl: attributes.url || organization.adoptionUrl || organization.url || null,
+    sourceUrl: safeHttpUrl(attributes.url || organization.adoptionUrl || organization.url),
     image:
-      picture?.large ||
-      picture?.original ||
-      attributes.pictureThumbnailUrl ||
-      null,
+      safeHttpUrl(picture?.large || picture?.original || attributes.pictureThumbnailUrl),
     latitude: Number.isFinite(Number(location.latitude)) ? Number(location.latitude) : null,
     longitude: Number.isFinite(Number(location.longitude)) ? Number(location.longitude) : null,
     x: 18 + ((index * 17) % 70),
@@ -398,6 +408,7 @@ async function fetchSpecies(species, { limit, page }, apiKey) {
       "Content-Type": "application/vnd.api+json",
       Authorization: apiKey,
     },
+    signal: AbortSignal.timeout(10000),
   });
 
   if (!upstream.ok) {
@@ -416,13 +427,22 @@ export default async function handler(request, response) {
 
   const apiKey = process.env.RESCUEGROUPS_API_KEY;
 
-  const requestedSpecies = request.query.species;
-  const species =
-    requestedSpecies === "Dog" || requestedSpecies === "Cat"
-      ? [requestedSpecies]
-      : ["Dog", "Cat"];
-  const limit = Math.min(Math.max(Number(request.query.limit) || 24, 1), 100);
-  const page = Math.max(Number(request.query.page) || 1, 1);
+  const { species, limit, page } = normalizePetQuery(request.query);
+  const database = getDatabase();
+  if (!database) {
+    return response.status(503).json({ mode: "error", pets: [], message: "Live adoption feed safety checks are unavailable." });
+  }
+  try {
+    const reservation = await consumeUsageChain(database, [
+      { scope: "pet_feed_client", subject: requestClientKey(request), limit: 120, windowMs: PET_FEED_WINDOW_MS },
+      { scope: "pet_feed_global", subject: "all", limit: 3000, windowMs: PET_FEED_WINDOW_MS },
+    ]);
+    if (!reservation.allowed) {
+      return response.status(429).json({ mode: "error", pets: [], message: "Live adoption feed request limit reached. Try again later." });
+    }
+  } catch {
+    return response.status(503).json({ mode: "error", pets: [], message: "Live adoption feed safety checks are unavailable." });
+  }
 
   try {
     const requests = [

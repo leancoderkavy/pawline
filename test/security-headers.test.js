@@ -18,7 +18,7 @@ test("production exposes the verified Clerk frontend API proxy route", async () 
     "utf8",
   );
 
-  assert.match(page, /proxyUrl="https:\/\/pawlineadopt\.com\/__clerk"/);
+  assert.match(page, /proxyUrl="https:\/\/www\.pawlineadopt\.com\/__clerk"/);
   assert.match(route, /clerkFrontendApiProxy/);
   assert.match(route, /proxyPath: "\/__clerk"/);
   assert.match(route, /export const GET = proxy/);
