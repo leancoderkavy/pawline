@@ -1,7 +1,6 @@
 "use client";
 
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { SignInButton, useAuth } from "@clerk/nextjs";
 import {
   AlertTriangle, ArrowLeft, CalendarDays, CheckCircle2, ChevronRight, Clock3,
   Building2, CalendarClock, Check, Compass, ExternalLink, FileText, Globe2, Heart, Info, Layers3, ListChecks, LocateFixed, LockKeyhole, MapPin, Menu, PawPrint, Pencil,
@@ -10,10 +9,12 @@ import {
 import heroImage from "./heroData";
 import { rankPets } from "./matching";
 import { buildMapView } from "./mapView";
+import Dialog from "./Dialog";
 
 const CommunityWithAuth = lazy(() => import("./CommunityWithAuth"));
 const DirectMessages = lazy(() => import("./DirectMessages"));
 const FavoritesSyncWithAuth = lazy(() => import("./FavoritesSyncWithAuth"));
+const SubmissionWithAuth = lazy(() => import("./SubmissionWithAuth"));
 
 function Button({ className = "", variant = "primary", children, ...props }) {
   return <button className={`button ${variant === "outline" ? "button-outline" : ""} ${className}`} {...props}>{children}</button>;
@@ -48,48 +49,6 @@ function MobileMenu({ onClose, onSubmit }) {
     <a href="#how" onClick={onClose}>How it works</a>
     <button onClick={() => { onClose(); onSubmit(); }}>List a pet</button>
   </nav>;
-}
-
-function Dialog({ title, children, onClose }) {
-  const dialogRef = useRef(null);
-  const titleId = `dialog-title-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
-
-  useEffect(() => {
-    const previousFocus = document.activeElement;
-    const dialog = dialogRef.current;
-    const focusable = () => [...dialog.querySelectorAll("button, a[href], input, select, textarea, [tabindex]:not([tabindex='-1'])")]
-      .filter(element => !element.disabled && element.getClientRects().length);
-    focusable()[0]?.focus();
-
-    const handleKeyDown = event => {
-      if (event.key === "Escape") {
-        onClose();
-        return;
-      }
-      if (event.key !== "Tab") return;
-      const elements = focusable();
-      if (!elements.length) return;
-      const first = elements[0];
-      const last = elements[elements.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-
-    document.body.classList.add("dialog-open");
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.body.classList.remove("dialog-open");
-      document.removeEventListener("keydown", handleKeyDown);
-      previousFocus?.focus?.();
-    };
-  }, [onClose]);
-
-  return <div className="overlay" onMouseDown={onClose}><div ref={dialogRef} className="dialog" onMouseDown={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby={titleId}><div className="dialog-head"><h2 id={titleId}>{title}</h2><button type="button" onClick={onClose} aria-label="Close dialog"><X /></button></div>{children}</div></div>;
 }
 
 function SubmissionForm({ onClose, getToken }) {
@@ -243,18 +202,6 @@ function SubmissionForm({ onClose, getToken }) {
     {state.message && <p className={state.status === "error" ? "form-error" : "form-status"} role={state.status === "error" ? "alert" : "status"}>{state.message}</p>}
     {state.status === "review" ? <Button type="button" onClick={finalSubmit} disabled={busy}>Submit reviewed listing</Button> : <Button type="submit" disabled={busy}>{busy ? "Working…" : files.length ? <><Sparkles /> Read records & pre-fill</> : "Submit for review"}</Button>}
   </form></>}</>}</Dialog>;
-}
-
-function SubmissionWithAuth({ onClose }) {
-  const { isLoaded, isSignedIn, getToken } = useAuth();
-  if (!isLoaded) return <Dialog title="List a pet" onClose={onClose}><div className="community-auth-state"><h2>Opening your account…</h2></div></Dialog>;
-  if (!isSignedIn) return <Dialog title="List a pet" onClose={onClose}><div className="community-auth-state">
-    <span><PawPrint /></span><h2>Register as the caretaker</h2>
-    <p>Create an account before listing a pet. Once Pawline reviews the listing, this account can safely answer adoption questions in Messages.</p>
-    <SignInButton mode="modal"><button className="button">Sign in to register</button></SignInButton>
-    <div className="auth-safety"><ShieldCheck /><span><strong>Your information stays private</strong>Messages stay on Pawline, and contact details are never shown in the listing chat.</span></div>
-  </div></Dialog>;
-  return <SubmissionForm onClose={onClose} getToken={getToken} />;
 }
 
 function PetTile({ pet, saved, onSave, onOpen }) {
@@ -1187,7 +1134,7 @@ export default function App({ clerkPublishableKey = "" }) {
       </aside>
 
     </main>
-    {submitOpen && (clerkConfigured ? <SubmissionWithAuth onClose={() => setSubmitOpen(false)} /> : <Dialog title="List a pet" onClose={() => setSubmitOpen(false)}><div className="community-auth-state"><span><PawPrint /></span><h2>Registration needs an account</h2><p>Pawline requires sign-in before a foster, shelter, or caretaker can create a listing and receive private messages.</p></div></Dialog>)}
+    {submitOpen && (clerkConfigured ? <Suspense fallback={<Dialog title="List a pet" onClose={() => setSubmitOpen(false)}><div className="community-auth-state"><h2>Opening your account…</h2></div></Dialog>}><SubmissionWithAuth onClose={() => setSubmitOpen(false)} onAuthenticated={getToken => <SubmissionForm onClose={() => setSubmitOpen(false)} getToken={getToken} />} /></Suspense> : <Dialog title="List a pet" onClose={() => setSubmitOpen(false)}><div className="community-auth-state"><span><PawPrint /></span><h2>Registration needs an account</h2><p>Pawline requires sign-in before a foster, shelter, or caretaker can create a listing and receive private messages.</p></div></Dialog>)}
     {selectedPet && <PetDetail pet={selectedPet} onClose={() => setSelectedPet(null)} saved={saved.includes(selectedPet.id)} onSave={toggleSave} onMessage={pet => { setMessagePet(pet); openPanel("messages"); }} />}
     {selectedEvent && <EventDetail event={selectedEvent} onClose={() => setSelectedEvent(null)} />}
     {selectedDiscovery && <DiscoveryDetail discovery={selectedDiscovery} onClose={() => setSelectedDiscovery(null)} />}
