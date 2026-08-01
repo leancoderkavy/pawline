@@ -9,6 +9,7 @@ import {
 import heroImage from "./heroData";
 import { rankPets } from "./matching";
 import { buildMapView } from "./mapView";
+import { createMapSearchInteraction } from "./mapSearchInteraction";
 
 const CommunityWithAuth = lazy(() => import("./CommunityWithAuth"));
 const FavoritesSyncWithAuth = lazy(() => import("./FavoritesSyncWithAuth"));
@@ -492,11 +493,12 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
           const id = event.features?.[0]?.properties?.id;
           if (id) pointClickRef.current?.(id, "discovery");
         });
-        map.on("moveend", event => {
-          if (!event.originalEvent) return;
-          const nextCenter = map.getCenter();
-          moveSearchRef.current?.({ longitude: nextCenter.lng, latitude: nextCenter.lat });
+        const searchInteraction = createMapSearchInteraction(nextCenter => {
+          moveSearchRef.current?.(nextCenter);
         });
+        map.on("dragstart", event => searchInteraction.start(event));
+        map.on("zoomstart", event => searchInteraction.start(event));
+        map.on("moveend", () => searchInteraction.finish(map.getCenter()));
         setMapState({ status: "ready", message: "" });
       });
       map.on("error", () => {
