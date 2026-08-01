@@ -245,6 +245,18 @@ function SubmissionForm({ onClose, getToken }) {
   </form></>}</>}</Dialog>;
 }
 
+function SubmissionWithAuth({ onClose }) {
+  const { isLoaded, isSignedIn, getToken } = useAuth();
+  if (!isLoaded) return <Dialog title="List a pet" onClose={onClose}><div className="community-auth-state"><h2>Opening your account…</h2></div></Dialog>;
+  if (!isSignedIn) return <Dialog title="List a pet" onClose={onClose}><div className="community-auth-state">
+    <span><PawPrint /></span><h2>Register as the caretaker</h2>
+    <p>Create an account before listing a pet. Once Pawline reviews the listing, this account can safely answer adoption questions in Messages.</p>
+    <SignInButton mode="modal"><button className="button">Sign in to register</button></SignInButton>
+    <div className="auth-safety"><ShieldCheck /><span><strong>Your information stays private</strong>Messages stay on Pawline, and contact details are never shown in the listing chat.</span></div>
+  </div></Dialog>;
+  return <SubmissionForm onClose={onClose} getToken={getToken} />;
+}
+
 function PetTile({ pet, saved, onSave, onOpen }) {
   return <article className="pet-tile">
     <img src={pet.image} alt={`${pet.name}, a ${pet.breed}`} />
@@ -253,7 +265,7 @@ function PetTile({ pet, saved, onSave, onOpen }) {
   </article>;
 }
 
-function PetDetail({ pet, onClose, saved, onSave }) {
+function PetDetail({ pet, onClose, saved, onSave, onMessage }) {
   const unavailableDetails = new Set([
     "See official listing",
     "Age available from LA Animal Services",
@@ -279,6 +291,7 @@ function PetDetail({ pet, onClose, saved, onSave }) {
       <aside className="pet-visit-questions"><ListChecks /><div><strong>Good questions for {pet.name}</strong><span>Ask about daily routine, medical history, behavior observations, adoption fees, and the best first week at home.</span></div></aside>
       <div className="detail-actions">
         <Button variant="outline" onClick={() => onSave(pet.id)}><Heart fill={saved ? "currentColor" : "none"} />{saved ? "Saved" : "Save"}</Button>
+        {pet.messageAvailable ? <Button className="pet-message" onClick={() => { onMessage(pet); onClose(); }}><MessageCircle />Message {pet.shelter || "caretaker"}</Button> : null}
         {pet.sourceUrl ? <a className="button" href={pet.sourceUrl} target="_blank" rel="noreferrer">View adoption listing <ChevronRight /></a> : <span className="button button-disabled" aria-disabled="true">Contact the listed rescue</span>}
         {directionsUrl ? <a className="button button-outline detail-directions" href={directionsUrl} target="_blank" rel="noreferrer"><Compass /> Directions</a> : null}
       </div>
@@ -915,6 +928,7 @@ export default function App({ clerkPublishableKey = "" }) {
   const [selectedPet, setSelectedPet] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [selectedDiscovery, setSelectedDiscovery] = useState(null);
+  const [messagePet, setMessagePet] = useState(null);
   const [showAll, setShowAll] = useState(false);
   const [remotePets, setRemotePets] = useState([]);
   const [remoteEvents, setRemoteEvents] = useState([]);
@@ -1078,7 +1092,7 @@ export default function App({ clerkPublishableKey = "" }) {
     );
   };
   const openPanel = panel => {
-    if (panel === "community" && clerkConfigured) setAccountSyncReady(true);
+    if (["community", "messages"].includes(panel) && clerkConfigured) setAccountSyncReady(true);
     setActivePanel(panel);
     setRailCollapsed(false);
   };
@@ -1127,6 +1141,7 @@ export default function App({ clerkPublishableKey = "" }) {
         </button>
         <nav className="rail-tabs" aria-label="Discovery views">
           <button className={activePanel === "explore" ? "active" : ""} onClick={() => openPanel("explore")}><Search />Explore</button>
+          <button className={activePanel === "messages" ? "active" : ""} onClick={() => openPanel("messages")}><MessageCircle />Messages</button>
           <button className={activePanel === "community" ? "active" : ""} onClick={() => openPanel("community")}><MessageCircle />Community</button>
           <button className={activePanel === "match" ? "active" : ""} onClick={() => openPanel("match")}><PawPrint />Match quiz</button>
           <button className={activePanel === "events" ? "active" : ""} onClick={() => openPanel("events")}><CalendarDays />Events</button>
@@ -1160,6 +1175,10 @@ export default function App({ clerkPublishableKey = "" }) {
           </div> : null}
           {activePanel === "match" ? <Matchmaker pets={remotePets} feed={feed} location={location} onLocationChange={setLocation} onSpeciesChange={setSpecies} onFindLocation={findMatch} locationState={locationState} /> : null}
           {activePanel === "events" ? <EventPanel events={remoteEvents} /> : null}
+          {activePanel === "messages" ? clerkConfigured
+            ? <Suspense fallback={<div className="community-auth-state" role="status"><span><MessageCircle /></span><h2>Opening Messages…</h2></div>}><DirectMessages initialListing={messagePet} onInitialListingHandled={() => setMessagePet(null)} onBrowse={() => openPanel("explore")} /></Suspense>
+            : <div className="community-auth-state"><span><MessageCircle /></span><h2>Messages need an account</h2><p>Configure Pawline Clerk to let shelters, fosters, and adopters register and message privately.</p><div className="auth-safety"><ShieldCheck /><span><strong>Failing closed</strong>Private listing chat never opens without verified identity.</span></div></div>
+          : null}
           {activePanel === "community" ? clerkConfigured
             ? <Suspense fallback={<div className="community-auth-state" role="status"><span><MessageCircle /></span><h2>Opening the community…</h2></div>}><CommunityWithAuth publishableKey={clerkPublishableKey} onLeadsChange={setCommunityLeads} /></Suspense>
             : <div className="community-auth-state"><span><MessageCircle /></span><h2>Community needs Clerk</h2><p>Add the Pawline Clerk publishable key to enable account creation and sign-in. Chat stays closed until identity is configured.</p><div className="auth-safety"><ShieldCheck /><span><strong>Failing closed</strong>No anonymous or unverified chat access is allowed.</span></div></div>
@@ -1168,8 +1187,8 @@ export default function App({ clerkPublishableKey = "" }) {
       </aside>
 
     </main>
-    {submitOpen && <SubmissionForm onClose={() => setSubmitOpen(false)} />}
-    {selectedPet && <PetDetail pet={selectedPet} onClose={() => setSelectedPet(null)} saved={saved.includes(selectedPet.id)} onSave={toggleSave} />}
+    {submitOpen && (clerkConfigured ? <SubmissionWithAuth onClose={() => setSubmitOpen(false)} /> : <Dialog title="List a pet" onClose={() => setSubmitOpen(false)}><div className="community-auth-state"><span><PawPrint /></span><h2>Registration needs an account</h2><p>Pawline requires sign-in before a foster, shelter, or caretaker can create a listing and receive private messages.</p></div></Dialog>)}
+    {selectedPet && <PetDetail pet={selectedPet} onClose={() => setSelectedPet(null)} saved={saved.includes(selectedPet.id)} onSave={toggleSave} onMessage={pet => { setMessagePet(pet); openPanel("messages"); }} />}
     {selectedEvent && <EventDetail event={selectedEvent} onClose={() => setSelectedEvent(null)} />}
     {selectedDiscovery && <DiscoveryDetail discovery={selectedDiscovery} onClose={() => setSelectedDiscovery(null)} />}
   </div>;
