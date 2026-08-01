@@ -365,6 +365,11 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
   if (previewPoints) previewParams.set("points", previewPoints);
   const previewUrl = `/api/map?${previewParams}`;
   const mobilePreviewUrl = `${previewUrl}&variant=mobile`;
+  const [previewUnavailable, setPreviewUnavailable] = useState(false);
+
+  useEffect(() => {
+    setPreviewUnavailable(false);
+  }, [previewUrl]);
   const geoJson = {
     type: "FeatureCollection",
     features: points.map(point => ({
@@ -608,7 +613,16 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
       : <div className="map-facade">
           <picture>
             <source media="(max-width: 700px)" srcSet={mobilePreviewUrl} width="450" height="760" />
-            <img src={previewUrl} width="900" height="620" alt={`Map preview centered on ${location}`} fetchPriority="high" decoding="async" />
+            <img
+              src={previewUrl}
+              width="900"
+              height="620"
+              alt={`Map preview centered on ${location}`}
+              className={previewUnavailable ? "is-unavailable" : undefined}
+              onError={() => setPreviewUnavailable(true)}
+              fetchPriority="high"
+              decoding="async"
+            />
           </picture>
           <button type="button" className="map-activate" onClick={() => setInteractive(true)}>
             <LocateFixed />
