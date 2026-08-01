@@ -11,16 +11,16 @@ test("production CSP permits the configured Clerk custom domain", async () => {
   }
 });
 
-test("production exposes the verified Clerk frontend API proxy route", async () => {
+test("production uses the verified Clerk custom domain without the broken frontend proxy", async () => {
   const page = await readFile(new URL("../app/page.jsx", import.meta.url), "utf8");
-  const route = await readFile(
-    new URL("../app/%255F%255Fclerk/[[...path]]/route.js", import.meta.url),
-    "utf8",
-  );
+  const provider = await readFile(new URL("../src/PawlineWithClerk.jsx", import.meta.url), "utf8");
 
-  assert.match(page, /proxyUrl="https:\/\/www\.pawlineadopt\.com\/__clerk"/);
-  assert.match(route, /clerkFrontendApiProxy/);
-  assert.match(route, /proxyPath: "\/__clerk"/);
-  assert.match(route, /export const GET = proxy/);
-  assert.match(route, /export const POST = proxy/);
+  assert.doesNotMatch(page, /proxyUrl/);
+  assert.doesNotMatch(provider, /proxyUrl/);
+  assert.match(provider, /<ClerkProvider publishableKey=\{publishableKey\}>/);
+});
+
+test("mobile search controls preserve a 44px touch target", async () => {
+  const styles = await readFile(new URL("../src/styles.css", import.meta.url), "utf8");
+  assert.match(styles, /\.global-location button,\.saved-action \{ min-width:44px;min-height:44px; \}/);
 });
