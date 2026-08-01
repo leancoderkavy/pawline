@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 
 import { parseConversationId, parseListingId, publicDirectMessage } from "../api/_direct.js";
 
@@ -29,4 +30,15 @@ test("direct messaging exposes only safe message fields and marks the sender", (
   assert.equal(parseConversationId(message.conversationId), "8f2504e0-4f89-41d3-9a0c-0305e82c3301");
   assert.equal("contactEmail" in message, false);
   assert.equal("phone" in message, false);
+});
+
+test("mobile conversations use a full-width inbox or thread instead of two squeezed columns", async () => {
+  const component = await readFile(new URL("../src/DirectMessages.jsx", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../src/styles.css", import.meta.url), "utf8");
+  assert.match(component, /direct-workspace \$\{selected \? "has-selection"/);
+  assert.match(component, /aria-label="Back to conversations"/);
+  assert.match(styles, /\.direct-workspace \{ grid-template-columns:minmax\(0,1fr\); \}/);
+  assert.match(styles, /\.direct-workspace\.has-selection \.direct-inbox-list/);
+  assert.match(styles, /\.direct-workspace:not\(\.has-selection\) \.direct-thread/);
+  assert.doesNotMatch(styles, /@media \(max-width:600px\)[\s\S]*?grid-template-columns:minmax\(128px/);
 });
