@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { getDatabase } from "./_db.js";
 import { notifySubmission } from "./_email.js";
+import { requireUser } from "./_auth.js";
 
 const clean = (value, max = 240) =>
   typeof value === "string" ? value.trim().slice(0, max) : "";
@@ -32,6 +33,15 @@ const parseFile = (file) => {
 
 export function submissionStorageReady(row) {
   return Boolean(row?.submission_files && row?.submission_log);
+}
+
+export async function ensureListingOwnership(database) {
+  await database`
+    ALTER TABLE pets
+      ADD COLUMN IF NOT EXISTS claimed_by_clerk_user_id text,
+      ADD COLUMN IF NOT EXISTS claimed_by_display_name text,
+      ADD COLUMN IF NOT EXISTS claimed_at timestamptz
+  `;
 }
 
 async function ensureSubmissionStorage(database) {
@@ -99,6 +109,13 @@ export default async function handler(request, response) {
     return response.status(503).json({
       error: "Submissions are temporarily unavailable while the community database is being connected.",
     });
+  }
+
+  let user;
+  try {
+    user = await requireUser(request);
+  } catch (error) {
+    return response.status(error.statusCode || 401).json({ error: error.message });
   }
 
   const body = request.body || {};
@@ -178,17 +195,18 @@ export default async function handler(request, response) {
 
   try {
     await ensureSubmissionStorage(database);
+    await ensureListingOwnership(database);
     const rows = await database`
       INSERT INTO pets (
         fingerprint, name, species, breed, age, sex, size, description, city, country,
         postal_code, shelter, contact_email, contact_phone, image_url, source_url,
-        submitted_by_email, status, raw_payload
+        submitted_by_email, claimed_by_clerk_user_id, claimed_by_display_name, claimed_at, status, raw_payload
       ) VALUES (
         ${fingerprint}, ${pet.name}, ${pet.species}, ${pet.breed}, ${pet.age || null},
         ${pet.sex || null}, ${pet.size || null}, ${pet.description || null}, ${pet.city}, ${pet.country},
         ${pet.postalCode}, ${pet.shelter},
         ${pet.email}, ${pet.phone || null}, ${pet.imageUrl || null},
-        ${pet.sourceUrl || null}, ${pet.email}, 'pending', ${JSON.stringify({
+        ${pet.sourceUrl || null}, ${pet.email}, ${user.id}, ${user.displayName}, now(), 'pending', ${JSON.stringify({
           region: pet.region,
           disclosures: {
             spayedNeutered: pet.spayedNeutered, rabiesStatus: pet.rabiesStatus,
@@ -211,9 +229,17 @@ export default async function handler(request, response) {
         contact_phone = EXCLUDED.contact_phone,
         image_url = EXCLUDED.image_url,
         source_url = EXCLUDED.source_url,
+        claimed_by_clerk_user_id = EXCLUDED.claimed_by_clerk_user_id,
+        claimed_by_display_name = EXCLUDED.claimed_by_display_name,
+        claimed_at = EXCLUDED.claimed_at,
         updated_at = now()
+      WHERE pets.claimed_by_clerk_user_id IS NULL
+        OR pets.claimed_by_clerk_user_id = EXCLUDED.claimed_by_clerk_user_id
       RETURNING id
     `;
+    if (!rows[0]) {
+      return response.status(409).json({ error: "This pet submission is already linked to another Pawline account." });
+    }
     if (files.length) {
       await database.transaction(files.map((file, index) => database`
         INSERT INTO pet_submission_files (
@@ -256,7 +282,7 @@ export default async function handler(request, response) {
     const notification = await notifySubmission({ id: rows[0].id, pet });
     return response.status(202).json({
       id: rows[0].id,
-      message: "Thank you — your pet was submitted for review.",
+      message: "Thank you — your pet was submitted for review. After approval, you can answer adoption questions in Messages.",
       notification: notification.configured ? "queued" : "not_configured",
     });
   } catch (error) {
