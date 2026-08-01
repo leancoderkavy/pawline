@@ -1,3 +1,6 @@
+import { getDatabase } from "./_db.js";
+import { consumeUsageChain, requestClientKey } from "./_usage-limit.js";
+
 const FALLBACK_CENTER = [-118.1445, 34.1478];
 
 const inRange = (value, min, max) =>
@@ -10,6 +13,17 @@ export default async function handler(request, response) {
   }
   if (!process.env.MAPBOX_ACCESS_TOKEN) {
     return response.status(404).end();
+  }
+  const database = getDatabase();
+  if (!database) return response.status(503).end();
+  try {
+    const reservation = await consumeUsageChain(database, [
+      { scope: "static_map_client", subject: requestClientKey(request), limit: 120, windowMs: 60 * 60 * 1000 },
+      { scope: "static_map_global", subject: "all", limit: 3000, windowMs: 60 * 60 * 1000 },
+    ]);
+    if (!reservation.allowed) return response.status(429).end();
+  } catch {
+    return response.status(503).end();
   }
 
   const longitude = Number(request.query.longitude);

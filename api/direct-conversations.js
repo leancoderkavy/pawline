@@ -1,6 +1,7 @@
 import { getDatabase } from "./_db.js";
 import { requireUser } from "./_auth.js";
 import { ensureDirectMessageTables, findConversation, parseListingId, publicConversation } from "./_direct.js";
+import { consumeUsage } from "./_usage-limit.js";
 
 async function listConversations(database, userId) {
   return database`
@@ -30,6 +31,14 @@ export default async function handler(request, response) {
   if (request.method !== "POST") {
     response.setHeader("Allow", "GET, POST");
     return response.status(405).json({ error: "Method not allowed" });
+  }
+  try {
+    const allowed = await consumeUsage(database, {
+      scope: "direct_conversation_user_day", subject: user.id, limit: 40, windowMs: 24 * 60 * 60 * 1000,
+    });
+    if (!allowed) return response.status(429).json({ error: "Conversation limit reached. Try again later." });
+  } catch {
+    return response.status(503).json({ error: "Private messaging safety checks are temporarily unavailable." });
   }
 
   const listingId = parseListingId(request.body?.listingId);

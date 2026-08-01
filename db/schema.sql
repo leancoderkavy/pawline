@@ -177,6 +177,17 @@ CREATE TABLE IF NOT EXISTS community_messages (
 CREATE INDEX IF NOT EXISTS community_messages_room_created
   ON community_messages (room, created_at DESC);
 
+CREATE TABLE IF NOT EXISTS usage_limits (
+  scope text NOT NULL,
+  subject text NOT NULL,
+  window_started_at timestamptz NOT NULL,
+  request_count integer NOT NULL CHECK (request_count > 0),
+  PRIMARY KEY (scope, subject, window_started_at)
+);
+
+CREATE INDEX IF NOT EXISTS usage_limits_expiry
+  ON usage_limits (window_started_at);
+
 CREATE TABLE IF NOT EXISTS user_favorites (
   clerk_user_id text NOT NULL,
   listing_id text NOT NULL,

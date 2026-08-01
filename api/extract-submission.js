@@ -1,6 +1,10 @@
 import { generateText, jsonSchema, Output } from "ai";
+import { requireUser } from "./_auth.js";
+import { getDatabase } from "./_db.js";
+import { consumeUsage } from "./_usage-limit.js";
 
 const MAX_TOTAL_BYTES = 3 * 1024 * 1024;
+const MAX_FILES = 8;
 const WINDOW_MS = 60 * 60 * 1000;
 const MAX_REQUESTS_PER_WINDOW = 5;
 const buckets = new Map();
@@ -80,10 +84,27 @@ export default async function handler(request, response) {
     return response.status(415).json({ error: "Send files as JSON." });
   }
 
+  let user;
+  try {
+    user = await requireUser(request);
+  } catch (error) {
+    return response.status(error.statusCode || 401).json({ error: error.message });
+  }
+
   const files = Array.isArray(request.body?.files) ? request.body.files : [];
   if (!files.length) return response.status(400).json({ error: "Add at least one file." });
-  if (rateLimited(request)) {
-    return response.status(429).json({ error: "Document extraction limit reached. Enter details manually or try again later." });
+  if (files.length > MAX_FILES) return response.status(413).json({ error: `Add no more than ${MAX_FILES} files.` });
+  const database = getDatabase();
+  if (!database) return response.status(503).json({ error: "Document extraction safety checks are unavailable." });
+  try {
+    const allowed = await consumeUsage(database, {
+      scope: "document_extraction_user", subject: user.id, limit: MAX_REQUESTS_PER_WINDOW, windowMs: WINDOW_MS,
+    });
+    if (!allowed || rateLimited(request)) {
+      return response.status(429).json({ error: "Document extraction limit reached. Enter details manually or try again later." });
+    }
+  } catch {
+    return response.status(503).json({ error: "Document extraction safety checks are unavailable." });
   }
 
   try {

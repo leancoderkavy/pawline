@@ -9,6 +9,7 @@ import {
 import heroImage from "./heroData";
 import { rankPets } from "./matching";
 import { buildMapView } from "./mapView";
+import { restoreFavoriteAfterFailure } from "./favoritesState";
 import Dialog from "./Dialog";
 
 const CommunityWithAuth = lazy(() => import("./CommunityWithAuth"));
@@ -53,6 +54,7 @@ function MobileMenu({ onClose, onSubmit }) {
 
 function SubmissionForm({ onClose, getToken }) {
   const [listingRole, setListingRole] = useState("");
+  const roleChoicesRef = useRef(null);
   const [flowStep, setFlowStep] = useState("role");
   const [form, setForm] = useState({
     name: "", species: "Dog", breed: "", age: "", sex: "Unknown", size: "",
@@ -71,12 +73,17 @@ function SubmissionForm({ onClose, getToken }) {
   const addFiles = async selected => {
     const allowed = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf", "text/plain"]);
     const incoming = [...selected].filter(file => allowed.has(file.type));
-    const total = [...files, ...incoming].reduce((sum, file) => sum + file.size, 0);
+    const candidate = [...files, ...incoming];
+    if (candidate.length > 8) {
+      setState({ status: "error", message: "Add no more than 8 photos or documents." });
+      return;
+    }
+    const total = candidate.reduce((sum, file) => sum + file.size, 0);
     if (total > 3 * 1024 * 1024) {
       setState({ status: "error", message: "Photos and documents must total 3 MB or less." });
       return;
     }
-    setFiles(current => [...current, ...incoming]);
+    setFiles(candidate);
     if (incoming.length !== selected.length) setState({ status: "error", message: "Use PDF, TXT, JPG, PNG, or WebP files." });
   };
   const encodedFiles = () => Promise.all(files.map(file => new Promise((resolve, reject) => {
@@ -131,6 +138,17 @@ function SubmissionForm({ onClose, getToken }) {
     setListingRole(role);
     setForm(current => ({ ...current, shelter: role === "personal" ? current.shelter : "" }));
   };
+  const chooseRoleByKeyboard = event => {
+    const next = ["ArrowLeft", "ArrowUp", "Home"].includes(event.key)
+      ? "personal"
+      : ["ArrowRight", "ArrowDown", "End"].includes(event.key)
+        ? "organization"
+        : null;
+    if (!next) return;
+    event.preventDefault();
+    chooseRole(next);
+    roleChoicesRef.current?.querySelector(`[data-listing-role="${next}"]`)?.focus();
+  };
   const beginDetails = () => {
     if (!listingRole) return;
     setFlowStep("details");
@@ -144,13 +162,13 @@ function SubmissionForm({ onClose, getToken }) {
     </ol>
     {flowStep === "role" ? <section className="listing-role-step">
       <div className="listing-role-copy"><p>Let’s find the right path</p><h3>Who are you listing for?</h3><span>Pick the path that fits. We’ll tailor the questions and keep the listing private until review.</span></div>
-      <div className="listing-role-choices" role="radiogroup" aria-label="Who are you listing for?">
-        <button type="button" role="radio" aria-checked={listingRole === "personal"} className={listingRole === "personal" ? "selected" : ""} onClick={() => chooseRole("personal")}>
+      <div ref={roleChoicesRef} className="listing-role-choices" role="radiogroup" aria-label="Who are you listing for?">
+        <button type="button" role="radio" data-listing-role="personal" aria-checked={listingRole === "personal"} tabIndex={!listingRole || listingRole === "personal" ? 0 : -1} className={listingRole === "personal" ? "selected" : ""} onClick={() => chooseRole("personal")} onKeyDown={chooseRoleByKeyboard}>
           <span className="role-icon personal"><Heart /><PawPrint /></span>
           <span><strong>My pet</strong><small>I’m rehoming a pet I own or care for</small></span>
           <i>{listingRole === "personal" ? <CheckCircle2 /> : null}</i>
         </button>
-        <button type="button" role="radio" aria-checked={listingRole === "organization"} className={listingRole === "organization" ? "selected" : ""} onClick={() => chooseRole("organization")}>
+        <button type="button" role="radio" data-listing-role="organization" aria-checked={listingRole === "organization"} tabIndex={listingRole === "organization" ? 0 : -1} className={listingRole === "organization" ? "selected" : ""} onClick={() => chooseRole("organization")} onKeyDown={chooseRoleByKeyboard}>
           <span className="role-icon"><Building2 /></span>
           <span><strong>A shelter or rescue</strong><small>I’m listing on behalf of an organization</small></span>
           <i>{listingRole === "organization" ? <CheckCircle2 /> : null}</i>
@@ -163,7 +181,7 @@ function SubmissionForm({ onClose, getToken }) {
       <form className="listing-details-form" onSubmit={submit}>
     <section className="submission-section"><h3>Photos & records</h3>
       <div className={`drop-zone ${dragging ? "is-dragging" : ""}`} onDragOver={e => { e.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={e => { e.preventDefault(); setDragging(false); addFiles(e.dataTransfer.files); }}>
-        <Upload /><strong>Drag and drop files here</strong><span>or choose as many PDF, TXT, JPG, PNG, or WebP files as fit within 3 MB total</span>
+        <Upload /><strong>Drag and drop files here</strong><span>or choose up to 8 PDF, TXT, JPG, PNG, or WebP files within 3 MB total</span>
         <label className="file-picker">Choose files<input type="file" multiple accept=".pdf,.txt,.jpg,.jpeg,.png,.webp" onChange={e => addFiles(e.target.files)} /></label>
       </div>
       {files.length ? <ul className="upload-list">{files.map((file, index) => <li key={`${file.name}-${index}`}><span>{file.type.startsWith("image/") ? <Upload /> : <FileText />}<span><strong>{file.name}</strong><small>{Math.ceil(file.size / 1024)} KB</small></span></span><button type="button" onClick={() => setFiles(current => current.filter((_, itemIndex) => itemIndex !== index))} aria-label={`Remove ${file.name}`}><Trash2 /></button></li>)}</ul> : null}
@@ -616,10 +634,10 @@ function MapFilters({ petType, distance, showEvents, densityMode, hoursFilter, o
 
 function MapResults({ view, saved, showSavedOnly, onToggleSavedOnly, onSave, onOpenPet, onOpenEvent, onOpenDiscovery }) {
   const items = [
-    ...view.pets.filter(item => !showSavedOnly || saved.includes(item.id)).slice(0, showSavedOnly ? 12 : 4).map(item => ({ ...item, resultType: "pet" })),
+    ...view.pets.filter(item => !showSavedOnly || saved.includes(item.id)).map(item => ({ ...item, resultType: "pet" })),
     ...(showSavedOnly ? [] : [
-    ...view.events.slice(0, 2).map(item => ({ ...item, resultType: "event" })),
-    ...view.discoveries.slice(0, 2).map(item => ({ ...item, resultType: "discovery" })),
+    ...view.events.map(item => ({ ...item, resultType: "event" })),
+    ...view.discoveries.map(item => ({ ...item, resultType: "discovery" })),
     ]),
   ];
   const open = item => {
@@ -702,7 +720,9 @@ function MapPanel({ location, coordinates, userCoordinates, locationPrompt, conf
       <div className="map-count" aria-live="polite"><strong>{visiblePets.length}</strong><span>mapped pets in this view</span></div>
     </header>
     <div className="map-canvas">
-      {configured !== false ? <InteractiveMap coordinates={coordinates} userCoordinates={userCoordinates} points={points} location={location} onPointClick={openPoint} onMoveSearch={onMapMove} densityMode={densityMode} routePets={routePets} /> : <div className="map-unavailable"><span className="map-unavailable-icon"><MapPin /></span><strong>Map preview is waiting for its connection</strong><span>Filters are ready to use. Connect Mapbox to turn on live location search and the map preview.</span></div>}
+      {configured === true
+        ? <InteractiveMap coordinates={coordinates} userCoordinates={userCoordinates} points={points} location={location} onPointClick={openPoint} onMoveSearch={onMapMove} densityMode={densityMode} routePets={routePets} />
+        : <div className="map-unavailable" role={configured === null ? "status" : undefined}><span className="map-unavailable-icon"><MapPin /></span><strong>{configured === null ? "Checking map availability" : "Map preview is waiting for its connection"}</strong><span>{configured === null ? "Your discovery tools will be ready in a moment." : "Filters are ready to use. Connect Mapbox to turn on live location search and the map preview."}</span></div>}
       {configured === true && locationPrompt.status !== "hidden" && !userCoordinates ? <div className="location-permission" role="dialog" aria-labelledby="location-permission-title" aria-describedby="location-permission-description">
         <span className="location-permission-icon" aria-hidden="true"><LocateFixed /></span>
         <div><strong id="location-permission-title">See where you are</strong><span id="location-permission-description">{locationPrompt.message || "Share your location to show your position on the map."}</span></div>
@@ -867,7 +887,10 @@ function Matchmaker({ pets, feed, location, onLocationChange, onSpeciesChange, o
 export default function App({ clerkPublishableKey = "" }) {
   const clerkConfigured = Boolean(clerkPublishableKey);
   const [saved, setSaved] = useState([]);
+  const savedRef = useRef([]);
   const [savedHydrated, setSavedHydrated] = useState(false);
+  const [favoriteError, setFavoriteError] = useState("");
+  const [favoriteSyncVersion, setFavoriteSyncVersion] = useState(0);
   const [species, setSpecies] = useState("All");
   const [location, setLocation] = useState("Pasadena, California, USA");
   const [submitOpen, setSubmitOpen] = useState(false);
@@ -902,7 +925,8 @@ export default function App({ clerkPublishableKey = "" }) {
   const [showSavedOnly, setShowSavedOnly] = useState(false);
   const [accountSyncReady, setAccountSyncReady] = useState(false);
   const favoriteSyncRef = useRef(null);
-  const loadAccountFavorites = useCallback(items => setSaved(items), []);
+  savedRef.current = saved;
+  const loadAccountFavorites = useCallback(items => { savedRef.current = items; setSaved(items); setFavoriteError(""); }, []);
   const setFavoriteSession = useCallback(saveFavorite => {
     favoriteSyncRef.current = saveFavorite;
   }, []);
@@ -931,11 +955,13 @@ export default function App({ clerkPublishableKey = "" }) {
   const routePets = useMemo(() => mapView.pets.filter(pet => saved.includes(pet.id)).slice(0, 8), [mapView.pets, saved]);
 
   useEffect(() => {
-    try { setSaved(JSON.parse(localStorage.getItem("pawline-saved") || "[]")); } catch { setSaved([]); }
+    try { setSaved(JSON.parse(localStorage.getItem("pawline-saved") || "[]")); } catch { setSaved([]); setFavoriteError("Favorites could not be read from this browser."); }
     setSavedHydrated(true);
   }, []);
   useEffect(() => {
-    if (savedHydrated) localStorage.setItem("pawline-saved", JSON.stringify(saved));
+    if (!savedHydrated) return;
+    try { localStorage.setItem("pawline-saved", JSON.stringify(saved)); }
+    catch { setFavoriteError("Favorites could not be saved in this browser. Free storage space and retry."); }
   }, [saved, savedHydrated]);
   useEffect(() => {
     const controller = new AbortController();
@@ -977,11 +1003,39 @@ export default function App({ clerkPublishableKey = "" }) {
 
   const toggleSave = id => {
     if (clerkConfigured) setAccountSyncReady(true);
-    setSaved(items => {
-      const favorite = !items.includes(id);
-      favoriteSyncRef.current?.(id, favorite).catch(() => {});
-      return favorite ? [...items, id] : items.filter(item => item !== id);
+    const previousSaved = savedRef.current;
+    const favorite = !previousSaved.includes(id);
+    const nextSaved = favorite ? [...new Set([...previousSaved, id])] : previousSaved.filter(item => item !== id);
+    setFavoriteError("");
+    try {
+      localStorage.setItem("pawline-saved", JSON.stringify(nextSaved));
+    } catch {
+      setFavoriteError("Favorites could not be saved in this browser. Free storage space and retry.");
+      return;
+    }
+    savedRef.current = nextSaved;
+    setSaved(nextSaved);
+    favoriteSyncRef.current?.(id, favorite).catch((error) => {
+      const current = savedRef.current;
+      const restored = restoreFavoriteAfterFailure(current, id, favorite);
+      try { localStorage.setItem("pawline-saved", JSON.stringify(restored)); }
+      catch {
+        setFavoriteError("Favorite cloud sync and browser rollback both failed. Retry favorites before making more changes.");
+        return;
+      }
+      savedRef.current = restored;
+      setSaved(restored);
+      setFavoriteError(error.message || "Favorite could not be synchronized. Your previous state was restored.");
     });
+  };
+  const retryFavoriteSync = () => {
+    try {
+      localStorage.setItem("pawline-saved", JSON.stringify(saved));
+      setFavoriteError("");
+      if (clerkConfigured) { setAccountSyncReady(true); setFavoriteSyncVersion(value => value + 1); }
+    } catch {
+      setFavoriteError("Favorites still cannot be saved in this browser. Free storage space and retry.");
+    }
   };
   const findMatch = async () => {
     if (!location.trim()) {
@@ -1043,6 +1097,10 @@ export default function App({ clerkPublishableKey = "" }) {
     setActivePanel(panel);
     setRailCollapsed(false);
   };
+  const toggleSavedOnly = () => {
+    if (clerkConfigured) setAccountSyncReady(true);
+    setShowSavedOnly(value => !value);
+  };
   const resetMapFilters = () => {
     setMapPetType("All");
     setMapDistance("150");
@@ -1058,7 +1116,8 @@ export default function App({ clerkPublishableKey = "" }) {
     setMapSearchMoved(true);
   };
   return <div className="app map-app">
-    {clerkConfigured && accountSyncReady ? <Suspense fallback={null}><FavoritesSyncWithAuth publishableKey={clerkPublishableKey} localFavorites={saved} onLoad={loadAccountFavorites} onSessionChange={setFavoriteSession} /></Suspense> : null}
+    {clerkConfigured && accountSyncReady ? <Suspense fallback={null}><FavoritesSyncWithAuth key={favoriteSyncVersion} publishableKey={clerkPublishableKey} localFavorites={saved} onLoad={loadAccountFavorites} onSessionChange={setFavoriteSession} onError={setFavoriteError} /></Suspense> : null}
+    {favoriteError ? <div className="favorites-sync-alert" role="alert"><span>{favoriteError}</span><button type="button" onClick={retryFavoriteSync}>Retry favorites</button></div> : null}
     <header className="map-app-header">
       <a className="brand" href="#map" aria-label="Pawline home"><span className="brand-mark"><PawPrint /></span><span>Pawline</span></a>
       <form className={`global-location ${locationState.status === "error" ? "is-error" : ""}`} onSubmit={event => { event.preventDefault(); findMatch(); }}>
@@ -1073,7 +1132,7 @@ export default function App({ clerkPublishableKey = "" }) {
         <span id="global-location-status" className="sr-only" role={locationState.status === "error" ? "alert" : "status"} aria-live="polite">{locationState.status === "loading" ? "Searching for pets nearby" : locationState.message}</span>
       </form>
       <div className="map-app-actions">
-        <button className={`saved-action ${showSavedOnly ? "is-active" : ""}`} onClick={() => { openPanel("explore"); setShowSavedOnly(value => !value); }} aria-label={`${saved.length} favorite pets. ${showSavedOnly ? "Show all listings" : "Show favorites"}`} aria-pressed={showSavedOnly}><Heart fill={saved.length ? "currentColor" : "none"} /><span>Favorites</span>{saved.length ? <strong>{saved.length}</strong> : null}</button>
+        <button className={`saved-action ${showSavedOnly ? "is-active" : ""}`} onClick={() => { openPanel("explore"); toggleSavedOnly(); }} aria-label={`${saved.length} favorite pets. ${showSavedOnly ? "Show all listings" : "Show favorites"}`} aria-pressed={showSavedOnly}><Heart fill={saved.length ? "currentColor" : "none"} /><span>Favorites</span>{saved.length ? <strong>{saved.length}</strong> : null}</button>
         <Button onClick={() => setSubmitOpen(true)} aria-label="List a pet"><span>List a pet</span><PawPrint /></Button>
       </div>
     </header>
@@ -1099,7 +1158,7 @@ export default function App({ clerkPublishableKey = "" }) {
             <div><h1>Pets in this area</h1><span className={`live-state feed-${feed.mode}`}><i />{feed.mode === "live" ? "Live" : feed.mode === "loading" ? "Checking" : "Unavailable"}</span></div>
             <p>{feed.mode === "live" ? `${mapView.pets.length} mapped within ${mapDistance} mi · ${feed.count || remotePets.length} verified records total.` : feed.message || "No synthetic pet profiles are shown."}</p>
             {mapSearchMoved ? <p className="map-area-status" role="status">Showing results around the map center.</p> : null}
-            <MapResults view={mapView} saved={saved} showSavedOnly={showSavedOnly} onToggleSavedOnly={() => setShowSavedOnly(value => !value)} onSave={toggleSave} onOpenPet={setSelectedPet} onOpenEvent={setSelectedEvent} onOpenDiscovery={setSelectedDiscovery} />
+            <MapResults view={mapView} saved={saved} showSavedOnly={showSavedOnly} onToggleSavedOnly={toggleSavedOnly} onSave={toggleSave} onOpenPet={setSelectedPet} onOpenEvent={setSelectedEvent} onOpenDiscovery={setSelectedDiscovery} />
             <VisitPlanner pets={routePets} location={location} />
             <Button onClick={() => openPanel("match")}><PawPrint />Find my match</Button>
             <button className="quiz-teaser" onClick={() => openPanel("match")}><span className="quiz-ring">0%</span><span><small>Match quiz progress</small><strong>Tell us about your lifestyle</strong><em>About 2 minutes</em></span><ChevronRight /></button>

@@ -31,3 +31,10 @@ test("crawler and AI discovery files use the canonical production domain", async
   assert.match(llms, /Web-discovered leads are labeled as approximate leads/);
   assert.match(full, /Canonical URL: https:\/\/www\.pawlineadopt\.com\//);
 });
+
+test("the apex host redirects to the canonical www host", async () => {
+  const proxy = await read("proxy.js");
+  assert.match(proxy, /requestedHost === "pawlineadopt\.com"/);
+  assert.match(proxy, /new URL\([^\n]+"https:\/\/www\.pawlineadopt\.com"\)/);
+  assert.match(proxy, /NextResponse\.redirect\(canonical, 308\)/);
+});

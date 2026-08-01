@@ -26,10 +26,12 @@ export async function requireUser(request) {
       [profile.firstName, profile.lastName].filter(Boolean).join(" ") ||
       profile.username ||
       "Pawline member";
+    const primaryEmail = profile.emailAddresses?.find((email) => email.id === profile.primaryEmailAddressId);
     return {
       id: verified.sub,
       displayName: displayName.slice(0, 80),
       imageUrl: profile.imageUrl || null,
+      email: primaryEmail?.verification?.status === "verified" ? primaryEmail.emailAddress.toLowerCase() : null,
     };
   } catch {
     const error = new Error("Your Pawline session could not be verified.");

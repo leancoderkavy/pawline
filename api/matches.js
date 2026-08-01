@@ -1,10 +1,11 @@
 import { generateText, jsonSchema, Output } from "ai";
+import { getDatabase } from "./_db.js";
+import { consumeUsageChain, requestClientKey } from "./_usage-limit.js";
 
 const MODEL = process.env.PAWLINE_AI_MODEL || "google/gemini-2.5-flash-lite";
 const MAX_PETS = 10;
 const WINDOW_MS = 60 * 60 * 1000;
 const MAX_REQUESTS_PER_WINDOW = 8;
-const buckets = new Map();
 const matchSchema = jsonSchema({
   type: "object",
   additionalProperties: false,
@@ -57,24 +58,6 @@ const ANSWER_OPTIONS = {
 function text(value, limit) {
   const result = String(value || "").trim();
   return result ? result.slice(0, limit) : null;
-}
-
-function clientKey(request) {
-  return String(request.headers["x-forwarded-for"] || request.socket?.remoteAddress || "unknown")
-    .split(",")[0]
-    .trim();
-}
-
-function rateLimited(request) {
-  const now = Date.now();
-  const key = clientKey(request);
-  const current = buckets.get(key);
-  if (!current || now - current.startedAt >= WINDOW_MS) {
-    buckets.set(key, { startedAt: now, count: 1 });
-    return false;
-  }
-  current.count += 1;
-  return current.count > MAX_REQUESTS_PER_WINDOW;
 }
 
 export function validateMatchRequest(body) {
@@ -142,13 +125,23 @@ export default async function handler(request, response) {
     response.setHeader("Allow", "POST");
     return response.status(405).json({ error: "Method not allowed" });
   }
-  if (rateLimited(request)) {
-    return response.status(429).json({ error: "AI match limit reached. Try again later." });
-  }
   const validated = validateMatchRequest(request.body);
   if (validated.error) return response.status(422).json({ error: validated.error });
   if (!process.env.VERCEL && !process.env.AI_GATEWAY_API_KEY && !process.env.VERCEL_OIDC_TOKEN) {
     return response.status(503).json({ error: "AI matching is not configured." });
+  }
+  const database = getDatabase();
+  if (!database) return response.status(503).json({ error: "AI matching limits are not configured." });
+  try {
+    const reservation = await consumeUsageChain(database, [
+      { scope: "ai_match_client", subject: requestClientKey(request), limit: MAX_REQUESTS_PER_WINDOW, windowMs: WINDOW_MS },
+      { scope: "ai_match_global", subject: "all", limit: 200, windowMs: WINDOW_MS },
+    ]);
+    if (!reservation.allowed) {
+      return response.status(429).json({ error: "AI match limit reached. Try again later." });
+    }
+  } catch {
+    return response.status(503).json({ error: "AI matching limits are temporarily unavailable." });
   }
 
   const { answers, pets } = validated.value;

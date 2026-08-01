@@ -1,5 +1,5 @@
 import { getDatabase } from "./_db.js";
-import { ensureDiscoveryTable } from "./_tavily-discovery.js";
+import { requireDiscoverySchema } from "./_tavily-discovery.js";
 
 export default async function handler(request, response) {
   if (request.method !== "GET") {
@@ -15,7 +15,7 @@ export default async function handler(request, response) {
     });
   }
   try {
-    await ensureDiscoveryTable(database);
+    await requireDiscoverySchema(database);
     const rows = await database`
       SELECT id, title, snippet, source_url, source_domain, city,
              latitude, longitude, species, first_seen_at, last_seen_at
