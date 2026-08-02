@@ -283,6 +283,7 @@ body { background:#dce3d5; }
 .map-rail.is-collapsed .rail-tabs,.map-rail.is-collapsed .rail-content { display:none; }
 .rail-tabs { height:68px;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));padding:8px;border-bottom:1px solid #e3ded5; }
 .rail-tabs button { border:0;background:transparent;border-radius:11px;display:flex;align-items:center;justify-content:center;gap:7px;font-size:11px;font-weight:700; }.rail-tabs button svg { width:16px; }.rail-tabs button.active { background:#f0eee7;box-shadow:0 2px 7px #17382f12;color:var(--green); }
+.rail-label-short { display:none; }
 .rail-content { height:calc(100% - 68px);overflow:auto; }
 .panel-community .map-rail { width:min(790px,calc(100vw - 44px)); }
 .panel-community .map-legend { left:830px; }
@@ -392,9 +393,9 @@ body { background:#dce3d5; }
 
 @media (max-width:900px) {
   .map-app-header { left:max(12px,env(safe-area-inset-left));right:max(12px,env(safe-area-inset-right));top:max(10px,env(safe-area-inset-top));height:62px;grid-template-columns:auto 1fr auto;padding:0 8px;gap:6px; }.map-app-header .brand { min-width:44px;min-height:44px;font-size:0;justify-content:center; }.map-app-header .brand-mark svg { width:28px;height:28px; }.global-location { min-width:0;height:44px;padding-left:7px;gap:6px; }.global-location-field label { display:none; }.global-location-icon { width:30px;height:30px; }.global-location button,.saved-action { min-width:44px;min-height:44px; }.map-app-actions .saved-action span,.map-app-actions .button span { display:none; }.map-app-actions .button { display:inline-flex;min-width:44px;width:44px;min-height:44px;padding:0;border-radius:50%; }.map-app-actions .button svg { width:18px; }
-  .map-rail,.panel-community .map-rail { left:max(12px,env(safe-area-inset-left));right:max(12px,env(safe-area-inset-right));top:auto;bottom:max(12px,env(safe-area-inset-bottom));width:auto;height:min(72dvh,650px);border-radius:18px;transition:height .22s ease; }.map-rail.is-collapsed { bottom:max(12px,env(safe-area-inset-bottom));width:auto;height:60px; }.rail-toggle,.map-rail.is-collapsed .rail-toggle { top:-22px;right:auto;left:50%;transform:translateX(-50%); }.rail-toggle svg { transform:rotate(90deg); }.map-rail.is-collapsed .rail-toggle svg { transform:rotate(-90deg); }.rail-tabs { height:60px;border-radius:18px;background:rgba(255,253,249,.97);overflow:hidden; }.rail-tabs button { min-height:44px;font-size:9px;gap:3px; }.rail-content { height:calc(100% - 60px);overscroll-behavior:contain;-webkit-overflow-scrolling:touch;background:rgba(255,253,249,.97);border-radius:0 0 18px 18px; }.map-rail.is-collapsed .rail-tabs { display:grid; }.map-rail.is-collapsed .rail-content { display:none; }
+  .map-rail,.panel-community .map-rail { left:max(12px,env(safe-area-inset-left));right:max(12px,env(safe-area-inset-right));top:auto;bottom:max(12px,env(safe-area-inset-bottom));width:auto;height:min(72dvh,650px);border-radius:18px;transition:height .22s ease; }.map-rail.is-collapsed { bottom:max(12px,env(safe-area-inset-bottom));width:auto;height:60px; }.rail-toggle,.map-rail.is-collapsed .rail-toggle { top:-22px;right:auto;left:50%;transform:translateX(-50%); }.rail-toggle svg { transform:rotate(90deg); }.map-rail.is-collapsed .rail-toggle svg { transform:rotate(-90deg); }.rail-tabs { height:60px;border-radius:18px;background:rgba(255,253,249,.97);overflow:hidden; }.rail-tabs button { min-height:44px;font-size:10px;gap:2px; }.rail-content { height:calc(100% - 60px);overscroll-behavior:contain;-webkit-overflow-scrolling:touch;background:rgba(255,253,249,.97);border-radius:0 0 18px 18px; }.map-rail.is-collapsed .rail-tabs { display:grid; }.map-rail.is-collapsed .rail-content { display:none; }
   .map-workspace .map-discovery > .map-header { left:12px;width:calc(100% - 24px);top:auto;bottom:min(64vh,570px); }
-  .explore-intro { padding-top:0; }.panel-explore .rail-content { padding:18px; }.map-pet-preview { display:none; }
+  .explore-intro { padding-top:0; }.panel-explore .rail-content { padding:18px; }.map-rail .map-toolbar .map-select span { font-size:10px; }.map-rail .map-toolbar .map-select select { font-size:12px; }.map-rail .map-toolbar .map-toggle,.map-rail .map-toolbar .map-reset { font-size:12px; }.explore-intro > p { font-size:13px;line-height:1.55; }.map-area-status,.live-state { font-size:11px !important; }.map-results > div:first-child strong { font-size:12px; }.map-results > p { font-size:11px; }.map-result-open strong { font-size:11px; }.map-result-open small,.listing-freshness { font-size:9px; }.map-pet-preview { display:none; }
   .map-workspace .map-legend { left:12px;bottom:calc(min(64vh,570px) + 20px); }.map-workspace.rail-collapsed .map-legend { bottom:92px; }.map-workspace .interactive-map .mapboxgl-ctrl-top-right { top:82px; }
   .location-permission { top:82px;right:12px;grid-template-columns:38px minmax(0,1fr); }.location-permission-icon { width:38px;height:38px; }.location-permission .button { grid-column:2;justify-self:start; }.location-permission-dismiss { grid-column:2; }
   .panel-community .map-legend { left:12px;bottom:calc(min(72dvh,650px) + 20px); }
@@ -403,9 +404,9 @@ body { background:#dce3d5; }
 
 @media (max-width:520px) {
   .map-app-header { grid-template-columns:auto minmax(0,1fr) auto; }.map-app-actions { gap:0; }.saved-action { display:none;padding:0 4px; }.global-location input { font-size:11px; }
-  .map-rail { height:58dvh; }.map-rail.is-collapsed { height:60px; }.rail-tabs button { font-size:9px; }.rail-tabs button svg { width:14px; }
+  .map-rail { height:58dvh; }.map-rail.is-collapsed { height:60px; }.rail-tabs button { padding:0 2px;font-size:11px;gap:0;white-space:nowrap; }.rail-tabs button + button { border-left:1px solid #e3ded5; }.rail-tabs button svg,.rail-label-full { display:none; }.rail-label-short { display:inline; }
   .map-workspace .map-legend { bottom:calc(58vh + 20px); }.map-workspace.rail-collapsed .map-legend { bottom:92px; }.map-workspace .map-instructions { display:none; }
-  .explore-intro h1 { font-size:24px; }.quiz-teaser { min-height:88px; }.map-rail .match-intro { min-height:380px; }.map-rail .match-intro h1 { font-size:34px; }
+  .explore-intro h1 { font-size:27px; }.quiz-teaser { min-height:88px; }.map-rail .match-intro { min-height:380px; }.map-rail .match-intro h1 { font-size:34px; }
 }
 
 @media (max-width:600px) {

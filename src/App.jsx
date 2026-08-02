@@ -1165,7 +1165,7 @@ export default function App({ clerkPublishableKey = "" }) {
           <button className={activePanel === "explore" ? "active" : ""} onClick={() => openPanel("explore")}><Search />Explore</button>
           <button className={activePanel === "messages" ? "active" : ""} onClick={() => openPanel("messages")}><MessageCircle />Messages</button>
           <button className={activePanel === "community" ? "active" : ""} onClick={() => openPanel("community")}><MessageCircle />Community</button>
-          <button className={activePanel === "match" ? "active" : ""} onClick={() => openPanel("match")}><PawPrint />Match quiz</button>
+          <button aria-label="Match quiz" className={activePanel === "match" ? "active" : ""} onClick={() => openPanel("match")}><PawPrint /><span className="rail-label-full">Match quiz</span><span className="rail-label-short" aria-hidden="true">Quiz</span></button>
           <button className={activePanel === "events" ? "active" : ""} onClick={() => openPanel("events")}><CalendarDays />Events</button>
         </nav>
         <div id="map-rail-content" className="rail-content">

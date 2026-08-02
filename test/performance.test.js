@@ -32,8 +32,14 @@ test("the map uses a lightweight preview before loading Mapbox", async () => {
 });
 
 test("all five discovery tabs share one visible rail row", async () => {
-  const styles = await read("src/styles.css");
+  const [app, styles] = await Promise.all([read("src/App.jsx"), read("src/styles.css")]);
   assert.match(styles, /\.rail-tabs \{[^}]*grid-template-columns:repeat\(5,minmax\(0,1fr\)\)/);
+  assert.match(styles, /\.rail-tabs button \{[^}]*font-size:10px/);
+  assert.match(styles, /\.rail-tabs button \{ padding:0 2px;font-size:11px;gap:0;white-space:nowrap; \}/);
+  assert.match(styles, /\.rail-tabs button \+ button \{ border-left:1px solid #e3ded5; \}/);
+  assert.match(styles, /\.map-rail \.map-toolbar \.map-select select \{ font-size:12px; \}/);
+  assert.match(app, /aria-label="Match quiz"/);
+  assert.match(app, /className="rail-label-short" aria-hidden="true">Quiz/);
 });
 
 test("every rendered map point has a keyboard-accessible result action", async () => {
