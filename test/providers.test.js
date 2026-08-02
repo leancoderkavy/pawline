@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   canonicalSpecies,
   cleanText,
+  createPetFeedFallbackLimiter,
   normalizeDatabasePet,
   normalizeKingCountyPet,
   normalizeLosAngelesPet,
@@ -26,6 +27,17 @@ test("pet feed provider fan-out has bounded query pagination", () => {
   assert.deepEqual(normalizePetQuery({ page: "-5", limit: "0", species: "Dog" }), {
     species: ["Dog"], limit: 24, page: 1,
   });
+});
+
+test("public pet feeds retain bounded fallback limits if durable limits are unavailable", () => {
+  const reserve = createPetFeedFallbackLimiter({ clientLimit: 2, globalLimit: 3, windowMs: 1_000 });
+
+  assert.equal(reserve("client-one", 10), true);
+  assert.equal(reserve("client-one", 10), true);
+  assert.equal(reserve("client-one", 10), false);
+  assert.equal(reserve("client-two", 10), true);
+  assert.equal(reserve("client-three", 10), false);
+  assert.equal(reserve("client-three", 1_000), true);
 });
 
 test("normalizes Montgomery County adoptable pet records", () => {

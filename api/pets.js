@@ -12,6 +12,47 @@ const LOS_ANGELES_PETS_URL =
   "https://www.laanimalservices.com/search/pets";
 const PET_FEED_WINDOW_MS = 60 * 60 * 1000;
 
+export function createPetFeedFallbackLimiter({
+  clientLimit = 120,
+  globalLimit = 3000,
+  windowMs = PET_FEED_WINDOW_MS,
+} = {}) {
+  let windowStart = null;
+  let globalCount = 0;
+  const clientCounts = new Map();
+
+  return (clientKey, now = Date.now()) => {
+    const nextWindowStart = Math.floor(now / windowMs) * windowMs;
+    if (windowStart !== nextWindowStart) {
+      windowStart = nextWindowStart;
+      globalCount = 0;
+      clientCounts.clear();
+    }
+    const clientCount = clientCounts.get(clientKey) || 0;
+    if (clientCount >= clientLimit || globalCount >= globalLimit) return false;
+    clientCounts.set(clientKey, clientCount + 1);
+    globalCount += 1;
+    return true;
+  };
+}
+
+const reserveFallbackPetFeedUsage = createPetFeedFallbackLimiter();
+
+async function reservePetFeedUsage(database, request) {
+  const limits = [
+    { scope: "pet_feed_client", subject: requestClientKey(request), limit: 120, windowMs: PET_FEED_WINDOW_MS },
+    { scope: "pet_feed_global", subject: "all", limit: 3000, windowMs: PET_FEED_WINDOW_MS },
+  ];
+  if (database) {
+    try {
+      return (await consumeUsageChain(database, limits)).allowed;
+    } catch (error) {
+      console.error("Durable pet feed rate limit unavailable; using bounded fallback", error);
+    }
+  }
+  return reserveFallbackPetFeedUsage(limits[0].subject);
+}
+
 export function normalizePetQuery(query = {}) {
   const requestedSpecies = query.species;
   return {
@@ -429,19 +470,8 @@ export default async function handler(request, response) {
 
   const { species, limit, page } = normalizePetQuery(request.query);
   const database = getDatabase();
-  if (!database) {
-    return response.status(503).json({ mode: "error", pets: [], message: "Live adoption feed safety checks are unavailable." });
-  }
-  try {
-    const reservation = await consumeUsageChain(database, [
-      { scope: "pet_feed_client", subject: requestClientKey(request), limit: 120, windowMs: PET_FEED_WINDOW_MS },
-      { scope: "pet_feed_global", subject: "all", limit: 3000, windowMs: PET_FEED_WINDOW_MS },
-    ]);
-    if (!reservation.allowed) {
-      return response.status(429).json({ mode: "error", pets: [], message: "Live adoption feed request limit reached. Try again later." });
-    }
-  } catch {
-    return response.status(503).json({ mode: "error", pets: [], message: "Live adoption feed safety checks are unavailable." });
+  if (!await reservePetFeedUsage(database, request)) {
+    return response.status(429).json({ mode: "error", pets: [], message: "Live adoption feed request limit reached. Try again later." });
   }
 
   try {
