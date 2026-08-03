@@ -29,6 +29,122 @@ async function readJson(response, fallbackMessage) {
   return response.json();
 }
 
+function LocationAutocomplete({ value, mapboxConfigured, locationState, onChange, onSearch, onSelect }) {
+  const [suggestions, setSuggestions] = useState([]);
+  const [suggestionState, setSuggestionState] = useState("idle");
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const [expanded, setExpanded] = useState(false);
+  const [hasUserEdited, setHasUserEdited] = useState(false);
+  const searchSessionRef = useRef("");
+  const requestRef = useRef(0);
+  const listboxId = "global-location-suggestions";
+  const activeSuggestion = suggestions[activeIndex];
+
+  useEffect(() => {
+    const query = value.trim();
+    if (!hasUserEdited || mapboxConfigured !== true || query.length < 3) {
+      setSuggestions([]);
+      setSuggestionState("idle");
+      setActiveIndex(-1);
+      setExpanded(false);
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    const requestId = requestRef.current + 1;
+    requestRef.current = requestId;
+    const sessionToken = searchSessionRef.current || globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`;
+    searchSessionRef.current = sessionToken;
+    setSuggestionState("loading");
+    setExpanded(true);
+    const timer = window.setTimeout(async () => {
+      try {
+        const response = await fetch(`/api/geocode?q=${encodeURIComponent(query)}&autocomplete=true&session_token=${encodeURIComponent(sessionToken)}`, { signal: controller.signal });
+        const body = await readJson(response, "Location suggestions are unavailable.");
+        if (!response.ok) throw new Error(body.error || "Location suggestions are unavailable.");
+        if (requestRef.current !== requestId) return;
+        const nextSuggestions = (body.results || []).filter(result =>
+          typeof result?.name === "string" && Number.isFinite(Number(result.longitude)) && Number.isFinite(Number(result.latitude)),
+        );
+        setSuggestions(nextSuggestions);
+        setActiveIndex(-1);
+        setSuggestionState(nextSuggestions.length ? "ready" : "empty");
+      } catch (error) {
+        if (error.name === "AbortError" || requestRef.current !== requestId) return;
+        setSuggestions([]);
+        setSuggestionState("error");
+      }
+    }, 300);
+
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [value, hasUserEdited, mapboxConfigured]);
+
+  const closeSuggestions = () => {
+    setExpanded(false);
+    setActiveIndex(-1);
+  };
+  const selectSuggestion = suggestion => {
+    onSelect(suggestion);
+    searchSessionRef.current = "";
+    setHasUserEdited(false);
+    closeSuggestions();
+  };
+  const handleChange = event => {
+    setHasUserEdited(true);
+    setActiveIndex(-1);
+    onChange(event.target.value);
+  };
+  const handleKeyDown = event => {
+    if (event.key === "Escape") {
+      closeSuggestions();
+      return;
+    }
+    if (!expanded || !suggestions.length) return;
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setActiveIndex(index => Math.min(index + 1, suggestions.length - 1));
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setActiveIndex(index => Math.max(index - 1, 0));
+    } else if (event.key === "Enter" && activeSuggestion) {
+      event.preventDefault();
+      selectSuggestion(activeSuggestion);
+    }
+  };
+  const handleSubmit = event => {
+    event.preventDefault();
+    if (activeSuggestion) selectSuggestion(activeSuggestion);
+    else {
+      closeSuggestions();
+      onSearch();
+    }
+  };
+  const showSuggestions = expanded && (suggestionState === "loading" || suggestionState === "ready" || suggestionState === "empty" || suggestionState === "error");
+
+  return <form className={`global-location ${locationState.status === "error" ? "is-error" : ""} ${showSuggestions ? "has-suggestions" : ""}`} onSubmit={handleSubmit}>
+    <span className="global-location-icon" aria-hidden="true"><MapPin /></span>
+    <span className="global-location-field">
+      <label htmlFor="global-location-input">Find pets near</label>
+      <input id="global-location-input" value={value} onChange={handleChange} onFocus={() => { if (hasUserEdited && suggestionState !== "idle") setExpanded(true); }} onBlur={closeSuggestions} onKeyDown={handleKeyDown} placeholder="City, address, or ZIP code" autoComplete="off" inputMode="search" role="combobox" aria-autocomplete="list" aria-expanded={showSuggestions} aria-controls={listboxId} aria-activedescendant={activeSuggestion ? `${listboxId}-${activeIndex}` : undefined} aria-invalid={locationState.status === "error"} aria-describedby="global-location-status" />
+    </span>
+    <button type="submit" disabled={locationState.status === "loading"} aria-label={locationState.status === "loading" ? "Searching for pets" : "Search this location"}>
+      {locationState.status === "loading" ? <RotateCcw className="location-spinner" /> : <Search />}
+    </button>
+    {showSuggestions ? <div id={listboxId} className="global-location-suggestions" role="listbox" aria-label="Location suggestions" aria-busy={suggestionState === "loading"}>
+      {suggestionState === "loading" ? <p className="location-suggestion-status" role="status">Finding places…</p> : null}
+      {suggestionState === "empty" ? <p className="location-suggestion-status">No places match that search yet.</p> : null}
+      {suggestionState === "error" ? <p className="location-suggestion-status">Suggestions are unavailable. You can still search this location.</p> : null}
+      {suggestionState === "ready" ? suggestions.map((suggestion, index) => <div key={suggestion.id || `${suggestion.name}-${index}`} id={`${listboxId}-${index}`} className={`location-suggestion ${activeIndex === index ? "is-active" : ""}`} role="option" aria-selected={activeIndex === index} onPointerDown={event => event.preventDefault()} onClick={() => selectSuggestion(suggestion)}>
+        <MapPin aria-hidden="true" /><span><strong>{suggestion.name}</strong><small>Use this location on the map</small></span>
+      </div>) : null}
+    </div> : null}
+    <span id="global-location-status" className="sr-only" role={locationState.status === "error" ? "alert" : "status"} aria-live="polite">{locationState.status === "loading" ? "Searching for pets nearby" : locationState.message}</span>
+  </form>;
+}
+
 function suppliedHours(item) {
   if (typeof item?.hours === "string" && item.hours.trim()) return item.hours.trim();
   if (typeof item?.todayHours === "string" && item.todayHours.trim()) return item.todayHours.trim();
@@ -1053,6 +1169,19 @@ export default function App({ clerkPublishableKey = "" }) {
       setFavoriteError("Favorites still cannot be saved in this browser. Free storage space and retry.");
     }
   };
+  const selectLocation = match => {
+    const longitude = Number(match?.longitude);
+    const latitude = Number(match?.latitude);
+    if (!match?.name || !Number.isFinite(longitude) || !Number.isFinite(latitude)) {
+      setLocationState({ status: "error", message: "That location could not be placed on the map." });
+      return;
+    }
+    setLocation(match.name);
+    setCoordinates({ ...match, longitude, latitude });
+    setMapSearchMoved(false);
+    setLocationState({ status: "success", message: `Map centered on ${match.name}.` });
+    document.getElementById("map")?.scrollIntoView({ behavior: "smooth" });
+  };
   const findMatch = async () => {
     if (!location.trim()) {
       setLocationState({ status: "error", message: "Enter a city, state, or postal code." });
@@ -1071,11 +1200,7 @@ export default function App({ clerkPublishableKey = "" }) {
       if (!response.ok) throw new Error(body.error || "Location search failed.");
       const match = body.results?.[0];
       if (!match) throw new Error("We could not find that location.");
-      setLocation(match.name);
-      setCoordinates(match);
-      setMapSearchMoved(false);
-      setLocationState({ status: "success", message: `Map centered on ${match.name}.` });
-      document.getElementById("map")?.scrollIntoView({ behavior: "smooth" });
+      selectLocation(match);
     } catch (error) {
       setLocationState({ status: "error", message: error.message });
     }
@@ -1136,17 +1261,7 @@ export default function App({ clerkPublishableKey = "" }) {
     {favoriteError ? <div className="favorites-sync-alert" role="alert"><span>{favoriteError}</span><button type="button" onClick={retryFavoriteSync}>Retry favorites</button></div> : null}
     <header className="map-app-header">
       <a className="brand" href="#map" aria-label="Pawline home"><span className="brand-mark"><PawPrint /></span><span>Pawline</span></a>
-      <form className={`global-location ${locationState.status === "error" ? "is-error" : ""}`} onSubmit={event => { event.preventDefault(); findMatch(); }}>
-        <span className="global-location-icon" aria-hidden="true"><MapPin /></span>
-        <span className="global-location-field">
-          <label htmlFor="global-location-input">Find pets near</label>
-          <input id="global-location-input" value={location} onChange={event => setLocation(event.target.value)} placeholder="City or ZIP code" autoComplete="postal-code" aria-invalid={locationState.status === "error"} aria-describedby="global-location-status" />
-        </span>
-        <button type="submit" disabled={locationState.status === "loading"} aria-label={locationState.status === "loading" ? "Searching for pets" : "Search this location"}>
-          {locationState.status === "loading" ? <RotateCcw className="location-spinner" /> : <Search />}
-        </button>
-        <span id="global-location-status" className="sr-only" role={locationState.status === "error" ? "alert" : "status"} aria-live="polite">{locationState.status === "loading" ? "Searching for pets nearby" : locationState.message}</span>
-      </form>
+      <LocationAutocomplete value={location} mapboxConfigured={integrations.mapboxConfigured} locationState={locationState} onChange={setLocation} onSearch={findMatch} onSelect={selectLocation} />
       <div className="map-app-actions">
         <button className={`saved-action ${showSavedOnly ? "is-active" : ""}`} onClick={() => { openPanel("explore"); toggleSavedOnly(); }} aria-label={`${saved.length} favorite pets. ${showSavedOnly ? "Show all listings" : "Show favorites"}`} aria-pressed={showSavedOnly}><Heart fill={saved.length ? "currentColor" : "none"} /><span>Favorites</span>{saved.length ? <strong>{saved.length}</strong> : null}</button>
         <Button onClick={() => setSubmitOpen(true)} aria-label="List a pet"><span>List a pet</span><PawPrint /></Button>

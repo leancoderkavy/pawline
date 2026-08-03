@@ -2,6 +2,13 @@ import { getDatabase } from "./_db.js";
 import { consumeUsageChain, requestClientKey } from "./_usage-limit.js";
 
 const MAPBOX_GEOCODING_URL = "https://api.mapbox.com/search/geocode/v6/forward";
+const MAPBOX_LOCATION_TYPES = "address,street,place,locality,neighborhood,postcode,region,country";
+
+function sessionToken(value) {
+  return typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+    ? value
+    : null;
+}
 
 export default async function handler(request, response) {
   if (request.method !== "GET") {
@@ -31,9 +38,12 @@ export default async function handler(request, response) {
   const url = new URL(MAPBOX_GEOCODING_URL);
   url.searchParams.set("q", query);
   url.searchParams.set("access_token", process.env.MAPBOX_ACCESS_TOKEN);
-  url.searchParams.set("types", "place,postcode,region,country");
+  url.searchParams.set("types", MAPBOX_LOCATION_TYPES);
+  url.searchParams.set("autocomplete", "true");
   url.searchParams.set("limit", "5");
   url.searchParams.set("language", "en");
+  const searchSession = sessionToken(request.query.session_token);
+  if (searchSession) url.searchParams.set("session_token", searchSession);
 
   try {
     const upstream = await fetch(url.toString(), {

@@ -31,15 +31,37 @@ test("the map uses a lightweight preview before loading Mapbox", async () => {
   assert.match(app, /clerkConfigured && accountSyncReady/);
 });
 
-test("all five discovery tabs share one visible rail row", async () => {
+test("the narrow discovery drawer uses roomy two-row navigation", async () => {
   const [app, styles] = await Promise.all([read("src/App.jsx"), read("src/styles.css")]);
   assert.match(styles, /\.rail-tabs \{[^}]*grid-template-columns:repeat\(5,minmax\(0,1fr\)\)/);
-  assert.match(styles, /\.rail-tabs button \{[^}]*font-size:10px/);
-  assert.match(styles, /\.rail-tabs button \{ padding:0 2px;font-size:11px;gap:0;white-space:nowrap; \}/);
-  assert.match(styles, /\.rail-tabs button \+ button \{ border-left:1px solid #e3ded5; \}/);
-  assert.match(styles, /\.map-rail \.map-toolbar \.map-select select \{ font-size:12px; \}/);
+  assert.match(styles, /--mobile-drawer-height:min\(70dvh,620px\)/);
+  assert.match(styles, /\.rail-tabs \{ height:126px;grid-template-columns:repeat\(6,minmax\(0,1fr\)\);grid-template-rows:repeat\(2,minmax\(0,1fr\)\)/);
+  assert.match(styles, /\.rail-tabs button \{ min-height:0;padding:5px 4px;[^}]*flex-direction:column;[^}]*font-size:12px/);
+  assert.match(styles, /\.rail-tabs button:nth-child\(-n\+3\) \{ grid-column:span 2; \}/);
+  assert.match(styles, /\.rail-tabs button:nth-child\(n\+4\) \{ grid-column:span 3; \}/);
+  assert.match(styles, /\.rail-tabs button svg \{ display:block;width:18px;height:18px; \}/);
+  assert.match(styles, /\.rail-tabs \.rail-label-full \{ display:inline; \}/);
+  assert.match(styles, /\.rail-tabs \.rail-label-short \{ display:none; \}/);
+  assert.match(styles, /\.map-rail \.map-toolbar \.map-select select \{ font-size:14px; \}/);
   assert.match(app, /aria-label="Match quiz"/);
-  assert.match(app, /className="rail-label-short" aria-hidden="true">Quiz/);
+  assert.match(app, /className="rail-label-full">Match quiz/);
+});
+
+test("the top location search offers map-backed autocomplete", async () => {
+  const [app, styles, geocode] = await Promise.all([read("src/App.jsx"), read("src/styles.css"), read("api/geocode.js")]);
+  assert.match(app, /function LocationAutocomplete/);
+  assert.match(app, /autocomplete=true&session_token=/);
+  assert.match(app, /role="combobox"/);
+  assert.match(app, /aria-autocomplete="list"/);
+  assert.match(app, /role="listbox"/);
+  assert.match(app, /event\.key === "ArrowDown"/);
+  assert.match(app, /event\.key === "Escape"/);
+  assert.match(app, /onSelect=\{selectLocation\}/);
+  assert.match(styles, /\.global-location-suggestions \{ position:absolute/);
+  assert.match(styles, /\.location-suggestion \{ min-height:52px/);
+  assert.match(geocode, /address,street,place,locality,neighborhood,postcode,region,country/);
+  assert.match(geocode, /url\.searchParams\.set\("autocomplete", "true"\)/);
+  assert.match(geocode, /url\.searchParams\.set\("session_token", searchSession\)/);
 });
 
 test("every rendered map point has a keyboard-accessible result action", async () => {
