@@ -825,7 +825,7 @@ function VisitPlanner({ pets, location }) {
 function MapPanel({ location, coordinates, userCoordinates, locationPrompt, configured, view, petType, showEvents, densityMode, routePets, onOpenPet, onOpenEvent, onOpenDiscovery, onMapMove, onRequestLocation, onDismissLocation }) {
   const { pets: visiblePets, events: visibleEvents, discoveries: visibleDiscoveries } = view;
   const points = [
-    ...visiblePets.slice(0, 30)
+    ...visiblePets
       .map(pet => ({ id: pet.id, longitude: pet.longitude, latitude: pet.latitude, type: "pet" })),
     ...visibleEvents.slice(0, 10)
       .map(event => ({ id: event.id, longitude: event.longitude, latitude: event.latitude, type: "event" })),
@@ -1277,11 +1277,11 @@ export default function App({ clerkPublishableKey = "" }) {
           <span className="sr-only">{railCollapsed ? "Show discovery tools" : "Hide discovery tools"}</span>
         </button>
         <nav className="rail-tabs" aria-label="Discovery views">
-          <button className={activePanel === "explore" ? "active" : ""} onClick={() => openPanel("explore")}><Search />Explore</button>
-          <button className={activePanel === "messages" ? "active" : ""} onClick={() => openPanel("messages")}><MessageCircle />Messages</button>
-          <button className={activePanel === "community" ? "active" : ""} onClick={() => openPanel("community")}><MessageCircle />Community</button>
+          <button className={activePanel === "explore" ? "active" : ""} onClick={() => openPanel("explore")}><Search /><span>Explore</span></button>
+          <button className={activePanel === "messages" ? "active" : ""} onClick={() => openPanel("messages")}><MessageCircle /><span>Messages</span></button>
+          <button className={activePanel === "community" ? "active" : ""} onClick={() => openPanel("community")}><Globe2 /><span>Community</span></button>
           <button aria-label="Match quiz" className={activePanel === "match" ? "active" : ""} onClick={() => openPanel("match")}><PawPrint /><span className="rail-label-full">Match quiz</span><span className="rail-label-short" aria-hidden="true">Quiz</span></button>
-          <button className={activePanel === "events" ? "active" : ""} onClick={() => openPanel("events")}><CalendarDays />Events</button>
+          <button className={activePanel === "events" ? "active" : ""} onClick={() => openPanel("events")}><CalendarDays /><span>Events</span></button>
         </nav>
         <div id="map-rail-content" className="rail-content">
           {activePanel === "explore" ? <div className="explore-intro">
