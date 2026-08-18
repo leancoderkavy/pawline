@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import heroImage from "./heroData";
 import { rankPets } from "./matching";
-import { buildMapView } from "./mapView";
+import { buildMapView, petCountLabel, petResultDetail } from "./mapView";
 import { restoreFavoriteAfterFailure } from "./favoritesState";
 import Dialog from "./Dialog";
 import { createMapSearchInteraction } from "./mapSearchInteraction";
@@ -785,7 +785,7 @@ function MapResults({ view, saved, showSavedOnly, onToggleSavedOnly, onSave, onO
   const icon = type => type === "event" ? <CalendarDays /> : type === "discovery" ? <Globe2 /> : <PawPrint />;
   const detail = item => item.resultType === "event"
     ? `${normalizeEvent(item).month} ${normalizeEvent(item).day} · ${normalizeEvent(item).time}`
-    : item.breed || item.city || "Open details";
+    : petResultDetail(item);
   const accessibleName = item => item.resultType === "event"
     ? `Open ${item.title} on ${normalizeEvent(item).month} ${normalizeEvent(item).day} details`
     : `Open ${item.name || item.title || item.resultType} details`;
@@ -1297,7 +1297,7 @@ export default function App({ clerkPublishableKey = "" }) {
           {activePanel === "explore" ? <div className="explore-intro">
             <MapFilters petType={mapPetType} distance={mapDistance} showEvents={showMapEvents} densityMode={densityMode} hoursFilter={hoursFilter} onPetTypeChange={setMapPetType} onDistanceChange={setMapDistance} onShowEventsChange={setShowMapEvents} onDensityChange={setDensityMode} onHoursFilterChange={setHoursFilter} onReset={resetMapFilters} />
             <div><h1>Adoptable pets nearby</h1><span className={`live-state feed-${feed.mode}`}><i />{feed.mode === "live" ? "Current listings" : feed.mode === "loading" ? "Checking listings" : "Listings unavailable"}</span></div>
-            <p>{feed.mode === "live" ? `${mapView.pets.length} pets within ${mapDistance} miles. Open a pet to see details and the shelter's listing.` : feed.message || "Current shelter listings are unavailable. Pawline does not show made-up pets."}</p>
+            <p>{feed.mode === "live" ? `${petCountLabel(mapView.pets.length, mapPetType)} within ${mapDistance} miles. Open a pet to see details and the shelter's listing.` : feed.message || "Current shelter listings are unavailable. Pawline does not show made-up pets."}</p>
             {mapSearchMoved ? <p className="map-area-status" role="status">Showing results around the map center.</p> : null}
             <MapResults view={mapView} saved={saved} showSavedOnly={showSavedOnly} onToggleSavedOnly={toggleSavedOnly} onSave={toggleSave} onOpenPet={setSelectedPet} onOpenEvent={setSelectedEvent} onOpenDiscovery={setSelectedDiscovery} />
             {routePets.length ? <VisitPlanner pets={routePets} location={location} /> : null}

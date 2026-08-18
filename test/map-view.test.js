@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildMapView, distanceInMiles, hasMapCoordinates } from "../src/mapView.js";
+import { buildMapView, distanceInMiles, hasMapCoordinates, petCountLabel, petResultDetail } from "../src/mapView.js";
 
 const center = { latitude: 47.38, longitude: -122.23 };
 
@@ -51,4 +51,12 @@ test("map view sorts coordinate-backed records nearest first and hides events", 
   assert.deepEqual(view.pets.map(pet => pet.id), ["nearer", "farther"]);
   assert.deepEqual(view.events, []);
   assert.ok(distanceInMiles(view.pets[0], center) < distanceInMiles(view.pets[1], center));
+});
+
+test("pet result labels make species visible and use the selected species in counts", () => {
+  assert.equal(petResultDetail({ species: "Cat", breed: "Domestic Shorthair", city: "Pasadena" }), "Cat · Domestic Shorthair");
+  assert.equal(petResultDetail({ species: "Dog", city: "Pasadena" }), "Dog · Pasadena");
+  assert.equal(petCountLabel(6, "Cat"), "6 cats");
+  assert.equal(petCountLabel(1, "Dog"), "1 dog");
+  assert.equal(petCountLabel(0), "0 pets");
 });
