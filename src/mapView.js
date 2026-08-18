@@ -2,6 +2,18 @@ export function hasMapCoordinates(item) {
   return Number.isFinite(item?.longitude) && Number.isFinite(item?.latitude);
 }
 
+export function petResultDetail(item) {
+  return [item?.species, item?.breed || item?.city || "Open details"]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+export function petCountLabel(count, petType = "All") {
+  const normalizedCount = Number(count) || 0;
+  const singular = petType === "Cat" ? "cat" : petType === "Dog" ? "dog" : "pet";
+  return `${normalizedCount} ${singular}${normalizedCount === 1 ? "" : "s"}`;
+}
+
 export function distanceInMiles(item, center) {
   if (!center || !hasMapCoordinates(item)) return null;
   const radians = value => value * Math.PI / 180;
