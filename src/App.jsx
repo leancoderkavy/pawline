@@ -757,10 +757,15 @@ function MapFilters({ petType, distance, showEvents, densityMode, hoursFilter, o
   return <div className="map-toolbar" role="group" aria-label="Map filters">
     <label className="map-select"><SlidersHorizontal /><span>Pet type</span><select value={petType} onChange={event => onPetTypeChange(event.target.value)} aria-label="Filter map by pet type"><option>All</option><option>Dog</option><option>Cat</option></select></label>
     <label className="map-select"><LocateFixed /><span>Radius</span><select value={distance} onChange={event => onDistanceChange(event.target.value)} aria-label="Map search radius"><option value="25">25 mi</option><option value="50">50 mi</option><option value="100">100 mi</option><option value="150">150 mi</option></select></label>
-    <label className="map-select"><CalendarClock /><span>Shelter hours</span><select value={hoursFilter} onChange={event => onHoursFilterChange(event.target.value)} aria-label="Filter by supplied shelter hours"><option value="all">All listings</option><option value="known">Hours supplied</option></select></label>
-    <button type="button" className={`map-toggle ${showEvents ? "is-active" : ""}`} onClick={() => onShowEventsChange(value => !value)} aria-pressed={showEvents}><CalendarDays /> Events</button>
-    <button type="button" className={`map-toggle ${densityMode ? "is-active" : ""}`} onClick={() => onDensityChange(value => !value)} aria-pressed={densityMode}><Layers3 /> Pawprint density</button>
-    <button type="button" className="map-reset" onClick={onReset} aria-label="Reset map filters"><RotateCcw /> Reset</button>
+    <details className="more-filters">
+      <summary><SlidersHorizontal /> More filters</summary>
+      <div>
+        <label className="map-select"><CalendarClock /><span>Shelter hours</span><select value={hoursFilter} onChange={event => onHoursFilterChange(event.target.value)} aria-label="Filter by supplied shelter hours"><option value="all">All listings</option><option value="known">Hours supplied</option></select></label>
+        <button type="button" className={`map-toggle ${showEvents ? "is-active" : ""}`} onClick={() => onShowEventsChange(value => !value)} aria-pressed={showEvents}><CalendarDays /> Show events</button>
+        <button type="button" className={`map-toggle ${densityMode ? "is-active" : ""}`} onClick={() => onDensityChange(value => !value)} aria-pressed={densityMode}><Layers3 /> Show pet density</button>
+        <button type="button" className="map-reset" onClick={onReset} aria-label="Reset all filters"><RotateCcw /> Reset filters</button>
+      </div>
+    </details>
   </div>;
 }
 
@@ -1047,7 +1052,7 @@ export default function App({ clerkPublishableKey = "" }) {
   const [feed, setFeed] = useState({ mode: "loading", message: "Checking trusted adoption sources…" });
   const [integrations, setIntegrations] = useState({ mapboxConfigured: null });
   const [activePanel, setActivePanel] = useState("explore");
-  const [railCollapsed, setRailCollapsed] = useState(true);
+  const [railCollapsed, setRailCollapsed] = useState(false);
   const [mapPetType, setMapPetType] = useState("All");
   const [mapDistance, setMapDistance] = useState("150");
   const [showMapEvents, setShowMapEvents] = useState(true);
@@ -1277,22 +1282,26 @@ export default function App({ clerkPublishableKey = "" }) {
           <span className="sr-only">{railCollapsed ? "Show discovery tools" : "Hide discovery tools"}</span>
         </button>
         <nav className="rail-tabs" aria-label="Discovery views">
-          <button className={activePanel === "explore" ? "active" : ""} onClick={() => openPanel("explore")}><Search /><span>Explore</span></button>
-          <button className={activePanel === "messages" ? "active" : ""} onClick={() => openPanel("messages")}><MessageCircle /><span>Messages</span></button>
-          <button className={activePanel === "community" ? "active" : ""} onClick={() => openPanel("community")}><Globe2 /><span>Community</span></button>
-          <button aria-label="Match quiz" className={activePanel === "match" ? "active" : ""} onClick={() => openPanel("match")}><PawPrint /><span className="rail-label-full">Match quiz</span><span className="rail-label-short" aria-hidden="true">Quiz</span></button>
-          <button className={activePanel === "events" ? "active" : ""} onClick={() => openPanel("events")}><CalendarDays /><span>Events</span></button>
+          <button className={activePanel === "explore" ? "active" : ""} onClick={() => openPanel("explore")}><Search />Find pets</button>
+          <button aria-label="Match quiz" className={activePanel === "match" ? "active" : ""} onClick={() => openPanel("match")}><PawPrint /><span className="rail-label-full">Match me</span><span className="rail-label-short" aria-hidden="true">Quiz</span></button>
+          <details className={`rail-more ${["messages", "community", "events"].includes(activePanel) ? "active" : ""}`}>
+            <summary><Menu />More</summary>
+            <div>
+              <button className={activePanel === "messages" ? "active" : ""} onClick={() => openPanel("messages")}><MessageCircle />Messages</button>
+              <button className={activePanel === "community" ? "active" : ""} onClick={() => openPanel("community")}><MessageCircle />Community</button>
+              <button className={activePanel === "events" ? "active" : ""} onClick={() => openPanel("events")}><CalendarDays />Events</button>
+            </div>
+          </details>
         </nav>
         <div id="map-rail-content" className="rail-content">
           {activePanel === "explore" ? <div className="explore-intro">
             <MapFilters petType={mapPetType} distance={mapDistance} showEvents={showMapEvents} densityMode={densityMode} hoursFilter={hoursFilter} onPetTypeChange={setMapPetType} onDistanceChange={setMapDistance} onShowEventsChange={setShowMapEvents} onDensityChange={setDensityMode} onHoursFilterChange={setHoursFilter} onReset={resetMapFilters} />
-            <div><h1>Pets in this area</h1><span className={`live-state feed-${feed.mode}`}><i />{feed.mode === "live" ? "Live" : feed.mode === "loading" ? "Checking" : "Unavailable"}</span></div>
-            <p>{feed.mode === "live" ? `${mapView.pets.length} mapped within ${mapDistance} mi · ${feed.count || remotePets.length} verified records total.` : feed.message || "No synthetic pet profiles are shown."}</p>
+            <div><h1>Adoptable pets nearby</h1><span className={`live-state feed-${feed.mode}`}><i />{feed.mode === "live" ? "Current listings" : feed.mode === "loading" ? "Checking listings" : "Listings unavailable"}</span></div>
+            <p>{feed.mode === "live" ? `${mapView.pets.length} pets within ${mapDistance} miles. Open a pet to see details and the shelter's listing.` : feed.message || "Current shelter listings are unavailable. Pawline does not show made-up pets."}</p>
             {mapSearchMoved ? <p className="map-area-status" role="status">Showing results around the map center.</p> : null}
             <MapResults view={mapView} saved={saved} showSavedOnly={showSavedOnly} onToggleSavedOnly={toggleSavedOnly} onSave={toggleSave} onOpenPet={setSelectedPet} onOpenEvent={setSelectedEvent} onOpenDiscovery={setSelectedDiscovery} />
-            <VisitPlanner pets={routePets} location={location} />
-            <Button onClick={() => openPanel("match")}><PawPrint />Find my match</Button>
-            <button className="quiz-teaser" onClick={() => openPanel("match")}><span className="quiz-ring">0%</span><span><small>Match quiz progress</small><strong>Tell us about your lifestyle</strong><em>About 2 minutes</em></span><ChevronRight /></button>
+            {routePets.length ? <VisitPlanner pets={routePets} location={location} /> : null}
+            <button className="quiz-teaser" onClick={() => openPanel("match")}><PawPrint /><span><small>Not sure where to start?</small><strong>Get pet matches</strong><em>Answer a few lifestyle questions</em></span><ChevronRight /></button>
             {remoteDiscoveries.length ? <section className="web-leads" aria-label="Current web adoption leads">
               <div><Globe2 /><span><small>Web discovery</small><strong>Fresh adoption leads</strong></span></div>
               <p>Search results are approximate map leads, not shelter-verified pet records.</p>
@@ -1300,15 +1309,16 @@ export default function App({ clerkPublishableKey = "" }) {
                 <span>{item.title}</span><small>{item.city} · {item.source_domain}</small>
               </a>)}
             </section> : null}
-            <section className="source-methodology" aria-labelledby="source-methodology-title">
+            <details className="source-methodology">
+              <summary><ShieldCheck /> How listings are checked</summary>
               <ShieldCheck />
               <div>
-                <h2 id="source-methodology-title">How Pawline finds adoptable pets</h2>
+                <h2>How Pawline finds adoptable pets</h2>
                 <p>Current pet records come from official shelter feeds, authorized providers, or reviewed Pawline records. We link to the original listing so you can confirm availability and adoption requirements with the shelter.</p>
                 <p>Approximate web leads are labeled separately and never presented as verified animals. Pawline does not substitute demo pets when live sources are unavailable.</p>
                 <a href="/llms-full.txt">Read our source and matching methodology <ChevronRight /></a>
               </div>
-            </section>
+            </details>
           </div> : null}
           {activePanel === "match" ? <Matchmaker pets={remotePets} feed={feed} location={location} onLocationChange={setLocation} onSpeciesChange={setSpecies} onFindLocation={findMatch} locationState={locationState} /> : null}
           {activePanel === "events" ? <EventPanel events={remoteEvents} /> : null}
