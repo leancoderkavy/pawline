@@ -11,6 +11,7 @@ import {
   normalizePetQuery,
   publicLocationCoordinates,
   geocodeRescueGroupsPets,
+  isCurrentProviderListing,
   parseLosAngelesPets,
   safeHttpUrl,
 } from "../api/pets.js";
@@ -72,6 +73,11 @@ test("public pet feeds retain bounded fallback limits if durable limits are unav
   assert.equal(reserve("client-two", 10), true);
   assert.equal(reserve("client-three", 10), false);
   assert.equal(reserve("client-three", 1_000), true);
+});
+
+test("provider listings with an explicit inactive title never reach current results", () => {
+  assert.equal(isCurrentProviderListing({ name: "Muppet Pup - Rowlf - Adopted!" }), false);
+  assert.equal(isCurrentProviderListing({ name: "Oscar" }), true);
 });
 
 test("normalizes Montgomery County adoptable pet records", () => {

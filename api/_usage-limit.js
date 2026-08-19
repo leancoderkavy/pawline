@@ -20,6 +20,30 @@ export async function consumeUsageChain(database, limits) {
   return { allowed: true, deniedScope: null };
 }
 
+export function createUsageFallbackLimiter({
+  clientLimit = 120,
+  globalLimit = 3000,
+  windowMs = 60 * 60 * 1000,
+} = {}) {
+  let windowStart = null;
+  let globalCount = 0;
+  const clientCounts = new Map();
+
+  return (clientKey, now = Date.now()) => {
+    const nextWindowStart = Math.floor(now / windowMs) * windowMs;
+    if (windowStart !== nextWindowStart) {
+      windowStart = nextWindowStart;
+      globalCount = 0;
+      clientCounts.clear();
+    }
+    const clientCount = clientCounts.get(clientKey) || 0;
+    if (clientCount >= clientLimit || globalCount >= globalLimit) return false;
+    clientCounts.set(clientKey, clientCount + 1);
+    globalCount += 1;
+    return true;
+  };
+}
+
 export function requestClientKey(request, environment = process.env) {
   const address = String(request.headers["x-forwarded-for"] || request.socket?.remoteAddress || "unknown")
     .split(",")[0]

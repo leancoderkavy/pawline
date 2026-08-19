@@ -1,10 +1,35 @@
 import { getDatabase } from "./_db.js";
-import { consumeUsageChain, requestClientKey } from "./_usage-limit.js";
+import { consumeUsageChain, createUsageFallbackLimiter, requestClientKey } from "./_usage-limit.js";
 
 const PASADENA_EVENTS =
   "https://pasadenahumane.org/wp-json/tribe/events/v1/events";
+const EVENT_FEED_WINDOW_MS = 60 * 60 * 1000;
 const ADDRESS_PATTERN =
   /\b\d{2,6}\s+[^,<>\n]{1,65}\b(?:St(?:reet)?|Ave(?:nue)?|Blvd|Boulevard|Rd|Road|Dr(?:ive)?|Ln|Lane|Way|Hwy|Highway)\.?,\s*[^,<>\n()]{2,50}(?:,\s*CA\s+\d{5}(?:-\d{4})?)?\b/i;
+
+export const createEventFeedFallbackLimiter = (options = {}) => createUsageFallbackLimiter({
+  clientLimit: 60,
+  globalLimit: 1000,
+  windowMs: EVENT_FEED_WINDOW_MS,
+  ...options,
+});
+
+const reserveFallbackEventFeedUsage = createEventFeedFallbackLimiter();
+
+async function reserveEventFeedUsage(database, request) {
+  const limits = [
+    { scope: "event_feed_client", subject: requestClientKey(request), limit: 60, windowMs: EVENT_FEED_WINDOW_MS },
+    { scope: "event_feed_global", subject: "all", limit: 1000, windowMs: EVENT_FEED_WINDOW_MS },
+  ];
+  if (database) {
+    try {
+      return (await consumeUsageChain(database, limits)).allowed;
+    } catch (error) {
+      console.error("Durable event feed rate limit unavailable; using bounded fallback", error);
+    }
+  }
+  return reserveFallbackEventFeedUsage(limits[0].subject);
+}
 
 function cleanText(value) {
   return String(value || "")
@@ -128,19 +153,8 @@ export default async function handler(request, response) {
     return response.status(405).json({ error: "Method not allowed" });
   }
   const database = getDatabase();
-  if (!database) {
-    return response.status(503).json({ mode: "error", events: [], message: "Event feed safety checks are unavailable." });
-  }
-  try {
-    const reservation = await consumeUsageChain(database, [
-      { scope: "event_feed_client", subject: requestClientKey(request), limit: 60, windowMs: 60 * 60 * 1000 },
-      { scope: "event_feed_global", subject: "all", limit: 1000, windowMs: 60 * 60 * 1000 },
-    ]);
-    if (!reservation.allowed) {
-      return response.status(429).json({ mode: "error", events: [], message: "Event feed request limit reached. Try again later." });
-    }
-  } catch {
-    return response.status(503).json({ mode: "error", events: [], message: "Event feed safety checks are unavailable." });
+  if (!await reserveEventFeedUsage(database, request)) {
+    return response.status(429).json({ mode: "error", events: [], message: "Event feed request limit reached. Try again later." });
   }
 
   const settled = await Promise.allSettled([fetchDatabaseEvents(), fetchPasadenaEvents()]);
