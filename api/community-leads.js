@@ -1,6 +1,7 @@
 import { getDatabase } from "./_db.js";
 import { requireUser } from "./_auth.js";
 import { ensureCommunityTables } from "./_community.js";
+import { safeImageUrl } from "./_safe-url.js";
 
 export default async function handler(request, response) {
   response.setHeader("Cache-Control", "no-store");
@@ -31,7 +32,7 @@ export default async function handler(request, response) {
     breed: row.breed,
     age: row.age,
     description: row.description,
-    imageUrl: row.image_url,
+    imageUrl: safeImageUrl(row.image_url),
     city: row.city,
     country: row.country,
     latitude: row.latitude,

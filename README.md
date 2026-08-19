@@ -17,7 +17,7 @@ linked shelter.
 
 ## Database and ingestion
 
-1. Create a Postgres database and run `db/schema.sql`.
+1. Run `npm run db:migrate:dry-run` to parse the local schema and verify required migration artifacts without opening a database connection, then create a Postgres database and run `db/schema.sql`.
 2. Optionally run `db/public_sources.sql` to install the reviewed Montgomery
    County and King County definitions. Reviewed public feeds are enabled by
    that migration.
@@ -281,3 +281,81 @@ partnership agreement, provider approval of the implementation, shelter notice,
 and required attribution. Ticketmaster is also not used as an adoption-event
 source: keyword matches do not establish that an organizer is authorized or
 that an event is actually an adoption event.
+
+### Organization claims, hours, and applications
+
+The adoption platform adds canonical `organizations`, locations, hours,
+memberships, claim tokens, verification events, and a nullable `organization_id`
+on pets and sources. Existing shelter names are never automatically merged.
+Claim links are 32-byte random values stored only as hashes, expire in seven
+days, bind to the recipient's verified Clerk email, and are consumed atomically
+with the administrator membership. Set `PAWLINE_CANONICAL_ORIGIN` to the
+canonical HTTPS site; claim URLs never use a request Host header.
+
+`/api/resend-webhook` is a dedicated raw-body Next route. Set
+`RESEND_WEBHOOK_SECRET` and configure Resend to send `email.sent`,
+`email.delivered`, `email.bounced`, and `email.complained`. Events are replay
+safe by Svix delivery id. Bounces and complaints suppress that recipient
+globally. Opt-out links remain activation-blocked until their signed endpoint
+is implemented. This implementation creates reviewed outbox records only;
+it does not authorize production shelter outreach or a provider send.
+
+Draft and held applications remain private. A claimed organization can only
+read a submitted application after the adopter selects the exact fields to
+share. Held unclaimed-organization data requires explicit consent and must be
+purged by the protected daily `/api/cron/purge-held-applications` job after its
+30-day hold window. When the pet is already linked to an unclaimed canonical
+organization with a reviewed HTTPS site and same-domain public contact address,
+Pawline queues only a deduplicated, suppressed-aware **invitation-needed**
+outbox record. It does not mint a claim link or send mail at application
+creation. If the organization/contact is absent or insufficiently verified,
+the application response truthfully reports `manual_contact_required`; shelter
+name strings are never auto-merged.
+
+`/api/organization-reviews` is a conservative review foundation. An adopter
+can create one verified review only from their submitted, organization-linked
+application; it enters `pending` moderation and is never publicly visible by
+default. The public endpoint returns only published, verified reviews. An
+organization administrator may make one safety-filtered reply to a published
+review or file an appeal for Pawline moderation. Organization workspaces never
+receive pending or rejected reviewer narratives; they can see only published
+reviews and an appealed review that was previously public. The protected
+`/pawline-moderation/reviews` route is available only to the verified Clerk
+email configured in `PAWLINE_MODERATION_EMAIL`, and may publish or reject a
+pending/appealed review. Evidence uploads and evidence access remain unavailable
+until isolated evidence storage is separately authorized.
+
+### Optional OpenRouter assistance
+
+The application coach and intake summary are optional, structured,
+suggest-only helpers. To make any private task available, set every server-only
+control below after an evaluation and privacy review:
+
+```text
+OPENROUTER_ENABLED=true
+OPENROUTER_LIVE_CALLS_ENABLED=true
+OPENROUTER_API_KEY=...
+OPENROUTER_ZDR=true
+OPENROUTER_DATA_COLLECTION=deny
+OPENROUTER_ALLOWED_MODELS=one-reviewed-model
+OPENROUTER_ALLOWED_PROVIDERS=one-reviewed-provider
+OPENROUTER_APPLICATION_COACH_MODEL=one-reviewed-model
+OPENROUTER_INTAKE_SUMMARIZER_MODEL=one-reviewed-model
+```
+
+Every task model must be in its immutable allowlist and cannot be
+`openrouter/auto`. Requests use a fixed provider allowlist, disable fallbacks,
+require supported parameters, set `data_collection: "deny"`, and set `zdr:
+true`. Pawline stores metadata only: task, request id, prompt/schema version,
+model/provider, latency, and token counts—never prompts, answers, messages,
+documents, addresses, or contact details. Durable subject, organization, and
+global limits run before any request.
+
+This checkout has AI SDK 7 but not the official
+`@openrouter/ai-sdk-provider` package in its lockfile. The disabled-by-default
+server transport therefore uses OpenRouter's documented structured
+chat-completions request shape. Before enabling production spend, add the
+reviewed official adapter, preserve the same no-fallback/ZDR contract, and
+rerun the frozen task evaluations. The server rejects invalid structured output,
+uncited summary assertions, and decision language; AI cannot score, rank,
+approve, decline, or act on an application.

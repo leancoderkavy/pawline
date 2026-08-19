@@ -35,7 +35,7 @@ export const viewport = {
 };
 
 export default function RootLayout({ children }) {
-  return <html lang="en" className={`${sans.variable} ${serif.variable}`}>
+  return <html lang="en" data-scroll-behavior="smooth" className={`${sans.variable} ${serif.variable}`}>
     <body>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
         "@context": "https://schema.org",
