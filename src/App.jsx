@@ -1447,7 +1447,7 @@ export default function App({ clerkPublishableKey = "" }) {
                 <h2>How Pawline finds adoptable pets</h2>
                 <p>Current pet records come from official shelter feeds, authorized providers, or reviewed Pawline records. We link to the original listing so you can confirm availability and adoption requirements with the shelter.</p>
                 <p>Approximate web leads are labeled separately and never presented as verified animals. Pawline does not substitute demo pets when live sources are unavailable.</p>
-                <a href="/llms-full.txt">Read our source and matching methodology <ChevronRight /></a>
+                <a href="/how-pawline-works">Read our source and matching methodology <ChevronRight /></a>
               </div>
             </details>
           </div> : null}

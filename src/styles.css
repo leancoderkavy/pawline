@@ -490,6 +490,29 @@ body { background:#dce3d5; }
 
 .dialog-open { overscroll-behavior:none; }
 
+.methodology-page { min-height:100vh;padding:24px;background:linear-gradient(140deg,#faf5eb 0%,#faf5eb 54%,#edf4ef 100%);color:var(--green); }
+.methodology-header { width:min(1040px,100%);margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:20px; }
+.methodology-brand { color:var(--green);font:400 32px/1 var(--serif);letter-spacing:-.04em;text-decoration:none; }
+.methodology-discover,.methodology-next a { min-height:44px;padding:0 16px;border-radius:999px;background:var(--green);color:#fffdf9;display:inline-flex;align-items:center;justify-content:center;gap:8px;font-size:13px;font-weight:800;text-decoration:none; }
+.methodology-discover:hover,.methodology-discover:focus-visible,.methodology-next a:hover,.methodology-next a:focus-visible { background:#285445;outline:2px solid var(--green);outline-offset:3px; }
+.methodology-content { width:min(780px,100%);margin:clamp(56px,11vw,120px) auto 48px; }
+.methodology-kicker { margin:0 0 13px;color:var(--rust);font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase; }
+.methodology-content h1 { max-width:740px;margin:0;color:var(--green);font:400 clamp(44px,8vw,76px)/.98 var(--serif);letter-spacing:-.045em; }
+.methodology-lede { max-width:720px;margin:25px 0 68px;color:#4c6058;font-size:clamp(18px,2.5vw,22px);line-height:1.6; }
+.methodology-content > section { margin-top:42px; }
+.methodology-content h2 { margin:0 0 15px;color:var(--green);font:400 clamp(28px,4vw,38px)/1.08 var(--serif);letter-spacing:-.025em; }
+.methodology-content h3 { margin:0 0 7px;color:var(--green);font:400 22px/1.1 var(--serif); }
+.methodology-content p { max-width:720px;margin:0;color:#4c6058;font-size:16px;line-height:1.7; }
+.methodology-records { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:22px; }
+.methodology-records section { min-height:188px;padding:24px;border:1px solid #d6ded7;border-radius:16px;background:#fffdf9; }
+.methodology-records p { font-size:14px;line-height:1.6; }
+.methodology-next { margin-top:58px!important;padding:clamp(26px,5vw,44px);border-radius:20px;background:var(--green); }
+.methodology-next h2 { color:#fffdf9; }.methodology-next p { max-width:600px;color:#d6e2d8; }.methodology-next a { margin-top:22px;background:#fffdf9;color:var(--green); }.methodology-next a:hover,.methodology-next a:focus-visible { background:#f5ede2; }
+
+@media (max-width:600px) {
+  .methodology-page { padding:18px; }.methodology-brand { font-size:28px; }.methodology-discover { padding:0 13px;font-size:12px; }.methodology-content { margin-top:66px; }.methodology-lede { margin-bottom:48px; }.methodology-records { grid-template-columns:1fr; }.methodology-records section { min-height:0;padding:21px; }.methodology-content > section { margin-top:35px; }
+}
+
 @media (prefers-reduced-motion:reduce) {
   *,*::before,*::after { scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important; }
 }
