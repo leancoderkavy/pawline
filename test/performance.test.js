@@ -34,14 +34,17 @@ test("the map uses a lightweight preview before loading Mapbox", async () => {
 test("the discovery drawer keeps pet finding primary and secondary views tucked away", async () => {
   const [app, styles] = await Promise.all([read("src/App.jsx"), read("src/styles.css")]);
   assert.match(styles, /\.rail-tabs \{[^}]*grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
-  assert.match(styles, /--mobile-drawer-height:min\(70dvh,620px\)/);
-  assert.match(styles, /\.rail-tabs \{ height:62px;grid-template-columns:repeat\(3,minmax\(0,1fr\)\);grid-template-rows:1fr/);
-  assert.match(styles, /\.rail-tabs button \{ min-height:0;padding:5px 4px;[^}]*flex-direction:column;[^}]*font-size:12px/);
-  assert.match(styles, /\.rail-more > div \{[^}]*bottom:calc\(100% \+ 8px\)/);
-  assert.match(styles, /\.rail-tabs button svg \{ display:block;width:18px;height:18px; \}/);
+  assert.match(styles, /--mobile-drawer-height:min\(76dvh,680px\)/);
+  assert.match(styles, /\.rail-tabs \{ height:48px;grid-template-columns:repeat\(3,minmax\(0,1fr\)\);grid-template-rows:1fr/);
+  assert.match(styles, /\.rail-tabs button \{ min-height:44px;padding:0 8px;[^}]*flex-direction:row;[^}]*font-size:11px/);
+  assert.match(styles, /\.rail-more > div \{[^}]*top:calc\(100% \+ 6px\)/);
+  assert.match(styles, /\.rail-tabs button svg \{ display:none; \}/);
   assert.match(styles, /\.rail-tabs \.rail-label-full \{ display:inline; \}/);
   assert.match(styles, /\.rail-tabs \.rail-label-short \{ display:none; \}/);
-  assert.match(styles, /\.map-rail \.map-toolbar \.map-select select \{ font-size:14px; \}/);
+  assert.match(styles, /\.mobile-pet-types \{ display:grid;grid-template-columns:repeat\(3,1fr\)/);
+  assert.match(styles, /\.mobile-view-map \{ min-height:44px/);
+  assert.match(app, /\["All", "Dog", "Cat"\]\.map/);
+  assert.match(app, /<Compass \/> View map/);
   assert.match(app, /aria-label="Match quiz"/);
   assert.match(app, /className="rail-label-full">Match me/);
   assert.match(app, /<summary><Menu \/>More<\/summary>/);

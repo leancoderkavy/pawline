@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import Ably from "ably";
-import { SignInButton, UserButton, useAuth, useUser } from "@clerk/nextjs";
+import { SignInButton, SignUpButton, UserButton, useAuth, useUser } from "@clerk/nextjs";
 import {
   AlertTriangle, CheckCircle2, ExternalLink, Flag, Globe2, Link2,
   LoaderCircle, LockKeyhole, MapPin, MessageCircle, Send, ShieldCheck, Users,
@@ -171,7 +171,10 @@ export default function Community({ onLeadsChange }) {
     <span><MessageCircle /></span>
     <h2>Join the Pawline community</h2>
     <p>Create a basic account to talk about found pets, strays, and adoption listings. Your email stays private.</p>
-    <SignInButton mode="modal"><button className="button">Sign in to join</button></SignInButton>
+    <div className="auth-actions">
+      <SignUpButton mode="modal"><button className="button">Create account</button></SignUpButton>
+      <SignInButton mode="modal"><button className="button button-outline">Sign in</button></SignInButton>
+    </div>
     <div className="auth-safety"><ShieldCheck /><span><strong>Privacy protected</strong>Exact addresses, phone numbers, emails, harassment, scams, and unsafe meetup requests are blocked.</span></div>
   </div>;
 
