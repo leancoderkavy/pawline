@@ -7,7 +7,7 @@ import FavoritesSyncWithAuth from "./FavoritesSyncWithAuth";
 
 export default function AdopterExperienceWithAuth({
   localFavorites, onLoadFavorites, onFavoriteSessionChange, onFavoriteError,
-  onSave, onOpenMap, onOpenMessages, onOpenShelter, pets,
+  onSave, onOpenMap, onOpenMessages, onOpenShelter, pets, feed,
 }) {
   const { isLoaded, isSignedIn, getToken } = useAuth();
   if (!isLoaded) return <div className="adopter-experience journey-loading" role="status"><Heart /><p>Preparing your adoption journey…</p></div>;
@@ -18,6 +18,7 @@ export default function AdopterExperienceWithAuth({
     <FavoritesSyncWithAuth localFavorites={localFavorites} onLoad={onLoadFavorites} onSessionChange={onFavoriteSessionChange} onError={onFavoriteError} />
     <AdopterExperience
       pets={pets}
+      feed={feed}
       saved={localFavorites}
       onSave={onSave}
       clerkConfigured

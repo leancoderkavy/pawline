@@ -130,3 +130,12 @@ test("held applications state the invitation outcome without claiming answers we
   assert.match(experience, /No answers have been shared with the organization/);
   assert.match(experience, /<HeldApplicationNotice application=\{application\} \/>/);
 });
+
+test("discovery distinguishes live-feed loading and failure from a genuine empty result", async () => {
+  const experience = await readFile(new URL("../src/AdopterExperience.jsx", import.meta.url), "utf8");
+
+  assert.match(experience, /const isLoading = feed\?\.mode === "loading"/);
+  assert.match(experience, /Current listings are loading\./);
+  assert.match(experience, /Current listings are temporarily unavailable\./);
+  assert.match(experience, /<Discovery pets=\{pets\} feed=\{feed\}/);
+});

@@ -1426,6 +1426,7 @@ export default function App({ clerkPublishableKey = "" }) {
     return clerkConfigured
       ? <Suspense fallback={<div className="adopter-experience journey-loading" role="status"><PawPrint /> Preparing your adoption journey…</div>}><AdopterExperienceWithAuth
           pets={remotePets}
+          feed={feed}
           localFavorites={saved}
           onLoadFavorites={loadAccountFavorites}
           onFavoriteSessionChange={setFavoriteSession}
@@ -1437,6 +1438,7 @@ export default function App({ clerkPublishableKey = "" }) {
         /></Suspense>
       : <AdopterExperience
           pets={remotePets}
+          feed={feed}
           saved={saved}
           onSave={toggleSave}
           clerkConfigured={false}
