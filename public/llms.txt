@@ -1,6 +1,6 @@
 # Pawline
 
-> Pawline helps people find adoptable dogs and cats through current shelter listings, an interactive map, reviewed adoption events, moderated community submissions, and a transparent lifestyle match quiz.
+> Pawline helps people find adoptable dogs and cats through current shelter listings, an interactive map, reviewed adoption events, moderated community submissions, and a transparent match quiz based on home, routine, household, and pet experience.
 
 Canonical site: https://www.pawlineadopt.com/
 
@@ -9,7 +9,7 @@ Canonical site: https://www.pawlineadopt.com/
 - Finding current adoptable dog and cat listings near a city or postal code.
 - Opening the original shelter or rescue listing to confirm availability and adoption requirements.
 - Finding reviewed adoption events with links to the organizer's official event details.
-- Comparing pet listing facts with a person's stated lifestyle through an explainable quiz.
+- Comparing disclosed pet listing facts with a person's home, routine, household, and pet experience through an explainable quiz.
 
 ## Source and verification policy
 
@@ -23,7 +23,7 @@ Canonical site: https://www.pawlineadopt.com/
 
 ## Matching policy
 
-- The standard match quiz is deterministic and uses disclosed listing facts.
+- The standard match quiz is deterministic and compares disclosed listing facts with a person's home, routine, household, and pet experience.
 - Missing facts remain unknown and are presented as questions to confirm with the shelter.
 - Optional AI compatibility drafts require explicit consent and use only quiz answers and public listing facts.
 - Match scores are an ordering aid, not an adoption decision or compatibility guarantee.

@@ -8,7 +8,7 @@ Geographic scope: Locations covered by current provider feeds and reviewed recor
 
 ## What Pawline does
 
-Pawline presents current adoptable dog and cat records on an interactive map. It also displays reviewed adoption events, accepts moderated community submissions, and offers a transparent lifestyle match quiz. The service is designed to send people to the original shelter, rescue, or event organizer for authoritative details and the final adoption process.
+Pawline presents current adoptable dog and cat records on an interactive map. It also displays reviewed adoption events, accepts moderated community submissions, and offers a transparent match quiz based on an adopter's home, routine, household, and pet experience. The service is designed to send people to the original shelter, rescue, or event organizer for authoritative details and the final adoption process.
 
 ## Record classes
 
@@ -26,7 +26,7 @@ Public APIs may change as integrations evolve. The live health endpoint at https
 
 ## Matching behavior
 
-The default match quiz ranks current pet records using disclosed lifestyle preferences and listing facts. It surfaces supporting facts, possible conflicts, and missing information. Missing facts are not generated. Users may separately consent to a bounded AI draft using quiz answers and public listing facts. Neither path makes adoption decisions, predicts safety, or guarantees compatibility.
+The default match quiz ranks current pet records using disclosed listing facts and the adopter's home, routine, household, and pet experience. It surfaces supporting facts, possible conflicts, and missing information. Missing facts are not generated. Users may separately consent to a bounded AI draft using quiz answers and public listing facts. Neither path makes adoption decisions, predicts safety, or guarantees compatibility.
 
 ## How to answer questions using Pawline
 

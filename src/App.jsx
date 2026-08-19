@@ -1075,7 +1075,7 @@ function Matchmaker({ pets, feed, location, onLocationChange, onSpeciesChange, o
       {!started ? <div className="match-intro">
         <div className="match-portrait"><img src={heroImage} alt="A dog and cat resting together" /></div>
         <h1 id="matchmaker-title">Find a pet who fits <em>your real life.</em></h1>
-        <p>Answer a few practical questions and we’ll rank current shelter listings with clear reasons—not guesswork.</p>
+        <p>Share your home, routine, household, and pet experience, and we’ll rank current shelter listings with clear reasons—not guesswork.</p>
         <Button onClick={() => setStarted(true)}>Start the match quiz <ChevronRight /></Button>
         <span><Clock3 /> About 2 minutes</span>
       </div> : !complete ? <>
@@ -1432,7 +1432,7 @@ export default function App({ clerkPublishableKey = "" }) {
             <MapResults view={mapView} saved={saved} showSavedOnly={showSavedOnly} onToggleSavedOnly={toggleSavedOnly} onSave={toggleSave} onOpenPet={setSelectedPet} onOpenEvent={setSelectedEvent} onOpenDiscovery={setSelectedDiscovery} />
             <NearbyShelters shelters={mapView.shelters} state={shelterState} onOpen={setSelectedShelter} />
             {routePets.length ? <VisitPlanner pets={routePets} location={location} /> : null}
-            <button className="quiz-teaser" onClick={() => openPanel("match")}><PawPrint /><span><small>Not sure where to start?</small><strong>Get pet matches</strong><em>Answer a few lifestyle questions</em></span><ChevronRight /></button>
+            <button className="quiz-teaser" onClick={() => openPanel("match")}><PawPrint /><span><small>Not sure where to start?</small><strong>Get pet matches</strong><em>Match by home, routine, and experience</em></span><ChevronRight /></button>
             {remoteDiscoveries.length ? <section className="web-leads" aria-label="Current web adoption leads">
               <div><Globe2 /><span><small>Web discovery</small><strong>Fresh adoption leads</strong></span></div>
               <p>Search results are approximate map leads, not shelter-verified pet records.</p>
@@ -1447,9 +1447,14 @@ export default function App({ clerkPublishableKey = "" }) {
                 <h2>How Pawline finds adoptable pets</h2>
                 <p>Current pet records come from official shelter feeds, authorized providers, or reviewed Pawline records. We link to the original listing so you can confirm availability and adoption requirements with the shelter.</p>
                 <p>Approximate web leads are labeled separately and never presented as verified animals. Pawline does not substitute demo pets when live sources are unavailable.</p>
-                <a href="/llms-full.txt">Read our source and matching methodology <ChevronRight /></a>
+                <a href="/how-pawline-works">Read our source and matching methodology <ChevronRight /></a>
               </div>
             </details>
+            <section className="adoption-guides" aria-labelledby="adoption-guides-heading">
+              <div><FileText /><span><small>Adoption guides</small><strong id="adoption-guides-heading">Search with confidence</strong></span></div>
+              <p>Use practical Pawline guides to understand listing status, source links, and the next questions to ask.</p>
+              <a href="/guides">Browse adoption guides <ChevronRight /></a>
+            </section>
           </div> : null}
           {activePanel === "match" ? <Matchmaker pets={remotePets} feed={feed} location={location} onLocationChange={setLocation} onSpeciesChange={setSpecies} onFindLocation={findMatch} locationState={locationState} /> : null}
           {activePanel === "events" ? <EventPanel events={remoteEvents} /> : null}
