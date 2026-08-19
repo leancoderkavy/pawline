@@ -1450,6 +1450,11 @@ export default function App({ clerkPublishableKey = "" }) {
                 <a href="/how-pawline-works">Read our source and matching methodology <ChevronRight /></a>
               </div>
             </details>
+            <section className="adoption-guides" aria-labelledby="adoption-guides-heading">
+              <div><FileText /><span><small>Adoption guides</small><strong id="adoption-guides-heading">Search with confidence</strong></span></div>
+              <p>Use practical Pawline guides to understand listing status, source links, and the next questions to ask.</p>
+              <a href="/guides">Browse adoption guides <ChevronRight /></a>
+            </section>
           </div> : null}
           {activePanel === "match" ? <Matchmaker pets={remotePets} feed={feed} location={location} onLocationChange={setLocation} onSpeciesChange={setSpecies} onFindLocation={findMatch} locationState={locationState} /> : null}
           {activePanel === "events" ? <EventPanel events={remoteEvents} /> : null}

@@ -28,6 +28,22 @@ test("the methodology page is a crawlable, canonical explanation of listing prov
   assert.match(page, /"@type": "WebPage"/);
 });
 
+test("adoption guides are canonical, connected, and focused on current-source discovery", async () => {
+  const [app, hub, guide] = await Promise.all([
+    read("src/App.jsx"),
+    read("app/guides/page.jsx"),
+    read("app/guides/find-adoptable-pets-near-you/page.jsx"),
+  ]);
+  assert.match(app, /href="\/guides"/);
+  assert.match(hub, /title: "Pet Adoption Guides \| Pawline"/);
+  assert.match(hub, /"@type": "CollectionPage"/);
+  assert.match(hub, /find-adoptable-pets-near-you/);
+  assert.match(guide, /title: "How to Find Adoptable Pets Near You \| Pawline"/);
+  assert.match(guide, /alternates: \{ canonical: "\/guides\/find-adoptable-pets-near-you" \}/);
+  assert.match(guide, /Provider-backed pet listings/);
+  assert.match(guide, /"@type": "BreadcrumbList"/);
+});
+
 test("crawler and AI discovery files use the canonical production domain", async () => {
   const [robots, sitemap, llms, full] = await Promise.all([
     read("public/robots.txt"),
@@ -39,6 +55,8 @@ test("crawler and AI discovery files use the canonical production domain", async
   assert.match(robots, /User-agent: OAI-SearchBot[\s\S]*Allow: \//);
   assert.match(sitemap, /<loc>https:\/\/www\.pawlineadopt\.com\/<\/loc>/);
   assert.match(sitemap, /<loc>https:\/\/www\.pawlineadopt\.com\/how-pawline-works<\/loc>/);
+  assert.match(sitemap, /<loc>https:\/\/www\.pawlineadopt\.com\/guides<\/loc>/);
+  assert.match(sitemap, /<loc>https:\/\/www\.pawlineadopt\.com\/guides\/find-adoptable-pets-near-you<\/loc>/);
   assert.match(llms, /Web-discovered leads are labeled as approximate leads/);
   assert.match(full, /Canonical URL: https:\/\/www\.pawlineadopt\.com\//);
 });

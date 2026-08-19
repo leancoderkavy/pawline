@@ -29,7 +29,10 @@ export default function HowPawlineWorksPage() {
   return <main className="methodology-page">
     <header className="methodology-header">
       <a className="methodology-brand" href="/" aria-label="Pawline adoption discovery home">Pawline</a>
-      <a className="methodology-discover" href="/">Find adoptable pets <span aria-hidden="true">→</span></a>
+      <div className="methodology-header-actions">
+        <a className="methodology-nav" href="/guides">Adoption guides</a>
+        <a className="methodology-discover" href="/">Find adoptable pets <span aria-hidden="true">→</span></a>
+      </div>
     </header>
 
     <article className="methodology-content">
@@ -67,6 +70,8 @@ export default function HowPawlineWorksPage() {
         <p>Explore current listings on the Pawline map, then use the original shelter or rescue link to take the next step.</p>
         <a href="/">Explore adoptable pets <span aria-hidden="true">→</span></a>
       </section>
+
+      <p className="methodology-related"><a href="/guides/find-adoptable-pets-near-you">Read: How to find adoptable dogs and cats near you <span aria-hidden="true">→</span></a></p>
     </article>
 
     <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
