@@ -1,6 +1,6 @@
 import { getDatabase } from "./_db.js";
 import { buildRescueGroupsUrl } from "./_rescuegroups.js";
-import { consumeUsageChain, requestClientKey } from "./_usage-limit.js";
+import { consumeUsageChain, createUsageFallbackLimiter, requestClientKey } from "./_usage-limit.js";
 
 const API_BASE =
   process.env.RESCUEGROUPS_API_BASE_URL || "https://api.rescuegroups.org/v5";
@@ -12,29 +12,12 @@ const LOS_ANGELES_PETS_URL =
   "https://www.laanimalservices.com/search/pets";
 const PET_FEED_WINDOW_MS = 60 * 60 * 1000;
 
-export function createPetFeedFallbackLimiter({
-  clientLimit = 120,
-  globalLimit = 3000,
-  windowMs = PET_FEED_WINDOW_MS,
-} = {}) {
-  let windowStart = null;
-  let globalCount = 0;
-  const clientCounts = new Map();
-
-  return (clientKey, now = Date.now()) => {
-    const nextWindowStart = Math.floor(now / windowMs) * windowMs;
-    if (windowStart !== nextWindowStart) {
-      windowStart = nextWindowStart;
-      globalCount = 0;
-      clientCounts.clear();
-    }
-    const clientCount = clientCounts.get(clientKey) || 0;
-    if (clientCount >= clientLimit || globalCount >= globalLimit) return false;
-    clientCounts.set(clientKey, clientCount + 1);
-    globalCount += 1;
-    return true;
-  };
-}
+export const createPetFeedFallbackLimiter = (options = {}) => createUsageFallbackLimiter({
+  clientLimit: 120,
+  globalLimit: 3000,
+  windowMs: PET_FEED_WINDOW_MS,
+  ...options,
+});
 
 const reserveFallbackPetFeedUsage = createPetFeedFallbackLimiter();
 
@@ -512,6 +495,11 @@ function normalizeAnimal(animal, included, index) {
   };
 }
 
+export function isCurrentProviderListing(pet) {
+  const name = cleanText(pet?.name) || "";
+  return !/\b(?:adopted|no longer available|not available|withdrawn|euthanized|deceased)\b/i.test(name);
+}
+
 async function fetchSpecies(species, { limit, page }, apiKey) {
   const view = species === "Cat" ? "cats" : "dogs";
   const url = buildRescueGroupsUrl(
@@ -595,7 +583,7 @@ export default async function handler(request, response) {
       (payload.data || []).map((animal, index) =>
         normalizeAnimal(animal, payload.included || [], index),
       ),
-    );
+    ).filter(isCurrentProviderListing);
     let providerPets = normalizedProviderPets;
     try {
       providerPets = await geocodeRescueGroupsPets(

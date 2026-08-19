@@ -1,7 +1,32 @@
 import { getDatabase } from "./_db.js";
-import { consumeUsageChain, requestClientKey } from "./_usage-limit.js";
+import { consumeUsageChain, createUsageFallbackLimiter, requestClientKey } from "./_usage-limit.js";
 
 const FALLBACK_CENTER = [-118.1445, 34.1478];
+const STATIC_MAP_WINDOW_MS = 60 * 60 * 1000;
+
+export const createStaticMapFallbackLimiter = (options = {}) => createUsageFallbackLimiter({
+  clientLimit: 120,
+  globalLimit: 3000,
+  windowMs: STATIC_MAP_WINDOW_MS,
+  ...options,
+});
+
+const reserveFallbackStaticMapUsage = createStaticMapFallbackLimiter();
+
+async function reserveStaticMapUsage(database, request) {
+  const limits = [
+    { scope: "static_map_client", subject: requestClientKey(request), limit: 120, windowMs: STATIC_MAP_WINDOW_MS },
+    { scope: "static_map_global", subject: "all", limit: 3000, windowMs: STATIC_MAP_WINDOW_MS },
+  ];
+  if (database) {
+    try {
+      return (await consumeUsageChain(database, limits)).allowed;
+    } catch (error) {
+      console.error("Durable static map rate limit unavailable; using bounded fallback", error);
+    }
+  }
+  return reserveFallbackStaticMapUsage(limits[0].subject);
+}
 
 const inRange = (value, min, max) =>
   Number.isFinite(value) && value >= min && value <= max;
@@ -15,16 +40,7 @@ export default async function handler(request, response) {
     return response.status(404).end();
   }
   const database = getDatabase();
-  if (!database) return response.status(503).end();
-  try {
-    const reservation = await consumeUsageChain(database, [
-      { scope: "static_map_client", subject: requestClientKey(request), limit: 120, windowMs: 60 * 60 * 1000 },
-      { scope: "static_map_global", subject: "all", limit: 3000, windowMs: 60 * 60 * 1000 },
-    ]);
-    if (!reservation.allowed) return response.status(429).end();
-  } catch {
-    return response.status(503).end();
-  }
+  if (!await reserveStaticMapUsage(database, request)) return response.status(429).end();
 
   const longitude = Number(request.query.longitude);
   const latitude = Number(request.query.latitude);

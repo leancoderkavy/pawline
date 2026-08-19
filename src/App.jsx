@@ -983,9 +983,11 @@ function normalizeEvent(event) {
   };
 }
 
-function EventPanel({ events }) {
+function EventPanel({ events, state }) {
   if (!events.length) {
-    return <article className="event-panel event-empty"><div className="event-label"><CalendarDays /> Verified events</div><h3>No verified events yet</h3><p>Partner events will appear here after their organizer and source are reviewed.</p></article>;
+    const unavailable = state.status === "error";
+    const loading = state.status === "loading";
+    return <article className="event-panel event-empty" role={unavailable ? "status" : undefined}><div className="event-label"><CalendarDays /> {unavailable ? "Events temporarily unavailable" : "Verified events"}</div><h3>{unavailable ? "We could not load events" : loading ? "Checking for verified events" : "No verified events yet"}</h3><p>{unavailable ? state.message || "Try again shortly." : loading ? "Checking official and reviewed event sources." : "Partner events will appear here after their organizer and source are reviewed."}</p></article>;
   }
   return <article className="event-panel"><div className="event-label"><CalendarDays /> Live dog adoption events</div><div className="event-list">{events.slice(0, 5).map(event => {
     const item = normalizeEvent(event);
@@ -1135,6 +1137,7 @@ export default function App({ clerkPublishableKey = "" }) {
   const [showAll, setShowAll] = useState(false);
   const [remotePets, setRemotePets] = useState([]);
   const [remoteEvents, setRemoteEvents] = useState([]);
+  const [eventState, setEventState] = useState({ status: "loading", message: "" });
   const [remoteDiscoveries, setRemoteDiscoveries] = useState([]);
   const [nearbyShelters, setNearbyShelters] = useState([]);
   const [shelterState, setShelterState] = useState({ status: "loading", message: "" });
@@ -1150,6 +1153,7 @@ export default function App({ clerkPublishableKey = "" }) {
   const [feed, setFeed] = useState({ mode: "loading", message: "Checking trusted adoption sources…" });
   const [integrations, setIntegrations] = useState({ mapboxConfigured: null });
   const [activePanel, setActivePanel] = useState("explore");
+  const [moreOpen, setMoreOpen] = useState(false);
   const [railCollapsed, setRailCollapsed] = useState(false);
   const [mapPetType, setMapPetType] = useState("All");
   const [mapDistance, setMapDistance] = useState("150");
@@ -1220,9 +1224,16 @@ export default function App({ clerkPublishableKey = "" }) {
   }, [species]);
   useEffect(() => {
     fetch("/api/events")
-      .then(response => readJson(response, "Verified events require the configured Pawline API."))
-      .then(body => setRemoteEvents(body.events || []))
-      .catch(() => setRemoteEvents([]));
+      .then(async response => {
+        const body = await readJson(response, "Verified events are temporarily unavailable.");
+        if (!response.ok || body.mode === "error") throw new Error(body.message || "Verified events are temporarily unavailable.");
+        setRemoteEvents(body.events || []);
+        setEventState({ status: "ready", message: body.message || "" });
+      })
+      .catch(error => {
+        setRemoteEvents([]);
+        setEventState({ status: "error", message: error.message || "Verified events are temporarily unavailable." });
+      });
   }, []);
   useEffect(() => {
     fetch("/api/discoveries")
@@ -1362,6 +1373,7 @@ export default function App({ clerkPublishableKey = "" }) {
   };
   const openPanel = panel => {
     if (["community", "messages"].includes(panel) && clerkConfigured) setAccountSyncReady(true);
+    setMoreOpen(false);
     setActivePanel(panel);
     setRailCollapsed(false);
   };
@@ -1414,7 +1426,7 @@ export default function App({ clerkPublishableKey = "" }) {
         <nav className="rail-tabs" aria-label="Discovery views">
           <button className={activePanel === "explore" ? "active" : ""} onClick={() => openPanel("explore")}><Search />Find pets</button>
           <button aria-label="Match quiz" className={activePanel === "match" ? "active" : ""} onClick={() => openPanel("match")}><PawPrint /><span className="rail-label-full">Match me</span><span className="rail-label-short" aria-hidden="true">Quiz</span></button>
-          <details className={`rail-more ${["messages", "community", "events"].includes(activePanel) ? "active" : ""}`}>
+          <details className={`rail-more ${["messages", "community", "events"].includes(activePanel) ? "active" : ""}`} open={moreOpen} onToggle={event => setMoreOpen(event.currentTarget.open)}>
             <summary><Menu />More</summary>
             <div>
               <button className={activePanel === "messages" ? "active" : ""} onClick={() => openPanel("messages")}><MessageCircle />Messages</button>
@@ -1457,7 +1469,7 @@ export default function App({ clerkPublishableKey = "" }) {
             </section>
           </div> : null}
           {activePanel === "match" ? <Matchmaker pets={remotePets} feed={feed} location={location} onLocationChange={setLocation} onSpeciesChange={setSpecies} onFindLocation={findMatch} locationState={locationState} /> : null}
-          {activePanel === "events" ? <EventPanel events={remoteEvents} /> : null}
+          {activePanel === "events" ? <EventPanel events={remoteEvents} state={eventState} /> : null}
           {activePanel === "messages" ? clerkConfigured
             ? <Suspense fallback={<div className="community-auth-state" role="status"><span><MessageCircle /></span><h2>Opening Messages…</h2></div>}><DirectMessages initialListing={messagePet} onInitialListingHandled={() => setMessagePet(null)} onBrowse={() => openPanel("explore")} /></Suspense>
             : <div className="community-auth-state"><span><MessageCircle /></span><h2>Messages need an account</h2><p>Configure Pawline Clerk to let shelters, fosters, and adopters register and message privately.</p><div className="auth-safety"><ShieldCheck /><span><strong>Failing closed</strong>Private listing chat never opens without verified identity.</span></div></div>

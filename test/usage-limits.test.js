@@ -6,6 +6,7 @@ import {
   cleanupUsageLimits,
   consumeUsage,
   consumeUsageChain,
+  createUsageFallbackLimiter,
   requestClientKey,
 } from "../api/_usage-limit.js";
 
@@ -29,6 +30,17 @@ test("a denied scoped limit does not consume a later shared or recipient limit",
   ]);
   assert.deepEqual(result, { allowed: false, deniedScope: "subject" });
   assert.deepEqual(scopes, ["subject"]);
+});
+
+test("bounded fallback limits reset per window and retain separate client quotas", () => {
+  const reserve = createUsageFallbackLimiter({ clientLimit: 2, globalLimit: 3, windowMs: 1_000 });
+
+  assert.equal(reserve("client-one", 10), true);
+  assert.equal(reserve("client-one", 10), true);
+  assert.equal(reserve("client-one", 10), false);
+  assert.equal(reserve("client-two", 10), true);
+  assert.equal(reserve("client-three", 10), false);
+  assert.equal(reserve("client-three", 1_000), true);
 });
 
 test("the schema provides the shared usage limit table", async () => {
