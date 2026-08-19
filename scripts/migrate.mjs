@@ -29,6 +29,11 @@ const [verification] = await sql`
     to_regclass('public.direct_conversations') AS direct_conversations,
     to_regclass('public.direct_messages') AS direct_messages,
     to_regclass('public.direct_message_reports') AS direct_message_reports,
+    to_regclass('public.seo_content_jobs') AS seo_content_jobs,
+    to_regclass('public.seo_content_sources') AS seo_content_sources,
+    to_regclass('public.seo_content_drafts') AS seo_content_drafts,
+    to_regclass('public.shelter_outreach_candidates') AS shelter_outreach_candidates,
+    to_regclass('public.shelter_outreach_emails') AS shelter_outreach_emails,
     to_regclass('public.pets_source_external_unique') AS pets_source_external_unique,
     to_regclass('public.pets_public_search') AS pets_public_search,
     to_regclass('public.pets_source_id') AS pets_source_id,
@@ -42,6 +47,9 @@ const [verification] = await sql`
     to_regclass('public.direct_conversations_owner_recent') AS direct_conversations_owner_recent,
     to_regclass('public.direct_conversations_inquirer_recent') AS direct_conversations_inquirer_recent,
     to_regclass('public.direct_messages_conversation_created') AS direct_messages_conversation_created,
+    to_regclass('public.seo_content_jobs_queue') AS seo_content_jobs_queue,
+    to_regclass('public.shelter_outreach_candidates_queue') AS shelter_outreach_candidates_queue,
+    to_regclass('public.shelter_outreach_emails_candidate_created') AS shelter_outreach_emails_candidate_created,
     (SELECT count(*)::integer
       FROM information_schema.columns
       WHERE table_schema='public' AND table_name='pets'
@@ -53,6 +61,8 @@ const requiredTables = [
   "ratings", "adoption_events", "web_discoveries",
   "community_messages", "community_reports", "community_leads", "usage_limits",
   "user_favorites", "direct_conversations", "direct_messages", "direct_message_reports",
+  "seo_content_jobs", "seo_content_sources", "seo_content_drafts",
+  "shelter_outreach_candidates", "shelter_outreach_emails",
 ];
 const requiredIndexes = [
   "pets_source_external_unique", "pets_public_search", "pets_source_id",
@@ -60,7 +70,8 @@ const requiredIndexes = [
   "adoption_events_source_external_unique", "web_discoveries_fresh",
   "community_messages_room_created", "usage_limits_expiry",
   "user_favorites_user_created", "direct_conversations_owner_recent",
-  "direct_conversations_inquirer_recent", "direct_messages_conversation_created",
+  "direct_conversations_inquirer_recent", "direct_messages_conversation_created", "seo_content_jobs_queue",
+  "shelter_outreach_candidates_queue", "shelter_outreach_emails_candidate_created",
 ];
 if (
   requiredTables.some((name) => !verification?.[name])

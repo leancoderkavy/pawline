@@ -9,11 +9,16 @@ export function emailConfigured() {
 }
 
 async function sendEmail({ to, subject, text, replyTo }) {
-  const response = await fetch(RESEND_URL, {
+  return sendResendTextEmail({ to, subject, text, replyTo });
+}
+
+async function sendResendTextEmail({ to, subject, text, replyTo, idempotencyKey, fetchImpl = fetch }) {
+  const response = await fetchImpl(RESEND_URL, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
       "Content-Type": "application/json",
+      ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
     },
     body: JSON.stringify({
       from: process.env.PAWLINE_FROM_EMAIL,
@@ -29,6 +34,29 @@ async function sendEmail({ to, subject, text, replyTo }) {
     const detail = await response.text();
     throw new Error(`Resend returned ${response.status}: ${detail.slice(0, 240)}`);
   }
+  const payload = await response.json().catch(() => ({}));
+  if (!payload?.id || typeof payload.id !== "string") {
+    throw new Error("Resend returned no email identifier.");
+  }
+  return { id: payload.id };
+}
+
+export async function sendShelterConfirmationEmail({ to, subject, text, idempotencyKey, fetchImpl = fetch }) {
+  if (!emailConfigured()) throw new Error("Resend is not configured.");
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(to || ""))) throw new Error("A valid recipient is required.");
+  if (typeof subject !== "string" || !subject.trim() || subject.length > 200) throw new Error("A valid subject is required.");
+  if (typeof text !== "string" || !text.trim() || text.length > 5000) throw new Error("A valid email body is required.");
+  if (typeof idempotencyKey !== "string" || !idempotencyKey || idempotencyKey.length > 256) {
+    throw new Error("A valid email idempotency key is required.");
+  }
+  return sendResendTextEmail({
+    to,
+    subject: subject.replace(/[\r\n]/g, " ").trim(),
+    text: text.replace(/\u0000/g, ""),
+    replyTo: process.env.PAWLINE_MODERATION_EMAIL,
+    idempotencyKey,
+    fetchImpl,
+  });
 }
 
 export async function notifySubmission({ id, pet, acknowledgementEmail }) {

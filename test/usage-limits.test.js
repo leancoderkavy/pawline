@@ -74,4 +74,10 @@ test("every paid public-facing AI path uses durable limits and structured output
   assert.match(parseLink, /community_link_parse_global/);
   assert.match(parseLink, /Output\.object/);
   assert.doesNotMatch(parseLink, /JSON\.parse\(.*result\.text/);
+  const outreach = await readFile(new URL("../api/_shelter-outreach.js", import.meta.url), "utf8");
+  assert.match(outreach, /consumeUsageChain\(database/);
+  assert.match(outreach, /shelter_outreach_generation_month/);
+  assert.match(outreach, /shelter_outreach_generation_day/);
+  assert.match(outreach, /Output\.object/);
+  assert.doesNotMatch(outreach, /JSON\.parse\(.*result\.text/);
 });

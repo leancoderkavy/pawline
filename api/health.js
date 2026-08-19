@@ -1,3 +1,5 @@
+import { shelterOutreachStatus } from "./_shelter-outreach.js";
+
 export function getHealth(environment = process.env) {
   const communityDatabaseConfigured = Boolean(environment.DATABASE_URL);
   const rescueGroupsConfigured = Boolean(environment.RESCUEGROUPS_API_KEY);
@@ -22,6 +24,12 @@ export function getHealth(environment = process.env) {
       environment.VERCEL || environment.AI_GATEWAY_API_KEY || environment.VERCEL_OIDC_TOKEN,
     ),
     tavilyDiscoveryConfigured: Boolean(environment.TAVILY_API_KEY && environment.CRON_SECRET),
+    aiSeoPipelineConfigured: Boolean(
+      communityDatabaseConfigured && environment.TAVILY_API_KEY && environment.CRON_SECRET
+      && environment.SEO_PIPELINE_SECRET
+      && (environment.VERCEL || environment.AI_GATEWAY_API_KEY || environment.VERCEL_OIDC_TOKEN),
+    ),
+    shelterOutreach: shelterOutreachStatus(environment),
     clerkConfigured,
     realtimeCommunityConfigured: clerkConfigured && communityDatabaseConfigured && realtimeConfigured,
     communityLinkParsingConfigured: clerkConfigured && communityDatabaseConfigured && Boolean(

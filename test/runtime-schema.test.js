@@ -11,6 +11,8 @@ test("request-time storage helpers never perform schema DDL", () => {
     "api/_community.js",
     "api/_direct.js",
     "api/_tavily-discovery.js",
+    "api/_ai-seo-pipeline.js",
+    "api/_shelter-outreach.js",
   ]) {
     assert.doesNotMatch(read(path), /CREATE\s+TABLE|ALTER\s+TABLE|CREATE\s+INDEX/i, path);
   }

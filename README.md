@@ -195,6 +195,87 @@ deployment OIDC when available, or `AI_GATEWAY_API_KEY` outside that environment
 Neon, Mapbox, Resend, and the scheduled importer are configured without
 exposing credentials.
 
+### AI SEO review pipeline
+
+The AI SEO pipeline creates source-grounded education drafts for **human
+review**. It does not publish a page, update the sitemap, or make a draft
+indexable. A Tuesday/Friday Vercel cron processes one queued job at a time. It
+uses Tavily only to collect public HTTPS research snippets, asks AI Gateway for
+a structured draft grounded in those snippets, and rejects draft outputs that
+fail deterministic checks for citation coverage, length, slug and metadata
+format, unsupported source URLs, or unsafe certainty/advice claims.
+
+Apply `db/schema.sql`, then set these server-only variables:
+
+```text
+DATABASE_URL
+CRON_SECRET
+SEO_PIPELINE_SECRET
+TAVILY_API_KEY
+AI_GATEWAY_API_KEY
+PAWLINE_SEO_MODEL=google/gemini-2.5-flash-lite
+```
+
+Queue a brief with the private operator endpoint. The `SEO_PIPELINE_SECRET` is
+different from the cron secret and must never be exposed in browser code:
+
+```bash
+curl -X POST https://www.pawlineadopt.com/api/seo-pipeline \
+  -H "Authorization: Bearer $SEO_PIPELINE_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{"focusKeyword":"how to prepare to adopt a dog","intent":"informational","audience":"first-time dog adopters","location":"Los Angeles","angle":"A practical, source-backed checklist"}'
+```
+
+The response returns a job id. Retrieve the private review artifact with:
+
+```bash
+curl "https://www.pawlineadopt.com/api/seo-pipeline?job=JOB_UUID" \
+  -H "Authorization: Bearer $SEO_PIPELINE_SECRET"
+```
+
+Jobs can become `needs_review`, `needs_revision`, or `error`; none of these
+states exposes content publicly. A human must validate citations and product
+claims, edit as necessary, then make a separately authorized publishing change.
+
+### Shelter source enrichment and confirmation email
+
+Scheduled web discovery can queue recent public adoption-page leads for private
+operator review. The shelter workflow sends only the stored public title,
+snippet, HTTPS source URL/domain, city, and species hint to AI Gateway. It
+extracts a cited review record for these data points: organization, official
+domain, location, adoption/listing/feed URLs and format, dog/cat coverage,
+freshness evidence, terms, attribution, and any public contact information.
+It does not browse new pages, infer missing data, verify a shelter, activate a
+source, publish a listing, or send email automatically.
+
+Apply `db/schema.sql`, then set these server-only values. Keep both enable flags
+unset or `false` during setup; they are independent from the administrator
+secret so a leaked review credential cannot enable paid AI calls or email.
+
+```text
+SHELTER_OUTREACH_SECRET
+SHELTER_OUTREACH_MODEL=google/gemini-2.5-flash-lite
+SHELTER_OUTREACH_MONTHLY_MAX_GENERATIONS=10
+SHELTER_OUTREACH_DAILY_EMAIL_LIMIT=20
+SHELTER_OUTREACH_AI_ENABLED=false
+SHELTER_OUTREACH_SEND_ENABLED=false
+```
+
+The private `/api/shelter-outreach` endpoint requires
+`Authorization: Bearer $SHELTER_OUTREACH_SECRET`. Queue candidates with
+`{"action":"queue-discoveries"}`. For one candidate, explicitly confirm
+`consentToAiProcessing: true` before the `enrich` action. A human must then
+record a reviewed contact email and an official-domain contact-source URL with
+the `approve-draft` action. The resulting email is still unsent; `send-email`
+additionally requires the exact `sendConfirmation` value and
+`SHELTER_OUTREACH_SEND_ENABLED=true`.
+
+Each send has a bounded daily limit, an internal outbox row, and a stable
+Resend idempotency key. If delivery is uncertain or rejected, Pawline leaves
+the draft for human review rather than retrying or sending a follow-up
+automatically. Register delivery webhooks separately before relying on delivery
+or bounce state as proof of receipt.
+
 Adopt-a-Pet is intentionally not enabled by default. Its API requires a signed
 partnership agreement, provider approval of the implementation, shelter notice,
 and required attribution. Ticketmaster is also not used as an adoption-event

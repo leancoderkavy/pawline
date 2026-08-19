@@ -28,6 +28,12 @@ Canonical site: https://www.pawlineadopt.com/
 - Optional AI compatibility drafts require explicit consent and use only quiz answers and public listing facts.
 - Match scores are an ordering aid, not an adoption decision or compatibility guarantee.
 
+## Shelter-source enrichment
+
+- Pawline may prepare private, cited review records from stored public web-discovery evidence to help an operator assess a prospective shelter source.
+- This workflow sends only the public title, snippet, source URL/domain, city, and species hint to Vercel AI Gateway. It does not send account data, private shelter records, animal medical or behavioral records, files, or credentials.
+- An AI-generated record, a shelter reply, and a sent confirmation email do not verify a source, activate a feed, publish a listing, or establish current availability. Each action requires separate human review.
+
 ## Important pages and resources
 
 - Adoption discovery map: https://www.pawlineadopt.com/

@@ -1,0 +1,79 @@
+{
+  "product_key": "pawline",
+  "feature_name": "Shelter source enrichment and confirmation queue",
+  "job": "Turn already-collected public adoption-page evidence into a cited, human-reviewable shelter data record and a one-time confirmation-email draft.",
+  "user": {
+    "entry_point": "Private /api/shelter-outreach operator endpoint",
+    "free_access": "Not a public feature; an authorized Pawline operator must review every candidate and explicitly approve any email."
+  },
+  "request": {
+    "task": "enrich-shelter-source",
+    "schema": {
+      "candidateId": "UUID of a queued public web-discovery candidate",
+      "consentToAiProcessing": "boolean true; confirms only the stored public title, snippet, source URL, city, and species hint may be sent",
+      "humanReviewed": "boolean true before a contact or email draft can be approved"
+    },
+    "consent_required": true
+  },
+  "response": {
+    "schema": {
+      "candidateData": "cited organization, source, listing/feed, coverage, freshness, terms, attribution, and contact-candidate fields",
+      "uncertainties": "array of 0-10 missing or unverified fields",
+      "emailDraft": "deterministic confirmation draft only after human review"
+    },
+    "boundary": "Review every extracted field and the email draft before contacting a shelter; neither output verifies a source or publishes a listing."
+  },
+  "provider": {
+    "model": "google/gemini-2.5-flash-lite",
+    "key_env": "AI_GATEWAY_API_KEY",
+    "monthly_cap_usd": 2,
+    "max_output_tokens": 900,
+    "timeout_seconds": 30
+  },
+  "data": {
+    "allowed": [
+      "public web-discovery title",
+      "public web-discovery snippet",
+      "public HTTPS source URL and domain",
+      "city and species hint attached to the discovery lead"
+    ],
+    "prohibited": [
+      "account data",
+      "user contact information",
+      "private shelter records",
+      "animal medical or behavioral records",
+      "credentials",
+      "unreviewed files",
+      "decisions to publish or activate a listing"
+    ]
+  },
+  "claims": {
+    "landing_page": "Pawline can prepare a cited shelter-source review record and a confirmation-email draft from public discovery evidence.",
+    "forbidden": [
+      "shelter verification",
+      "guaranteed accuracy",
+      "automatic source activation",
+      "automatic email outreach",
+      "listing availability guarantee"
+    ]
+  },
+  "states": [
+    "queued",
+    "loading",
+    "needs_review",
+    "validation_error",
+    "provider_error",
+    "quota_exhausted",
+    "draft_ready",
+    "sent",
+    "suppressed"
+  ],
+  "analytics": [
+    "candidate_queued",
+    "enrichment_started",
+    "enrichment_completed",
+    "enrichment_failed",
+    "human_review_completed",
+    "email_draft_prepared"
+  ]
+}

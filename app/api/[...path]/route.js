@@ -11,6 +11,7 @@ const handlers = {
   "direct-messages": () => import("../../../api/direct-messages"),
   "direct-message-report": () => import("../../../api/direct-message-report"),
   "cron/discover": () => import("../../../api/cron/discover"),
+  "cron/seo-pipeline": () => import("../../../api/cron/seo-pipeline"),
   discoveries: () => import("../../../api/discoveries"),
   events: () => import("../../../api/events"),
   "extract-submission": () => import("../../../api/extract-submission"),
@@ -24,6 +25,8 @@ const handlers = {
   "pet-media": () => import("../../../api/pet-media"),
   pets: () => import("../../../api/pets"),
   sources: () => import("../../../api/sources"),
+  "seo-pipeline": () => import("../../../api/seo-pipeline"),
+  "shelter-outreach": () => import("../../../api/shelter-outreach"),
   submissions: () => import("../../../api/submissions"),
 };
 
