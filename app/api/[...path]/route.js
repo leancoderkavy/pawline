@@ -20,6 +20,7 @@ const handlers = {
   "map-token": () => import("../../../api/map-token"),
   map: () => import("../../../api/map"),
   matches: () => import("../../../api/matches"),
+  "nearby-shelters": () => import("../../../api/nearby-shelters"),
   "pet-media": () => import("../../../api/pet-media"),
   pets: () => import("../../../api/pets"),
   sources: () => import("../../../api/sources"),

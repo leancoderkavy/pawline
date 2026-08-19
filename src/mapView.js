@@ -34,6 +34,7 @@ export function buildMapView({
   pets,
   events,
   discoveries,
+  shelters = [],
   center,
   petType = "All",
   distance = 150,
@@ -58,5 +59,6 @@ export function buildMapView({
       discoveries.filter(item => speciesMatches(item) && withinRange(item)),
       center,
     ),
+    shelters: nearestFirst(shelters.filter(withinRange), center),
   };
 }

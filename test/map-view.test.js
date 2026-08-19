@@ -12,10 +12,12 @@ test("map view excludes records without provider coordinates", () => {
     ],
     events: [],
     discoveries: [],
+    shelters: [{ id: "shelter", latitude: 47.385, longitude: -122.225 }],
     center,
   });
 
   assert.deepEqual(view.pets.map(pet => pet.id), ["mapped"]);
+  assert.deepEqual(view.shelters.map(shelter => shelter.id), ["shelter"]);
   assert.equal(hasMapCoordinates({ latitude: null, longitude: null }), false);
 });
 

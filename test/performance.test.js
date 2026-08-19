@@ -31,6 +31,17 @@ test("the map uses a lightweight preview before loading Mapbox", async () => {
   assert.match(app, /clerkConfigured && accountSyncReady/);
 });
 
+test("the map surprise control chooses only an existing current listing", async () => {
+  const [app, styles] = await Promise.all([read("src/App.jsx"), read("src/styles.css")]);
+  assert.match(app, /const chooseSurprisePet = \(\) => \{/);
+  assert.match(app, /const alternatives = mapView\.pets\.filter/);
+  assert.match(app, /Math\.random\(\) \* candidates\.length/);
+  assert.match(app, /aria-describedby="map-surprise-note"/);
+  assert.match(app, /"Pick a hello"/);
+  assert.match(styles, /\.map-surprise \{ min-height:44px/);
+  assert.match(styles, /prefers-reduced-motion:no-preference/);
+});
+
 test("the discovery drawer keeps pet finding primary and secondary views tucked away", async () => {
   const [app, styles] = await Promise.all([read("src/App.jsx"), read("src/styles.css")]);
   assert.match(styles, /\.rail-tabs \{[^}]*grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
