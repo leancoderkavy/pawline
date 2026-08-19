@@ -22,5 +22,7 @@ test("production uses the verified Clerk custom domain without the broken fronte
 
 test("mobile search controls preserve a 44px touch target", async () => {
   const styles = await readFile(new URL("../src/styles.css", import.meta.url), "utf8");
-  assert.match(styles, /\.global-location button,\.saved-action \{ min-width:44px;min-height:44px; \}/);
+  assert.match(styles, /\.global-location button \{ width:46px;min-width:46px;min-height:44px;border-radius:0 14px 14px 0; \}/);
+  assert.match(styles, /\.global-location \{ min-width:0;height:46px;grid-template-columns:auto minmax\(0,1fr\) 46px/);
+  assert.match(styles, /\.saved-action \{ min-width:44px;min-height:44px; \}/);
 });

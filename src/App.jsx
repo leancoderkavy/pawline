@@ -419,6 +419,29 @@ function DiscoveryDetail({ discovery, onClose }) {
   </Dialog>;
 }
 
+function ShelterDetail({ shelter, onClose }) {
+  const directionsUrl = Number.isFinite(Number(shelter.latitude)) && Number.isFinite(Number(shelter.longitude))
+    ? `https://www.google.com/maps/dir/?api=1&destination=${shelter.latitude},${shelter.longitude}`
+    : null;
+  const location = shelter.address || shelter.city || "Location supplied by OpenStreetMap";
+  return <Dialog title={shelter.name || "Animal shelter"} onClose={onClose}>
+    <div className="map-point-detail">
+      <div className="point-detail-hero is-shelter"><span className="point-detail-icon"><Building2 /></span><div><span className="point-detail-label"><MapPin /> Nearby animal shelter</span><p>This is a nearby shelter location, not a current Pawline pet listing. Confirm adoption availability before visiting.</p></div></div>
+      <dl className="point-detail-facts">
+        <div><dt><MapPin /> Location</dt><dd>{location}</dd></div>
+        {shelter.openingHours ? <div><dt><Clock3 /> Hours</dt><dd>{shelter.openingHours}</dd></div> : null}
+        {shelter.animals ? <div><dt><PawPrint /> Animals</dt><dd>{shelter.animals}</dd></div> : null}
+        {shelter.operator ? <div><dt><Building2 /> Operator</dt><dd>{shelter.operator}</dd></div> : null}
+      </dl>
+      <aside className="visit-note is-caution"><ShieldCheck /><div><strong>{shelter.adoptionIndicated ? "Adoption noted in the source" : "Availability needs confirmation"}</strong><span>{shelter.adoptionIndicated ? "The location is tagged for adoption, but individual pets and visiting rules can change." : "OpenStreetMap does not confirm individual pets, fees, hours, or adoption availability."}</span></div></aside>
+      <div className="point-detail-actions">
+        {shelter.website ? <a className="button" href={shelter.website} target="_blank" rel="noreferrer">Visit shelter site <ExternalLink /></a> : <a className="button" href={shelter.sourceUrl} target="_blank" rel="noreferrer">View source details <ExternalLink /></a>}
+        {directionsUrl ? <a className="button button-outline" href={directionsUrl} target="_blank" rel="noreferrer">Directions <Compass /></a> : null}
+      </div>
+    </div>
+  </Dialog>;
+}
+
 const DEFAULT_MAP_CENTER = [-118.1445, 34.1478];
 
 function routeGeoJson(pets) {
@@ -457,7 +480,7 @@ function addPawImage(map, id, color) {
   map.addImage(id, { width: size, height: size, data: context.getImageData(0, 0, size, size).data });
 }
 
-function InteractiveMap({ coordinates, userCoordinates, points, location, onPointClick, onMoveSearch, densityMode, routePets }) {
+function InteractiveMap({ coordinates, userCoordinates, points, location, onPointClick, onMoveSearch, densityMode, routePets, featuredPoint }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const geoJsonRef = useRef(null);
@@ -466,6 +489,7 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
   const moveSearchRef = useRef(onMoveSearch);
   const densityRef = useRef(densityMode);
   const routeRef = useRef(routePets);
+  const featuredPointRef = useRef(featuredPoint);
   const [interactive, setInteractive] = useState(false);
   const [mapState, setMapState] = useState({ status: "preview", message: "" });
   const center = coordinates
@@ -475,7 +499,7 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
     longitude: String(center[0]),
     latitude: String(center[1]),
   });
-  const previewPoints = points.slice(0, 40).map(point =>
+  const previewPoints = points.filter(point => point.type !== "shelter").slice(0, 40).map(point =>
     `${point.longitude},${point.latitude},${point.type === "event" ? "e" : "p"}`,
   ).join("|");
   if (previewPoints) previewParams.set("points", previewPoints);
@@ -500,6 +524,13 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
   moveSearchRef.current = onMoveSearch;
   densityRef.current = densityMode;
   routeRef.current = routePets;
+  featuredPointRef.current = featuredPoint;
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map?.loaded() || !featuredPoint || !Number.isFinite(featuredPoint.longitude) || !Number.isFinite(featuredPoint.latitude)) return;
+    map.flyTo({ center: [featuredPoint.longitude, featuredPoint.latitude], zoom: Math.max(map.getZoom(), 12), duration: 850, essential: true });
+  }, [featuredPoint]);
 
   useEffect(() => {
     if (!interactive || !containerRef.current) return undefined;
@@ -531,6 +562,10 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
       map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "top-right");
       map.on("load", () => {
         if (!active) return;
+        const featured = featuredPointRef.current;
+        if (featured && Number.isFinite(featured.longitude) && Number.isFinite(featured.latitude)) {
+          map.jumpTo({ center: [featured.longitude, featured.latitude], zoom: 12 });
+        }
         map.addSource("pawline-points", { type: "geojson", data: geoJsonRef.current });
         map.addSource("pawline-visit-route", { type: "geojson", data: routeGeoJson(routeRef.current) });
         map.addSource("pawline-user-location", {
@@ -564,6 +599,7 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
         addPawImage(map, "pawline-pet-marker", "#2f7458");
         addPawImage(map, "pawline-event-marker", "#ad5d35");
         addPawImage(map, "pawline-discovery-marker", "#7a5a9b");
+        addPawImage(map, "pawline-shelter-marker", "#3f6380");
         map.addLayer({ id: "pawline-density", type: "heatmap", source: "pawline-points", filter: ["==", ["get", "type"], "pet"], maxzoom: 13, layout: { visibility: densityRef.current ? "visible" : "none" }, paint: {
           "heatmap-weight": 1,
           "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 7, 0.7, 13, 1.5],
@@ -579,7 +615,7 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
           source: "pawline-points",
           paint: {
             "circle-radius": 22,
-            "circle-color": ["match", ["get", "type"], "event", "#f4dfd2", "discovery", "#eee6f3", "#deebe2"],
+            "circle-color": ["match", ["get", "type"], "event", "#f4dfd2", "discovery", "#eee6f3", "shelter", "#e2edf4", "#deebe2"],
             "circle-opacity": 0.9,
             "circle-stroke-color": "#fffaf1",
             "circle-stroke-width": 2,
@@ -631,6 +667,20 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
           filter: ["==", ["get", "type"], "discovery"],
           paint: { "circle-radius": 20, "circle-color": "#7a5a9b", "circle-opacity": 0.01 },
         });
+        map.addLayer({
+          id: "pawline-shelters",
+          type: "symbol",
+          source: "pawline-points",
+          filter: ["==", ["get", "type"], "shelter"],
+          layout: { "icon-image": "pawline-shelter-marker", "icon-size": 0.52, "icon-allow-overlap": true },
+        });
+        map.addLayer({
+          id: "pawline-shelter-hit-area",
+          type: "circle",
+          source: "pawline-points",
+          filter: ["==", ["get", "type"], "shelter"],
+          paint: { "circle-radius": 20, "circle-color": "#3f6380", "circle-opacity": 0.01 },
+        });
         map.on("mouseenter", "pawline-pet-hit-area", () => {
           map.getCanvas().style.cursor = "pointer";
         });
@@ -660,6 +710,16 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
         map.on("click", "pawline-discovery-hit-area", event => {
           const id = event.features?.[0]?.properties?.id;
           if (id) pointClickRef.current?.(id, "discovery");
+        });
+        map.on("mouseenter", "pawline-shelter-hit-area", () => {
+          map.getCanvas().style.cursor = "pointer";
+        });
+        map.on("mouseleave", "pawline-shelter-hit-area", () => {
+          map.getCanvas().style.cursor = "";
+        });
+        map.on("click", "pawline-shelter-hit-area", event => {
+          const id = event.features?.[0]?.properties?.id;
+          if (id) pointClickRef.current?.(id, "shelter");
         });
         const searchInteraction = createMapSearchInteraction(nextCenter => {
           moveSearchRef.current?.(nextCenter);
@@ -772,6 +832,24 @@ function MapFilters({ petType, distance, showEvents, densityMode, hoursFilter, o
   </div>;
 }
 
+function NearbyShelters({ shelters, state, onOpen }) {
+  if (state.status === "loading") {
+    return <section className="nearby-shelters" aria-live="polite"><div><Building2 /><span><small>Nearby shelter locations</small><strong>Checking this area…</strong></span></div></section>;
+  }
+  if (state.status === "error") {
+    return <section className="nearby-shelters nearby-shelters-error" role="status"><div><Building2 /><span><small>Nearby shelter locations</small><strong>Temporarily unavailable</strong></span></div><p>{state.message}</p></section>;
+  }
+  if (!shelters.length) return null;
+  return <section className="nearby-shelters" aria-labelledby="nearby-shelters-title">
+    <div><Building2 /><span><small>Nearby shelter locations</small><strong id="nearby-shelters-title">Know where to look next</strong></span></div>
+    <p>These are nearby shelter locations, not availability listings. Confirm pets and visit rules with the shelter.</p>
+    {shelters.slice(0, 3).map(shelter => <button key={shelter.id} type="button" onClick={() => onOpen(shelter)}>
+      <span>{shelter.name}</span><small>{shelter.address || shelter.city || "Open location details"}</small><ChevronRight />
+    </button>)}
+    <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">Map data from OpenStreetMap <ExternalLink /></a>
+  </section>;
+}
+
 function MapResults({ view, saved, showSavedOnly, onToggleSavedOnly, onSave, onOpenPet, onOpenEvent, onOpenDiscovery }) {
   const items = [
     ...view.pets.filter(item => !showSavedOnly || saved.includes(item.id)).map(item => ({ ...item, resultType: "pet" })),
@@ -830,8 +908,8 @@ function VisitPlanner({ pets, location }) {
   </section>;
 }
 
-function MapPanel({ location, coordinates, userCoordinates, locationPrompt, configured, view, petType, showEvents, densityMode, routePets, onOpenPet, onOpenEvent, onOpenDiscovery, onMapMove, onRequestLocation, onDismissLocation }) {
-  const { pets: visiblePets, events: visibleEvents, discoveries: visibleDiscoveries } = view;
+function MapPanel({ location, coordinates, userCoordinates, locationPrompt, configured, view, petType, showEvents, densityMode, routePets, featuredPet, onChooseSurprise, onOpenPet, onOpenEvent, onOpenDiscovery, onOpenShelter, onMapMove, onRequestLocation, onDismissLocation }) {
+  const { pets: visiblePets, events: visibleEvents, discoveries: visibleDiscoveries, shelters: visibleShelters } = view;
   const points = [
     ...visiblePets
       .map(pet => ({ id: pet.id, longitude: pet.longitude, latitude: pet.latitude, type: "pet" })),
@@ -839,6 +917,8 @@ function MapPanel({ location, coordinates, userCoordinates, locationPrompt, conf
       .map(event => ({ id: event.id, longitude: event.longitude, latitude: event.latitude, type: "event" })),
     ...visibleDiscoveries.slice(0, 10)
       .map(item => ({ id: item.id, longitude: item.longitude, latitude: item.latitude, type: "discovery" })),
+    ...visibleShelters.slice(0, 20)
+      .map(shelter => ({ id: shelter.id, longitude: shelter.longitude, latitude: shelter.latitude, type: "shelter" })),
   ];
   const openPoint = (id, type) => {
     if (type === "discovery") {
@@ -851,26 +931,37 @@ function MapPanel({ location, coordinates, userCoordinates, locationPrompt, conf
       if (event) onOpenEvent?.(event);
       return;
     }
+    if (type === "shelter") {
+      const shelter = visibleShelters.find(item => String(item.id) === String(id));
+      if (shelter) onOpenShelter?.(shelter);
+      return;
+    }
     const pet = visiblePets.find(item => String(item.id) === String(id));
     if (pet) onOpenPet?.(pet);
   };
   return <section id="map" className="map-discovery" aria-labelledby="map-title">
     <header className="map-header">
-      <div><span className="map-kicker"><MapPin /> Explore nearby</span><h2 id="map-title">Find your next hello.</h2><p>Browse current pet listings and reviewed adoption events around your search area.</p></div>
+      <div><span className="map-kicker"><MapPin /> Explore nearby</span><h2 id="map-title">Find your next hello.</h2><p>Browse current pet listings, reviewed events, and nearby shelter locations around your search area.</p></div>
       <div className="map-count" aria-live="polite"><strong>{visiblePets.length}</strong><span>mapped pets in this view</span></div>
     </header>
     <div className="map-canvas">
       {configured === true
-        ? <InteractiveMap coordinates={coordinates} userCoordinates={userCoordinates} points={points} location={location} onPointClick={openPoint} onMoveSearch={onMapMove} densityMode={densityMode} routePets={routePets} />
+        ? <InteractiveMap coordinates={coordinates} userCoordinates={userCoordinates} points={points} location={location} onPointClick={openPoint} onMoveSearch={onMapMove} densityMode={densityMode} routePets={routePets} featuredPoint={featuredPet} />
         : <div className="map-unavailable" role={configured === null ? "status" : undefined}><span className="map-unavailable-icon"><MapPin /></span><strong>{configured === null ? "Checking map availability" : "Map preview is waiting for its connection"}</strong><span>{configured === null ? "Your discovery tools will be ready in a moment." : "Filters are ready to use. Connect Mapbox to turn on live location search and the map preview."}</span></div>}
+      <div className="map-play-control">
+        <button type="button" className={`map-surprise ${featuredPet ? "is-picked" : ""}`} onClick={onChooseSurprise} disabled={!visiblePets.length} aria-describedby="map-surprise-note">
+          <Sparkles /><span>{featuredPet ? "Pick another hello" : "Pick a hello"}</span>
+        </button>
+        <span id="map-surprise-note" aria-live="polite">{featuredPet ? `${featuredPet.name || "A pet"} is on your trail.` : visiblePets.length ? "Choose a current listing at random." : "Waiting for current listings."}</span>
+      </div>
       {configured === true && locationPrompt.status !== "hidden" && !userCoordinates ? <div className="location-permission" role="dialog" aria-labelledby="location-permission-title" aria-describedby="location-permission-description">
         <span className="location-permission-icon" aria-hidden="true"><LocateFixed /></span>
         <div><strong id="location-permission-title">See where you are</strong><span id="location-permission-description">{locationPrompt.message || "Share your location to show your position on the map."}</span></div>
         <button type="button" className="button primary" onClick={onRequestLocation} disabled={locationPrompt.status === "loading"}>{locationPrompt.status === "loading" ? "Locating…" : "Use my location"}</button>
         <button type="button" className="location-permission-dismiss" onClick={onDismissLocation}>Not now</button>
       </div> : null}
-      <span className="map-legend"><PawPrint className="pet-paw" /> {petType === "All" ? "Pets" : `${petType}s`} {showEvents ? <><PawPrint className="event-paw" /> Events</> : null} <PawPrint className="discovery-paw" /> Web leads</span>
-      <span className="map-attribution">Markers checked this session · Listing update times vary by provider</span>
+      <span className="map-legend"><PawPrint className="pet-paw" /> {petType === "All" ? "Pets" : `${petType}s`} {showEvents ? <><PawPrint className="event-paw" /> Events</> : null} <PawPrint className="discovery-paw" /> Web leads {visibleShelters.length ? <><Building2 className="shelter-marker" /> Shelters</> : null}</span>
+      <span className="map-attribution">Markers checked this session · Listing update times vary by provider · Shelter locations © OpenStreetMap contributors</span>
     </div>
   </section>;
 }
@@ -1038,11 +1129,15 @@ export default function App({ clerkPublishableKey = "" }) {
   const [selectedPet, setSelectedPet] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [selectedDiscovery, setSelectedDiscovery] = useState(null);
+  const [selectedShelter, setSelectedShelter] = useState(null);
+  const [featuredPet, setFeaturedPet] = useState(null);
   const [messagePet, setMessagePet] = useState(null);
   const [showAll, setShowAll] = useState(false);
   const [remotePets, setRemotePets] = useState([]);
   const [remoteEvents, setRemoteEvents] = useState([]);
   const [remoteDiscoveries, setRemoteDiscoveries] = useState([]);
+  const [nearbyShelters, setNearbyShelters] = useState([]);
+  const [shelterState, setShelterState] = useState({ status: "loading", message: "" });
   const [communityLeads, setCommunityLeads] = useState([]);
   const [coordinates, setCoordinates] = useState({
     longitude: -118.1445,
@@ -1087,11 +1182,12 @@ export default function App({ clerkPublishableKey = "" }) {
     pets: hoursFilteredPets,
     events: remoteEvents,
     discoveries: [...remoteDiscoveries, ...communityDiscoveries],
+    shelters: nearbyShelters,
     center: coordinates,
     petType: mapPetType,
     distance: mapDistance,
     showEvents: showMapEvents,
-  }), [hoursFilteredPets, remoteEvents, remoteDiscoveries, communityDiscoveries, coordinates, mapPetType, mapDistance, showMapEvents]);
+  }), [hoursFilteredPets, remoteEvents, remoteDiscoveries, communityDiscoveries, nearbyShelters, coordinates, mapPetType, mapDistance, showMapEvents]);
   const routePets = useMemo(() => mapView.pets.filter(pet => saved.includes(pet.id)).slice(0, 8), [mapView.pets, saved]);
 
   useEffect(() => {
@@ -1134,6 +1230,29 @@ export default function App({ clerkPublishableKey = "" }) {
       .then(body => setRemoteDiscoveries(body.discoveries || []))
       .catch(() => setRemoteDiscoveries([]));
   }, []);
+  useEffect(() => {
+    const controller = new AbortController();
+    const params = new URLSearchParams({
+      latitude: String(coordinates.latitude),
+      longitude: String(coordinates.longitude),
+      radius: "50",
+    });
+    setShelterState({ status: "loading", message: "" });
+    fetch(`/api/nearby-shelters?${params}`, { signal: controller.signal })
+      .then(async response => {
+        const body = await readJson(response, "Nearby shelter locations are unavailable.");
+        if (!response.ok) throw new Error(body.message || "Nearby shelter locations are unavailable.");
+        setNearbyShelters(body.shelters || []);
+        setShelterState({ status: "ready", message: body.message || "" });
+      })
+      .catch(error => {
+        if (error.name !== "AbortError") {
+          setNearbyShelters([]);
+          setShelterState({ status: "error", message: error.message || "Nearby shelter locations are unavailable." });
+        }
+      });
+    return () => controller.abort();
+  }, [coordinates.latitude, coordinates.longitude]);
   useEffect(() => {
     fetch("/api/health")
       .then(response => readJson(response, "Integration status is unavailable."))
@@ -1257,6 +1376,14 @@ export default function App({ clerkPublishableKey = "" }) {
     setDensityMode(false);
     setHoursFilter("all");
   };
+  const chooseSurprisePet = () => {
+    const alternatives = mapView.pets.filter(pet => pet.id !== featuredPet?.id);
+    const candidates = alternatives.length ? alternatives : mapView.pets;
+    if (!candidates.length) return;
+    const pet = candidates[Math.floor(Math.random() * candidates.length)];
+    setFeaturedPet(pet);
+    setSelectedPet(pet);
+  };
   const searchThisMapArea = ({ longitude, latitude }) => {
     setCoordinates(current => {
       if (current && Math.abs(current.longitude - longitude) < 0.0001 && Math.abs(current.latitude - latitude) < 0.0001) return current;
@@ -1277,7 +1404,7 @@ export default function App({ clerkPublishableKey = "" }) {
     </header>
 
   <main id="discover" className={`map-workspace panel-${activePanel} ${railCollapsed ? "rail-collapsed" : ""}`}>
-      <MapPanel location={location} coordinates={coordinates} userCoordinates={userCoordinates} locationPrompt={locationPrompt} configured={integrations.mapboxConfigured} view={mapView} petType={mapPetType} showEvents={showMapEvents} densityMode={densityMode} routePets={routePets} onOpenPet={setSelectedPet} onOpenEvent={setSelectedEvent} onOpenDiscovery={setSelectedDiscovery} onMapMove={searchThisMapArea} onRequestLocation={requestUserLocation} onDismissLocation={() => setLocationPrompt({ status: "hidden", message: "" })} />
+      <MapPanel location={location} coordinates={coordinates} userCoordinates={userCoordinates} locationPrompt={locationPrompt} configured={integrations.mapboxConfigured} view={mapView} petType={mapPetType} showEvents={showMapEvents} densityMode={densityMode} routePets={routePets} featuredPet={featuredPet} onChooseSurprise={chooseSurprisePet} onOpenPet={setSelectedPet} onOpenEvent={setSelectedEvent} onOpenDiscovery={setSelectedDiscovery} onOpenShelter={setSelectedShelter} onMapMove={searchThisMapArea} onRequestLocation={requestUserLocation} onDismissLocation={() => setLocationPrompt({ status: "hidden", message: "" })} />
 
       <aside className={`map-rail ${railCollapsed ? "is-collapsed" : ""}`} aria-label="Map discovery tools">
         <button className="rail-toggle" type="button" onClick={() => setRailCollapsed(value => !value)} aria-expanded={!railCollapsed} aria-controls="map-rail-content">
@@ -1303,6 +1430,7 @@ export default function App({ clerkPublishableKey = "" }) {
             <p>{feed.mode === "live" ? `${petCountLabel(mapView.pets.length, mapPetType)} within ${mapDistance} miles. Open a pet to see details and the shelter's listing.` : feed.message || "Current shelter listings are unavailable. Pawline does not show made-up pets."}</p>
             {mapSearchMoved ? <p className="map-area-status" role="status">Showing results around the map center.</p> : null}
             <MapResults view={mapView} saved={saved} showSavedOnly={showSavedOnly} onToggleSavedOnly={toggleSavedOnly} onSave={toggleSave} onOpenPet={setSelectedPet} onOpenEvent={setSelectedEvent} onOpenDiscovery={setSelectedDiscovery} />
+            <NearbyShelters shelters={mapView.shelters} state={shelterState} onOpen={setSelectedShelter} />
             {routePets.length ? <VisitPlanner pets={routePets} location={location} /> : null}
             <button className="quiz-teaser" onClick={() => openPanel("match")}><PawPrint /><span><small>Not sure where to start?</small><strong>Get pet matches</strong><em>Answer a few lifestyle questions</em></span><ChevronRight /></button>
             {remoteDiscoveries.length ? <section className="web-leads" aria-label="Current web adoption leads">
@@ -1341,5 +1469,6 @@ export default function App({ clerkPublishableKey = "" }) {
     {selectedPet && <PetDetail pet={selectedPet} onClose={() => setSelectedPet(null)} saved={saved.includes(selectedPet.id)} onSave={toggleSave} onMessage={pet => { setMessagePet(pet); openPanel("messages"); }} />}
     {selectedEvent && <EventDetail event={selectedEvent} onClose={() => setSelectedEvent(null)} />}
     {selectedDiscovery && <DiscoveryDetail discovery={selectedDiscovery} onClose={() => setSelectedDiscovery(null)} />}
+    {selectedShelter && <ShelterDetail shelter={selectedShelter} onClose={() => setSelectedShelter(null)} />}
   </div>;
 }
