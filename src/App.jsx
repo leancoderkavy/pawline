@@ -755,6 +755,9 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
 
 function MapFilters({ petType, distance, showEvents, densityMode, hoursFilter, onPetTypeChange, onDistanceChange, onShowEventsChange, onDensityChange, onHoursFilterChange, onReset }) {
   return <div className="map-toolbar" role="group" aria-label="Map filters">
+    <div className="mobile-pet-types" role="group" aria-label="Pet type">
+      {["All", "Dog", "Cat"].map(type => <button key={type} type="button" className={petType === type ? "is-active" : ""} onClick={() => onPetTypeChange(type)} aria-pressed={petType === type}>{type === "All" ? "All" : `${type}s`}</button>)}
+    </div>
     <label className="map-select"><SlidersHorizontal /><span>Pet type</span><select value={petType} onChange={event => onPetTypeChange(event.target.value)} aria-label="Filter map by pet type"><option>All</option><option>Dog</option><option>Cat</option></select></label>
     <label className="map-select"><LocateFixed /><span>Radius</span><select value={distance} onChange={event => onDistanceChange(event.target.value)} aria-label="Map search radius"><option value="25">25 mi</option><option value="50">50 mi</option><option value="100">100 mi</option><option value="150">150 mi</option></select></label>
     <details className="more-filters">
@@ -1296,7 +1299,7 @@ export default function App({ clerkPublishableKey = "" }) {
         <div id="map-rail-content" className="rail-content">
           {activePanel === "explore" ? <div className="explore-intro">
             <MapFilters petType={mapPetType} distance={mapDistance} showEvents={showMapEvents} densityMode={densityMode} hoursFilter={hoursFilter} onPetTypeChange={setMapPetType} onDistanceChange={setMapDistance} onShowEventsChange={setShowMapEvents} onDensityChange={setDensityMode} onHoursFilterChange={setHoursFilter} onReset={resetMapFilters} />
-            <div><h1>Adoptable pets nearby</h1><span className={`live-state feed-${feed.mode}`}><i />{feed.mode === "live" ? "Current listings" : feed.mode === "loading" ? "Checking listings" : "Listings unavailable"}</span></div>
+            <div className="explore-heading"><div><h1>Find adoptable pets</h1><span className={`live-state feed-${feed.mode}`}><i />{feed.mode === "live" ? "Current listings" : feed.mode === "loading" ? "Checking listings" : "Listings unavailable"}</span></div><button type="button" className="mobile-view-map" onClick={() => setRailCollapsed(true)}><Compass /> View map</button></div>
             <p>{feed.mode === "live" ? `${petCountLabel(mapView.pets.length, mapPetType)} within ${mapDistance} miles. Open a pet to see details and the shelter's listing.` : feed.message || "Current shelter listings are unavailable. Pawline does not show made-up pets."}</p>
             {mapSearchMoved ? <p className="map-area-status" role="status">Showing results around the map center.</p> : null}
             <MapResults view={mapView} saved={saved} showSavedOnly={showSavedOnly} onToggleSavedOnly={toggleSavedOnly} onSave={toggleSave} onOpenPet={setSelectedPet} onOpenEvent={setSelectedEvent} onOpenDiscovery={setSelectedDiscovery} />

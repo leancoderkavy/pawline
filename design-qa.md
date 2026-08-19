@@ -1,34 +1,47 @@
-# Pawline discovery UX QA
+# Pawline results-first mobile discovery QA
 
-## Scope
+## Artifacts
 
-Primary pet-finding flow on the root route at 1440 x 1000 and 390 x 844.
+- Source visual truth: `output/playwright/00-results-first-source.png`
+- Browser-rendered implementation: `output/playwright/06-recommended-mobile.png`
+- Source pixels: 853 x 1844; implementation pixels: 390 x 844.
+- CSS viewport: 390 x 844 at device scale factor 1.
+- Normalization: compared at the same mobile-web aspect ratio with the source scaled to the implementation width.
+- State: Cats selected, live coordinate-backed listings visible, discovery drawer expanded.
 
-## Result
+## Findings
 
-final result: passed
+No actionable P0, P1, or P2 findings remain.
 
-## Checks
+- Fonts and typography: serif result names and heading retain the selected hierarchy; compact sans-serif controls remain readable.
+- Spacing and layout: filters, heading, count, and results form distinct scan groups. Four pet rows enter the first viewport without reducing touch targets.
+- Colors and tokens: Pawline's cream, forest, and rust system is preserved with sufficient contrast.
+- Image and icon fidelity: existing Lucide icons and live listing rows replace the concept's illustrative animal icons and invented photos.
+- Copy and content: species, result count, availability, and shelter-listing boundaries remain truthful.
 
-- Root route opens with the pet discovery drawer expanded and current pet results visible.
-- Primary navigation is limited to Find pets, Match me, and More; Messages, Community, and Events remain available under More.
-- Pet type and radius remain immediately available; shelter hours, events, density, and reset are progressively disclosed under More filters.
-- Empty visit-planning UI is hidden until the user saves a coordinate-backed pet.
-- The duplicate match call to action was replaced by one plain-language prompt.
-- Listing provenance and source methodology remain present; long methodology copy is collapsed by default.
-- Desktop and mobile layouts were visually inspected with no clipped primary controls or horizontal overflow.
-- The More menu opens on mobile and exposes all secondary destinations.
-- DOM snapshots confirm named controls, headings, status text, pet-detail actions, and 44px mobile targets remain available.
+The implementation retains a thin Find pets / Match me / More row instead of the concept's single More action. This intentional constraint preserves access to the existing matching workflow; the navigation is visually demoted and no longer presented as three cards.
 
-## Evidence
+## Comparison evidence
 
-- `output/playwright/01-current-desktop.png`
-- `output/playwright/03-final-desktop.png`
-- `output/playwright/04-final-mobile.png`
-- `output/playwright/05-mobile-more-menu.png`
+The selected source and final implementation were opened together. Both prioritize results over the map, expose All / Dogs / Cats first, keep radius and advanced filters compact, place View map beside the heading, and render scannable species-labeled rows. A separate crop was unnecessary because the complete filter, heading, and result region is legible at full size.
+
+## Interaction and accessibility checks
+
+- Cats updates `aria-pressed` and the result count.
+- View map collapses the discovery rail.
+- Pet type, View map, and favorite controls measure at least 44px high.
+- No horizontal overflow at 390px.
+- No unexpected console errors. Known development-only CSP eval and unconfigured-provider 503 messages were excluded; the production build passed.
+
+## Comparison history
+
+1. P2: View map inherited the desktop hidden state. Fixed by explicitly displaying it at the mobile breakpoint.
+2. P2: View map wrapped below the heading. Fixed with a two-column heading grid and adjusted mobile display size; post-fix evidence is `output/playwright/06-recommended-mobile.png`.
 
 ## Verification
 
-- `npm test`: 96 Node tests and 5 Python tests passed.
-- `npm run build`: production Next.js build passed.
-- Local development console only: the existing CSP development-mode eval warning and an unconfigured `/api/events` 503 were observed. The production build succeeded; provider configuration was not changed or claimed.
+- `npm test`: 99 Node tests and 5 Python tests passed.
+- `npm run build`: passed.
+- Browser QA: one mobile interaction test passed at 390 x 844.
+
+final result: passed

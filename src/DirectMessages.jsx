@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import Ably from "ably";
-import { SignInButton, UserButton, useAuth } from "@clerk/nextjs";
+import { SignInButton, SignUpButton, UserButton, useAuth } from "@clerk/nextjs";
 import {
   AlertTriangle, ArrowLeft, CheckCircle2, Flag, LoaderCircle, LockKeyhole,
   MessageCircle, PawPrint, Send, ShieldCheck, Users,
@@ -190,7 +190,10 @@ export default function DirectMessages({ initialListing, onInitialListingHandled
   if (!isSignedIn) return <div className="community-auth-state">
     <span><MessageCircle /></span><h2>Message a shelter or foster</h2>
     <p>Sign in to register a pet, ask about a Pawline listing, or respond as its caretaker. Your contact details stay private.</p>
-    <SignInButton mode="modal"><button className="button">Sign in to message</button></SignInButton>
+    <div className="auth-actions">
+      <SignUpButton mode="modal"><button className="button">Create account</button></SignUpButton>
+      <SignInButton mode="modal"><button className="button button-outline">Sign in</button></SignInButton>
+    </div>
     <div className="auth-safety"><ShieldCheck /><span><strong>Private by design</strong>Every conversation is tied to one listing and protected by Pawline moderation.</span></div>
   </div>;
 
