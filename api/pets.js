@@ -1,4 +1,5 @@
 import { getDatabase } from "./_db.js";
+import { safeHttpUrl, safeImageUrl } from "./_safe-url.js";
 import { buildRescueGroupsUrl } from "./_rescuegroups.js";
 import { consumeUsageChain, createUsageFallbackLimiter, requestClientKey } from "./_usage-limit.js";
 
@@ -97,15 +98,6 @@ export function cleanText(value) {
     .trim() || null;
 }
 
-export function safeHttpUrl(value) {
-  if (typeof value !== "string") return null;
-  try {
-    const url = new URL(value);
-    return ["http:", "https:"].includes(url.protocol) ? url.href : null;
-  } catch {
-    return null;
-  }
-}
 
 function decodeHtml(value) {
   return String(value || "")
@@ -176,7 +168,7 @@ export function normalizeMontgomeryPet(pet, index) {
     reviews: null,
     source: "Montgomery County Open Data · Live",
     sourceUrl: MONTGOMERY_ADOPTION_URL,
-    image: safeHttpUrl(pet.url?.url?.replace(/^http:/, "https:")),
+    image: safeImageUrl(pet.url?.url),
     latitude: null,
     longitude: null,
     x: 18 + ((index * 17) % 70),
@@ -203,7 +195,7 @@ export function normalizeKingCountyPet(pet, index) {
     reviews: null,
     source: "King County Open Data · Live",
     sourceUrl: safeHttpUrl(pet.link?.url),
-    image: safeHttpUrl(pet.image?.url?.replace(/^http:/, "https:")),
+    image: safeImageUrl(pet.image?.url),
     description: cleanText(pet.memo),
     latitude: Number.isFinite(Number(pet.obfuscated_latitude))
       ? Number(pet.obfuscated_latitude) : null,
@@ -257,7 +249,7 @@ export function normalizeLosAngelesPet(record) {
     reviews: null,
     source: "LA Animal Services · Live",
     sourceUrl: `https://www.laanimalservices.com/pet/${record.id.toLowerCase()}`,
-    image: safeHttpUrl(record.image ? decodeHtml(record.image).replace(/^http:/, "https:") : null),
+    image: safeImageUrl(record.image ? decodeHtml(record.image) : null),
     latitude: center.latitude,
     longitude: center.longitude,
     locationAccuracy: "shelter",
@@ -419,7 +411,7 @@ export function normalizeDatabasePet(pet, index) {
     source: "Pawline community · Verified",
     sourceUrl: safeHttpUrl(pet.source_url),
     messageAvailable: Boolean(pet.claimed_by_clerk_user_id),
-    image: safeHttpUrl(pet.image_url),
+    image: safeImageUrl(pet.image_url),
     latitude: pet.latitude == null ? null : Number(pet.latitude),
     longitude: pet.longitude == null ? null : Number(pet.longitude),
     x: pet.longitude == null ? 18 + ((index * 17) % 70) : 50,
@@ -486,7 +478,7 @@ function normalizeAnimal(animal, included, index) {
     source: "RescueGroups · Live",
     sourceUrl: safeHttpUrl(attributes.url || organization.adoptionUrl || organization.url),
     image:
-      safeHttpUrl(picture?.large || picture?.original || attributes.pictureThumbnailUrl),
+      safeImageUrl(picture?.large || picture?.original || attributes.pictureThumbnailUrl),
     latitude: coordinates.latitude,
     longitude: coordinates.longitude,
     locationAccuracy: hasCoordinates(coordinates) ? "shelter" : undefined,
@@ -654,3 +646,5 @@ export default async function handler(request, response) {
     });
   }
 }
+
+export { safeHttpUrl, safeImageUrl };

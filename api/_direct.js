@@ -1,3 +1,5 @@
+import { safeImageUrl } from "./_safe-url.js";
+
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export function parseListingId(value) {
@@ -9,16 +11,6 @@ export function parseListingId(value) {
 export function parseConversationId(value) {
   const id = String(value || "");
   return UUID_PATTERN.test(id) ? id : null;
-}
-
-function safeHttpUrl(value) {
-  if (typeof value !== "string") return null;
-  try {
-    const url = new URL(value);
-    return ["http:", "https:"].includes(url.protocol) ? url.href : null;
-  } catch {
-    return null;
-  }
 }
 
 export function publicConversation(row, userId) {
@@ -36,7 +28,7 @@ export function publicConversation(row, userId) {
       shelter: row.shelter,
       species: row.species,
       breed: row.breed,
-      image: safeHttpUrl(row.image_url),
+      image: safeImageUrl(row.image_url),
       city: row.city,
     },
     lastMessageAt: row.last_message_at,

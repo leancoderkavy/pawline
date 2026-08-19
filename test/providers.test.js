@@ -14,6 +14,7 @@ import {
   isCurrentProviderListing,
   parseLosAngelesPets,
   safeHttpUrl,
+  safeImageUrl,
 } from "../api/pets.js";
 
 test("reads public RescueGroups coordinates across REST response shapes", () => {
@@ -53,6 +54,40 @@ test("provider navigation URLs reject active and malformed schemes", () => {
   assert.equal(safeHttpUrl("data:text/html,unsafe"), null);
   assert.equal(safeHttpUrl("not a url"), null);
   assert.equal(safeHttpUrl("https://example.org/pet/1"), "https://example.org/pet/1");
+});
+
+test("every provider listing photo is upgraded to https for the img-src policy", () => {
+  assert.equal(safeImageUrl("http://www.petharbor.com/get_image.asp?id=A1"),
+    "https://www.petharbor.com/get_image.asp?id=A1");
+  assert.equal(safeImageUrl("HTTP://www.petharbor.com/get_image.asp?id=A1"),
+    "https://www.petharbor.com/get_image.asp?id=A1");
+  assert.equal(safeImageUrl("https://example.org/pet.jpg"), "https://example.org/pet.jpg");
+  assert.equal(safeImageUrl("javascript:alert(1)"), null);
+  assert.equal(safeImageUrl("data:text/html,unsafe"), null);
+  assert.equal(safeImageUrl(null), null);
+});
+
+test("stored community listings never serve a blocked http photo", () => {
+  const pet = normalizeDatabasePet({
+    id: "65f40951-161a-4184-a77e-b7c4e1246154",
+    name: "Big Boss",
+    species: "Dog",
+    image_url: "http://www.petharbor.com/get_image.asp?id=A546161&location=MONT",
+    source_url: "https://example.org/adopt",
+  }, 0);
+  assert.equal(pet.image,
+    "https://www.petharbor.com/get_image.asp?id=A546161&location=MONT");
+});
+
+test("live provider listing photos are upgraded at the source", () => {
+  assert.equal(normalizeMontgomeryPet({
+    animalid: "A1", petname: "Minx", animaltype: "CAT",
+    url: { url: "http://www.petharbor.com/get_image.asp?id=A1" },
+  }, 0).image, "https://www.petharbor.com/get_image.asp?id=A1");
+  assert.equal(normalizeKingCountyPet({
+    animal_id: "K1", animal_name: "Boba", animal_type: "Dog",
+    image: { url: "http://example.org/boba.jpg" },
+  }, 0).image, "https://example.org/boba.jpg");
 });
 
 test("pet feed provider fan-out has bounded query pagination", () => {
