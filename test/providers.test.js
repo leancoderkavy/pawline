@@ -9,9 +9,43 @@ import {
   normalizeLosAngelesPet,
   normalizeMontgomeryPet,
   normalizePetQuery,
+  publicLocationCoordinates,
+  geocodeRescueGroupsPets,
   parseLosAngelesPets,
   safeHttpUrl,
 } from "../api/pets.js";
+
+test("reads public RescueGroups coordinates across REST response shapes", () => {
+  assert.deepEqual(publicLocationCoordinates({ lat: "34.1", lon: "-118.2" }), {
+    latitude: 34.1,
+    longitude: -118.2,
+  });
+  assert.deepEqual(publicLocationCoordinates({ geometry: { coordinates: [-77.1, 39.2] } }), {
+    latitude: 39.2,
+    longitude: -77.1,
+  });
+});
+
+test("transiently geocodes public RescueGroups shelter cities in one batch", async () => {
+  let request;
+  const pets = await geocodeRescueGroupsPets([
+    { id: "one", city: "Pasadena, CA", latitude: null, longitude: null },
+    { id: "two", city: "Pasadena, CA", latitude: null, longitude: null },
+    { id: "private", city: "Location available from rescue", latitude: null, longitude: null },
+  ], "pk.public", async (url, options) => {
+    request = { url: String(url), options };
+    return {
+      ok: true,
+      json: async () => ({ batch: [{ features: [{ geometry: { coordinates: [-118.1445, 34.1478] } }] }] }),
+    };
+  });
+
+  assert.match(request.url, /permanent=false/);
+  assert.equal(JSON.parse(request.options.body).length, 1);
+  assert.equal(pets[0].locationAccuracy, "shelter");
+  assert.equal(pets[1].longitude, -118.1445);
+  assert.equal(pets[2].longitude, null);
+});
 
 test("provider navigation URLs reject active and malformed schemes", () => {
   assert.equal(safeHttpUrl("javascript:alert(1)"), null);
