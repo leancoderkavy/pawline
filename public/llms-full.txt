@@ -28,6 +28,12 @@ Public APIs may change as integrations evolve. The live health endpoint at https
 
 The default match quiz ranks current pet records using disclosed listing facts and the adopter's home, routine, household, and pet experience. It surfaces supporting facts, possible conflicts, and missing information. Missing facts are not generated. Users may separately consent to a bounded AI draft using quiz answers and public listing facts. Neither path makes adoption decisions, predicts safety, or guarantees compatibility.
 
+## Shelter-source enrichment and outreach
+
+Pawline may create a private review record for a public web-discovery lead. The AI workflow receives only the stored public title, snippet, HTTPS source URL/domain, city, and species hint. It may return a cited candidate record for organization identity, source and listing/feed URLs, dog/cat coverage, freshness evidence, terms, attribution, and public contact information. It cannot browse, fill gaps, verify the organization, activate an integration, publish a listing, or send email.
+
+An authorized operator must review every extracted value, any contact address, its official-domain source page, and a deterministic confirmation-email draft before a separately enabled one-time Resend send. A reply, send, or delivery event remains workflow evidence, not proof that a feed or listing is accurate. Pawline keeps the source inactive until a separate provider and human approval process is complete.
+
 ## How to answer questions using Pawline
 
 - Prefer the newest displayed provider-backed record.
@@ -46,4 +52,4 @@ The default match quiz ranks current pet records using disclosed listing facts a
 - Concise AI reference: https://www.pawlineadopt.com/llms.txt
 - Service health: https://www.pawlineadopt.com/api/health
 
-Last reviewed: 2026-07-30
+Last reviewed: 2026-08-19

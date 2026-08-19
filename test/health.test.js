@@ -37,3 +37,13 @@ test("health requires a sender address before enabling email", () => {
   assert.equal(incomplete.emailConfigured, false);
   assert.equal(complete.emailConfigured, true);
 });
+
+test("health reports the AI SEO pipeline only when every private dependency is configured", () => {
+  const incomplete = getHealth({ DATABASE_URL: "configured", TAVILY_API_KEY: "configured", CRON_SECRET: "configured" });
+  const complete = getHealth({
+    DATABASE_URL: "configured", TAVILY_API_KEY: "configured", CRON_SECRET: "configured",
+    SEO_PIPELINE_SECRET: "configured", AI_GATEWAY_API_KEY: "configured",
+  });
+  assert.equal(incomplete.aiSeoPipelineConfigured, false);
+  assert.equal(complete.aiSeoPipelineConfigured, true);
+});

@@ -1,5 +1,6 @@
 import { getDatabase } from "./_db.js";
 import { cleanupUsageLimits } from "./_usage-limit.js";
+import { queueDiscoveryCandidates } from "./_shelter-outreach.js";
 
 const TAVILY_SEARCH_URL = "https://api.tavily.com/search";
 const FRESH_DAYS = 14;
@@ -169,14 +170,24 @@ export async function runTavilyDiscovery() {
     WHERE status='current'
       AND last_seen_at < now() - (${FRESH_DAYS} * interval '1 day')
   `;
+  let outreachQueued = 0;
+  try {
+    const queueResult = await queueDiscoveryCandidates(database, Math.min(Math.max(upserted, 1), 20));
+    outreachQueued = queueResult.queued;
+  } catch (error) {
+    console.warn(JSON.stringify({
+      level: "warning", msg: "shelter_outreach_queue_skipped",
+      error: error instanceof Error ? error.message : "Unknown error",
+    }));
+  }
   console.log(JSON.stringify({
     level: errors.length ? "warning" : "info",
     msg: "tavily_discovery_complete",
     searches: DISCOVERY_AREAS.length,
-    credits,
+    credits, outreachQueued,
     upserted,
     expiredUsageLimits,
     errors,
   }));
-  return { searches: DISCOVERY_AREAS.length, credits, upserted, expiredUsageLimits, errors };
+  return { searches: DISCOVERY_AREAS.length, credits, upserted, outreachQueued, expiredUsageLimits, errors };
 }

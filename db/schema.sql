@@ -177,6 +177,108 @@ CREATE TABLE IF NOT EXISTS community_messages (
 CREATE INDEX IF NOT EXISTS community_messages_room_created
   ON community_messages (room, created_at DESC);
 
+-- AI SEO pipeline: drafts are deliberately private review artifacts. No table
+-- in this group represents published or indexed content.
+CREATE TABLE IF NOT EXISTS seo_content_jobs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  focus_keyword text NOT NULL CHECK (char_length(focus_keyword) BETWEEN 3 AND 140),
+  brief jsonb NOT NULL,
+  status text NOT NULL DEFAULT 'queued'
+    CHECK (status IN ('queued', 'researching', 'drafting', 'needs_review', 'needs_revision', 'error')),
+  attempts integer NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+  error_message text,
+  quality_report jsonb,
+  started_at timestamptz,
+  completed_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS seo_content_jobs_queue
+  ON seo_content_jobs (status, created_at ASC);
+
+CREATE TABLE IF NOT EXISTS seo_content_sources (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  job_id uuid NOT NULL REFERENCES seo_content_jobs(id) ON DELETE CASCADE,
+  position smallint NOT NULL CHECK (position BETWEEN 1 AND 6),
+  title text NOT NULL,
+  excerpt text NOT NULL,
+  source_url text NOT NULL,
+  source_domain text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (job_id, position),
+  UNIQUE (job_id, source_url)
+);
+
+CREATE TABLE IF NOT EXISTS seo_content_drafts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  job_id uuid NOT NULL UNIQUE REFERENCES seo_content_jobs(id) ON DELETE CASCADE,
+  title text NOT NULL,
+  slug text NOT NULL,
+  meta_description text NOT NULL,
+  excerpt text NOT NULL,
+  outline jsonb NOT NULL,
+  article_markdown text NOT NULL,
+  faq jsonb NOT NULL,
+  citations jsonb NOT NULL,
+  internal_links jsonb NOT NULL,
+  quality_report jsonb NOT NULL,
+  model text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- Shelter source enrichment and confirmation workflow. These are private
+-- operator records: enrichment, a contact reply, or a sent email never
+-- publishes a source or activates a pet listing.
+CREATE TABLE IF NOT EXISTS shelter_outreach_candidates (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  discovery_id uuid REFERENCES web_discoveries(id) ON DELETE SET NULL,
+  source_url text NOT NULL UNIQUE,
+  source_domain text NOT NULL,
+  evidence jsonb NOT NULL DEFAULT '[]'::jsonb,
+  data jsonb,
+  status text NOT NULL DEFAULT 'queued'
+    CHECK (status IN ('queued', 'enriching', 'needs_review', 'needs_revision', 'draft_ready', 'sending', 'sent', 'suppressed')),
+  model text,
+  enrichment_attempts integer NOT NULL DEFAULT 0 CHECK (enrichment_attempts >= 0),
+  public_contact_email text,
+  contact_name text,
+  contact_source_url text,
+  draft_subject text,
+  draft_text text,
+  draft_revision integer NOT NULL DEFAULT 0 CHECK (draft_revision >= 0),
+  review_note text,
+  last_error text,
+  reviewed_at timestamptz,
+  sent_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS shelter_outreach_candidates_queue
+  ON shelter_outreach_candidates (status, updated_at DESC);
+
+CREATE TABLE IF NOT EXISTS shelter_outreach_emails (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  candidate_id uuid NOT NULL REFERENCES shelter_outreach_candidates(id) ON DELETE CASCADE,
+  draft_revision integer NOT NULL CHECK (draft_revision > 0),
+  recipient text NOT NULL,
+  subject text NOT NULL,
+  body_text text NOT NULL,
+  idempotency_key text NOT NULL UNIQUE,
+  resend_email_id text,
+  status text NOT NULL CHECK (status IN ('sending', 'sent', 'failed')),
+  error_message text,
+  sent_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (candidate_id, draft_revision)
+);
+
+CREATE INDEX IF NOT EXISTS shelter_outreach_emails_candidate_created
+  ON shelter_outreach_emails (candidate_id, created_at DESC);
+
 CREATE TABLE IF NOT EXISTS usage_limits (
   scope text NOT NULL,
   subject text NOT NULL,

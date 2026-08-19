@@ -77,3 +77,17 @@ test("the apex host redirects to the canonical www host", async () => {
   assert.match(proxy, /new URL\([^\n]+"https:\/\/www\.pawlineadopt\.com"\)/);
   assert.match(proxy, /NextResponse\.redirect\(canonical, 308\)/);
 });
+
+test("AI SEO drafts remain private review artifacts and are not added to the public sitemap", async () => {
+  const [schema, sitemap, cron, routes] = await Promise.all([
+    read("db/schema.sql"),
+    read("public/sitemap.xml"),
+    read("api/cron/seo-pipeline.js"),
+    read("app/api/[...path]/route.js"),
+  ]);
+  assert.match(schema, /CREATE TABLE IF NOT EXISTS seo_content_jobs/);
+  assert.match(schema, /'needs_review'/);
+  assert.doesNotMatch(sitemap, /seo_content|seo-pipeline|\/api\/seo-pipeline/i);
+  assert.match(cron, /runNextSeoJob/);
+  assert.match(routes, /"seo-pipeline"/);
+});

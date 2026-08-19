@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "purpose": "Create source-grounded Pawline SEO drafts for human review. This contract does not publish content.",
+  "model": "google/gemini-2.5-flash-lite",
+  "stages": [
+    "queued",
+    "researching",
+    "drafting",
+    "needs_review"
+  ],
+  "requiredBriefFields": [
+    "focusKeyword",
+    "intent",
+    "audience"
+  ],
+  "allowedIntents": [
+    "informational",
+    "commercial",
+    "navigational"
+  ],
+  "guardrails": [
+    "Research is limited to public HTTPS results returned by the configured research provider.",
+    "The model may use only the supplied research results for factual assertions and citations.",
+    "Drafts must not make medical, legal, financial, availability, adoption-outcome, or compatibility guarantees.",
+    "Every draft is stored for human review; the pipeline has no publish, sitemap, or indexing action."
+  ]
+}
