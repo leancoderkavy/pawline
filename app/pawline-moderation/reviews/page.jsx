@@ -1,6 +1,6 @@
 "use client";
 
-import { ClerkProvider, SignInButton, SignedIn, SignedOut, useAuth } from "@clerk/nextjs";
+import { ClerkProvider, SignInButton, useAuth } from "@clerk/nextjs";
 import { useCallback, useEffect, useState } from "react";
 
 async function readResponse(response) {
@@ -47,13 +47,19 @@ function ReviewQueue() {
   </section></main>;
 }
 
+function ReviewModerationGate() {
+  const { isLoaded, isSignedIn } = useAuth();
+  // Do not mount the queue or issue authenticated requests until Clerk has
+  // confirmed a session. The API remains the role authorization boundary.
+  if (!isLoaded) return <main style={styles.shell}><section style={styles.card}><p role="status">Checking sign-in status…</p></section></main>;
+  if (!isSignedIn) return <main style={styles.shell}><section style={styles.card}><h1>Sign in to moderate reviews</h1><SignInButton mode="modal"><button type="button" style={styles.button}>Sign in</button></SignInButton></section></main>;
+  return <ReviewQueue />;
+}
+
 export default function ReviewModerationPage() {
   const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || "";
   if (!publishableKey) return <main style={styles.shell}><section style={styles.card}><h1>Review moderation is unavailable</h1><p>Identity services are not configured for this environment.</p></section></main>;
-  return <ClerkProvider publishableKey={publishableKey}>
-    <SignedOut><main style={styles.shell}><section style={styles.card}><h1>Sign in to moderate reviews</h1><SignInButton mode="modal"><button type="button" style={styles.button}>Sign in</button></SignInButton></section></main></SignedOut>
-    <SignedIn><ReviewQueue /></SignedIn>
-  </ClerkProvider>;
+  return <ClerkProvider publishableKey={publishableKey}><ReviewModerationGate /></ClerkProvider>;
 }
 
 const styles = {

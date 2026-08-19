@@ -1,6 +1,6 @@
 "use client";
 
-import { ClerkProvider, SignInButton, SignedIn, SignedOut, useAuth } from "@clerk/nextjs";
+import { ClerkProvider, SignInButton, useAuth } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
 
 function ClaimForm({ token, onConsumed }) {
@@ -36,6 +36,7 @@ function ClaimForm({ token, onConsumed }) {
 }
 
 function ClaimFlow() {
+  const { isLoaded, isSignedIn } = useAuth();
   const [token, setToken] = useState("");
 
   useEffect(() => {
@@ -48,10 +49,11 @@ function ClaimFlow() {
     }
   }, []);
 
-  return <>
-    <SignedOut><main style={styles.shell}><section style={styles.card}><h1>Sign in to claim this organization</h1><p>Use the Pawline account with the verified email that received the invitation.</p><SignInButton mode="modal"><button type="button" style={styles.button}>Sign in</button></SignInButton></section></main></SignedOut>
-    <SignedIn><ClaimForm token={token} onConsumed={() => setToken("")} /></SignedIn>
-  </>;
+  // Keep protected content unmounted until Clerk has determined the session.
+  // The API independently verifies the bearer token and recipient email.
+  if (!isLoaded) return <main style={styles.shell}><section style={styles.card}><p role="status">Checking sign-in status…</p></section></main>;
+  if (!isSignedIn) return <main style={styles.shell}><section style={styles.card}><h1>Sign in to claim this organization</h1><p>Use the Pawline account with the verified email that received the invitation.</p><SignInButton mode="modal"><button type="button" style={styles.button}>Sign in</button></SignInButton></section></main>;
+  return <ClaimForm token={token} onConsumed={() => setToken("")} />;
 }
 
 export default function ClaimOrganizationPage() {

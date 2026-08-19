@@ -171,6 +171,14 @@ test("claim links retain their fragment credential through modal sign-in without
   assert.match(page, /window\.history\.replaceState\(null, "", "\/shelter\/claim"\)/);
   assert.match(page, /<SignInButton mode="modal">/);
   assert.match(page, /<ClaimForm token=\{token\} onConsumed=/);
+  assert.doesNotMatch(page, /\bSignedIn\b|\bSignedOut\b/);
+  assert.match(page, /const \{ isLoaded, isSignedIn \} = useAuth\(\)/);
+  assert.match(page, /if \(!isLoaded\).*Checking sign-in status/s);
+  assert.match(page, /if \(!isSignedIn\).*Sign in to claim this organization/s);
+  const moderationPage = await readFile(new URL("../app/pawline-moderation/reviews/page.jsx", import.meta.url), "utf8");
+  assert.doesNotMatch(moderationPage, /\bSignedIn\b|\bSignedOut\b/);
+  assert.match(moderationPage, /const \{ isLoaded, isSignedIn \} = useAuth\(\)/);
+  assert.match(moderationPage, /if \(!isSignedIn\).*Sign in to moderate reviews/s);
 });
 
 test("held applications queue only evidence-backed canonical-organization invitations", async () => {
