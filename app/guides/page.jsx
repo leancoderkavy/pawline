@@ -26,6 +26,12 @@ const guides = [
     description: "Use a current location, read the record class, and confirm the original source before you make plans.",
   },
   {
+    href: "/guides/find-a-pet-that-fits-your-home-and-routine",
+    label: "Compare your options",
+    title: "How to find a pet that fits your home and routine",
+    description: "Use disclosed listing facts and your household, routine, and pet experience to compare questions worth asking a shelter.",
+  },
+  {
     href: "/how-pawline-works",
     label: "Understand the data",
     title: "How Pawline verifies adoption listings",

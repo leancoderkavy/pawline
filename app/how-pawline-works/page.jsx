@@ -57,7 +57,7 @@ export default function HowPawlineWorksPage() {
 
       <section aria-labelledby="matching-heading">
         <h2 id="matching-heading">How the match quiz works</h2>
-        <p>The standard Pawline match quiz ranks records using the lifestyle preferences and listing facts that are actually available. It shows supporting facts, potential conflicts, and questions to ask when information is missing. A match score is an aid for comparing records; it is not an adoption decision, safety assessment, or compatibility guarantee.</p>
+        <p>The standard Pawline match quiz ranks records using the home, routine, household, and pet-experience details a person shares alongside the listing facts that are actually available. It shows supporting facts, potential conflicts, and questions to ask when information is missing. A match score is an aid for comparing records; it is not an adoption decision, safety assessment, or compatibility guarantee.</p>
       </section>
 
       <section aria-labelledby="location-heading">
@@ -71,7 +71,7 @@ export default function HowPawlineWorksPage() {
         <a href="/">Explore adoptable pets <span aria-hidden="true">→</span></a>
       </section>
 
-      <p className="methodology-related"><a href="/guides/find-adoptable-pets-near-you">Read: How to find adoptable dogs and cats near you <span aria-hidden="true">→</span></a></p>
+      <p className="methodology-related"><a href="/guides/find-a-pet-that-fits-your-home-and-routine">Read: How to find a pet that fits your home and routine <span aria-hidden="true">→</span></a></p>
     </article>
 
     <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({

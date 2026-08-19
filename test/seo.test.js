@@ -9,6 +9,7 @@ test("homepage publishes canonical search and social metadata", async () => {
   assert.match(layout, /alternates: \{ canonical: "\/"/);
   assert.match(layout, /robots: \{ index: true, follow: true/);
   assert.match(layout, /Find Adoptable Dogs & Cats Near You \| Pawline/);
+  assert.match(layout, /home, routine, household, and pet experience/);
   assert.match(layout, /card: "summary_large_image"/);
   assert.match(layout, /locale: "en_US"/);
   assert.match(layout, /social-card\.png/);
@@ -28,20 +29,27 @@ test("the methodology page is a crawlable, canonical explanation of listing prov
   assert.match(page, /"@type": "WebPage"/);
 });
 
-test("adoption guides are canonical, connected, and focused on current-source discovery", async () => {
-  const [app, hub, guide] = await Promise.all([
+test("adoption guides are canonical, connected, and explain honest matching", async () => {
+  const [app, hub, discoveryGuide, matchingGuide] = await Promise.all([
     read("src/App.jsx"),
     read("app/guides/page.jsx"),
     read("app/guides/find-adoptable-pets-near-you/page.jsx"),
+    read("app/guides/find-a-pet-that-fits-your-home-and-routine/page.jsx"),
   ]);
   assert.match(app, /href="\/guides"/);
+  assert.match(app, /Share your home, routine, household, and pet experience/);
   assert.match(hub, /title: "Pet Adoption Guides \| Pawline"/);
   assert.match(hub, /"@type": "CollectionPage"/);
   assert.match(hub, /find-adoptable-pets-near-you/);
-  assert.match(guide, /title: "How to Find Adoptable Pets Near You \| Pawline"/);
-  assert.match(guide, /alternates: \{ canonical: "\/guides\/find-adoptable-pets-near-you" \}/);
-  assert.match(guide, /Provider-backed pet listings/);
-  assert.match(guide, /"@type": "BreadcrumbList"/);
+  assert.match(hub, /find-a-pet-that-fits-your-home-and-routine/);
+  assert.match(discoveryGuide, /title: "How to Find Adoptable Pets Near You \| Pawline"/);
+  assert.match(discoveryGuide, /alternates: \{ canonical: "\/guides\/find-adoptable-pets-near-you" \}/);
+  assert.match(discoveryGuide, /Provider-backed pet listings/);
+  assert.match(discoveryGuide, /"@type": "BreadcrumbList"/);
+  assert.match(matchingGuide, /title: "Find a Pet That Fits Your Home & Routine \| Pawline"/);
+  assert.match(matchingGuide, /home, routine, household, and pet experience/);
+  assert.match(matchingGuide, /not a guarantee/);
+  assert.match(matchingGuide, /"@type": "BreadcrumbList"/);
 });
 
 test("crawler and AI discovery files use the canonical production domain", async () => {
@@ -57,7 +65,9 @@ test("crawler and AI discovery files use the canonical production domain", async
   assert.match(sitemap, /<loc>https:\/\/www\.pawlineadopt\.com\/how-pawline-works<\/loc>/);
   assert.match(sitemap, /<loc>https:\/\/www\.pawlineadopt\.com\/guides<\/loc>/);
   assert.match(sitemap, /<loc>https:\/\/www\.pawlineadopt\.com\/guides\/find-adoptable-pets-near-you<\/loc>/);
+  assert.match(sitemap, /<loc>https:\/\/www\.pawlineadopt\.com\/guides\/find-a-pet-that-fits-your-home-and-routine<\/loc>/);
   assert.match(llms, /Web-discovered leads are labeled as approximate leads/);
+  assert.match(llms, /home, routine, household, and pet experience/);
   assert.match(full, /Canonical URL: https:\/\/www\.pawlineadopt\.com\//);
 });
 

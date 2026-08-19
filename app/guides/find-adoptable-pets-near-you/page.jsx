@@ -51,7 +51,7 @@ export default function FindAdoptablePetsGuidePage() {
 
       <section aria-labelledby="match-heading">
         <h2 id="match-heading">4. Use matching as a comparison tool, not a verdict</h2>
-        <p>Pawline's match quiz uses the facts present in a listing and the lifestyle details you share. It can surface supporting facts, possible conflicts, and questions to ask, but it does not make adoption decisions or guarantee compatibility.</p>
+        <p>Pawline's match quiz uses the facts present in a listing and the home, routine, household, and pet-experience details you share. It can surface supporting facts, possible conflicts, and questions to ask, but it does not make adoption decisions or guarantee compatibility.</p>
       </section>
 
       <aside className="guide-note" aria-labelledby="change-heading">
