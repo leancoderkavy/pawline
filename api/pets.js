@@ -329,6 +329,86 @@ function findRelated(included, relationship) {
     .filter(Boolean);
 }
 
+function finiteCoordinate(...values) {
+  const value = values.find((candidate) =>
+    candidate !== null && candidate !== undefined && candidate !== "" &&
+    Number.isFinite(Number(candidate))
+  );
+  return value === undefined ? null : Number(value);
+}
+
+export function publicLocationCoordinates(location = {}) {
+  const coordinates = location.coordinates || location.coordinate || {};
+  const geometryCoordinates = Array.isArray(location.geometry?.coordinates)
+    ? location.geometry.coordinates
+    : [];
+  return {
+    latitude: finiteCoordinate(
+      location.latitude,
+      location.lat,
+      coordinates.latitude,
+      coordinates.lat,
+      geometryCoordinates[1],
+    ),
+    longitude: finiteCoordinate(
+      location.longitude,
+      location.lng,
+      location.lon,
+      coordinates.longitude,
+      coordinates.lng,
+      coordinates.lon,
+      geometryCoordinates[0],
+    ),
+  };
+}
+
+const hasCoordinates = (item) =>
+  Number.isFinite(item?.latitude) && Number.isFinite(item?.longitude);
+
+export async function geocodeRescueGroupsPets(
+  pets,
+  mapboxToken,
+  fetchImpl = fetch,
+) {
+  if (!mapboxToken) return pets;
+  const candidates = pets.filter((pet) =>
+    !hasCoordinates(pet) &&
+    pet.city &&
+    pet.city !== "Location available from rescue"
+  );
+  const queries = [...new Set(candidates.map((pet) => pet.city))];
+  if (!queries.length) return pets;
+
+  const url = new URL("https://api.mapbox.com/search/geocode/v6/batch");
+  url.searchParams.set("access_token", mapboxToken);
+  url.searchParams.set("permanent", "false");
+  const upstream = await fetchImpl(url, {
+    method: "POST",
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify(queries.map((q) => ({
+      q,
+      types: ["place", "postcode", "address"],
+      autocomplete: false,
+      limit: 1,
+    }))),
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!upstream.ok) throw new Error(`Mapbox batch geocoding returned ${upstream.status}`);
+  const payload = await upstream.json();
+  const resolved = new Map(queries.map((query, index) => {
+    const coordinates = payload.batch?.[index]?.features?.[0]?.geometry?.coordinates;
+    return [query, Array.isArray(coordinates) && coordinates.length >= 2
+      ? { longitude: Number(coordinates[0]), latitude: Number(coordinates[1]) }
+      : null];
+  }));
+  return pets.map((pet) => {
+    const coordinates = resolved.get(pet.city);
+    return coordinates && hasCoordinates(coordinates)
+      ? { ...pet, ...coordinates, locationAccuracy: "shelter" }
+      : pet;
+  });
+}
+
 function safeDatabaseText(value, fallback, maxLength = 240) {
   if (typeof value !== "string") return fallback;
   const text = cleanText(value);
@@ -393,6 +473,7 @@ function normalizeAnimal(animal, included, index) {
     .sort((a, b) => (a.order || 99) - (b.order || 99))[0];
   const organization = organizations[0]?.attributes || {};
   const location = locations[0]?.attributes || organization;
+  const coordinates = publicLocationCoordinates(location);
   const speciesName =
     species[0]?.attributes?.singular ||
     attributes.species ||
@@ -423,8 +504,9 @@ function normalizeAnimal(animal, included, index) {
     sourceUrl: safeHttpUrl(attributes.url || organization.adoptionUrl || organization.url),
     image:
       safeHttpUrl(picture?.large || picture?.original || attributes.pictureThumbnailUrl),
-    latitude: Number.isFinite(Number(location.latitude)) ? Number(location.latitude) : null,
-    longitude: Number.isFinite(Number(location.longitude)) ? Number(location.longitude) : null,
+    latitude: coordinates.latitude,
+    longitude: coordinates.longitude,
+    locationAccuracy: hasCoordinates(coordinates) ? "shelter" : undefined,
     x: 18 + ((index * 17) % 70),
     y: 20 + ((index * 23) % 62),
   };
@@ -509,11 +591,20 @@ export default async function handler(request, response) {
     const payloads = results.slice(rescueGroupsStart)
       .filter((result) => result.status === "fulfilled")
       .map((result) => result.value);
-    const providerPets = payloads.flatMap((payload) =>
+    const normalizedProviderPets = payloads.flatMap((payload) =>
       (payload.data || []).map((animal, index) =>
         normalizeAnimal(animal, payload.included || [], index),
       ),
     );
+    let providerPets = normalizedProviderPets;
+    try {
+      providerPets = await geocodeRescueGroupsPets(
+        normalizedProviderPets,
+        process.env.MAPBOX_ACCESS_TOKEN,
+      );
+    } catch (error) {
+      console.error("RescueGroups shelter geocoding unavailable", error);
+    }
     const pets = [
       ...montgomeryPets,
       ...kingCountyPets,
