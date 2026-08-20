@@ -31,6 +31,14 @@ test("the map uses a lightweight preview before loading Mapbox", async () => {
   assert.match(app, /clerkConfigured && accountSyncReady/);
 });
 
+test("unavailable map search keeps the existing map center and reports the limitation", async () => {
+  const app = await read("src/App.jsx");
+  assert.doesNotMatch(app, /setCoordinates\(null\)/);
+  assert.match(app, /coordinates\?\.latitude, coordinates\?\.longitude/);
+  assert.match(app, /setLocation\(currentMapArea\)/);
+  assert.match(app, /remains selected/);
+});
+
 test("the map surprise control chooses only an existing current listing", async () => {
   const [app, styles] = await Promise.all([read("src/App.jsx"), read("src/styles.css")]);
   assert.match(app, /const chooseSurprisePet = \(\) => \{/);
