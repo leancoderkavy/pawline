@@ -36,7 +36,7 @@ function ReviewQueue() {
     } catch (error) { setState((current) => ({ ...current, error: error.message })); }
   };
   return <main style={styles.shell}><section style={styles.card} aria-labelledby="moderation-title">
-    <p style={styles.eyebrow}>Pawline staff</p><h1 id="moderation-title">Verified review moderation</h1>
+    <p style={styles.eyebrow}>Pawline staff</p><h1 id="moderation-title" style={styles.title}>Verified review moderation</h1>
     <p style={styles.note}>Publish only factual, safety-screened verified interactions. Rejecting a review removes it from public organization summaries. Evidence remains unavailable in this release.</p>
     {state.error ? <p role="alert" style={styles.error}>{state.error}</p> : null}
     {state.loading ? <p role="status">Loading review queue…</p> : reviews.length ? <ul style={styles.list}>{reviews.map((review) => <li key={review.id} style={styles.item}>
@@ -54,19 +54,20 @@ function ReviewModerationGate() {
   // Do not mount the queue or issue authenticated requests until Clerk has
   // confirmed a session. The API remains the role authorization boundary.
   if (!isLoaded) return <main style={styles.shell}><section style={styles.card}><p role="status">Checking sign-in status…</p></section></main>;
-  if (!isSignedIn) return <main style={styles.shell}><section style={styles.card}><h1>Sign in to moderate reviews</h1><button type="button" style={styles.button} onClick={() => setShowAuthModal(true)}>Sign in</button>{showAuthModal ? <AuthModal initialMode="signin" onClose={() => setShowAuthModal(false)} onSuccess={() => setShowAuthModal(false)} /> : null}</section></main>;
+  if (!isSignedIn) return <main style={styles.shell}><section style={styles.card}><h1 style={styles.title}>Sign in to moderate reviews</h1><button type="button" style={styles.button} onClick={() => setShowAuthModal(true)}>Sign in</button>{showAuthModal ? <AuthModal initialMode="signin" onClose={() => setShowAuthModal(false)} onSuccess={() => setShowAuthModal(false)} /> : null}</section></main>;
   return <ReviewQueue />;
 }
 
 export default function ReviewModerationPage() {
   const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || "";
-  if (!publishableKey) return <main style={styles.shell}><section style={styles.card}><h1>Review moderation is unavailable</h1><p>Identity services are not configured for this environment.</p></section></main>;
+  if (!publishableKey) return <main style={styles.shell}><section style={styles.card}><h1 style={styles.title}>Review moderation is unavailable</h1><p>Identity services are not configured for this environment.</p></section></main>;
   return <ClerkProvider publishableKey={publishableKey}><ReviewModerationGate /></ClerkProvider>;
 }
 
 const styles = {
   shell: { minHeight: "100vh", padding: 20, background: "#f6f2e8", color: "#173b2a" },
-  card: { maxWidth: 860, margin: "24px auto", padding: 28, background: "#fffdf8", border: "1px solid #d6ded6", borderRadius: 16, lineHeight: 1.5 },
+  card: { boxSizing: "border-box", width: "min(100%, 860px)", margin: "24px auto", padding: 28, background: "#fffdf8", border: "1px solid #d6ded6", borderRadius: 16, lineHeight: 1.5 },
+  title: { margin: "0 0 16px", fontSize: "clamp(2.15rem, 10.5vw, 3.6rem)", lineHeight: 0.98, letterSpacing: "-.04em", overflowWrap: "anywhere" },
   eyebrow: { color: "#6a2f17", fontSize: 12, fontWeight: 700, letterSpacing: ".08em", textTransform: "uppercase" },
   note: { color: "#526b5d" }, error: { color: "#a32d20", fontWeight: 700 },
   list: { listStyle: "none", padding: 0, display: "grid", gap: 16 }, item: { borderTop: "1px solid #d9dfd5", paddingTop: 16 },

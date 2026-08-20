@@ -1,7 +1,7 @@
 const canonicalUrl = "https://www.pawlineadopt.com/guides/find-a-pet-that-fits-your-home-and-routine";
 
 export const metadata = {
-  title: "Find a Pet That Fits Your Home & Routine | Pawline",
+  title: "Find a Pet That Fits Your Home & Routine",
   description: "Use a pet adoption match quiz to compare disclosed listing facts with your home, routine, household, and pet experience before you contact a shelter.",
   alternates: { canonical: "/guides/find-a-pet-that-fits-your-home-and-routine" },
   openGraph: {
@@ -23,8 +23,8 @@ export default function FindAPetThatFitsGuidePage() {
     <header className="methodology-header">
       <a className="methodology-brand" href="/" aria-label="Pawline adoption discovery home">Pawline</a>
       <div className="methodology-header-actions">
-        <a className="methodology-nav" href="/guides">Adoption guides</a>
-        <a className="methodology-discover" href="/">Find adoptable pets <span aria-hidden="true">→</span></a>
+        <a className="methodology-nav" href="/guides"><span className="methodology-nav-long">Adoption guides</span><span className="methodology-nav-short">Guides</span></a>
+        <a className="methodology-discover" href="/"><span className="methodology-discover-long">Find adoptable pets</span><span className="methodology-discover-short">Find pets</span> <span aria-hidden="true">→</span></a>
       </div>
     </header>
 

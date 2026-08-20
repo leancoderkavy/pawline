@@ -13,6 +13,28 @@ test("the homepage server-renders without eagerly loading Clerk", async () => {
   assert.match(page, /<PawlineApp/);
 });
 
+test("support-page headers and protected fallbacks fit narrow screens", async () => {
+  const [styles, methodology, guides, nearbyGuide, matchingGuide, claim, moderation] = await Promise.all([
+    read("src/styles.css"),
+    read("app/how-pawline-works/page.jsx"),
+    read("app/guides/page.jsx"),
+    read("app/guides/find-adoptable-pets-near-you/page.jsx"),
+    read("app/guides/find-a-pet-that-fits-your-home-and-routine/page.jsx"),
+    read("app/shelter/claim/ClaimOrganizationClient.jsx"),
+    read("app/pawline-moderation/reviews/ReviewModerationClient.jsx"),
+  ]);
+  assert.match(styles, /\.methodology-nav-short,\.methodology-discover-short \{ display:none; \}/);
+  assert.match(styles, /\.methodology-nav-long,\.methodology-discover-long \{ display:none; \}/);
+  for (const page of [methodology, guides, nearbyGuide, matchingGuide]) {
+    assert.match(page, /methodology-nav-short/);
+    assert.match(page, /methodology-discover-short/);
+  }
+  for (const source of [claim, moderation]) {
+    assert.match(source, /boxSizing: "border-box"/);
+    assert.match(source, /overflowWrap: "anywhere"/);
+  }
+});
+
 test("the map uses a lightweight preview before loading Mapbox", async () => {
   const [app, mapApi] = await Promise.all([read("src/App.jsx"), read("api/map.js")]);
   assert.match(app, /const \[interactive, setInteractive\] = useState\(false\)/);
