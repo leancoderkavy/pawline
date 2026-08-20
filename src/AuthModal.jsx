@@ -26,14 +26,12 @@ export default function AuthModal({
   const [message, setMessage] = useState({ type: "idle", text: "" });
   const [submitting, setSubmitting] = useState(false);
 
-  const signInState = useSignIn();
-  const signUpState = useSignUp();
-  const signInLoaded = signInState?.isLoaded === true;
-  const signUpLoaded = signUpState?.isLoaded === true;
+  const { signIn, fetchStatus: signInFetchStatus } = useSignIn();
+  const { signUp, fetchStatus: signUpFetchStatus } = useSignUp();
   const isSignInMode = mode === "signin";
   const isSignUpMode = mode === "signup";
   const isVerifying = mode === "verify";
-  const hooksLoaded = isVerifying || isSignUpMode ? signUpLoaded : signInLoaded;
+  const isBusy = submitting || signInFetchStatus === "fetching" || signUpFetchStatus === "fetching";
 
   const showError = (text) => setMessage({ type: "error", text });
   const showStatus = (text) => setMessage({ type: "status", text });
@@ -45,15 +43,29 @@ export default function AuthModal({
     setMessage({ type: "idle", text: "" });
   };
 
-  const onAuthDone = async () => {
-    showSuccess("Welcome back. You are signed in.");
+  const onAuthDone = async (successMessage) => {
+    showSuccess(successMessage);
     onSuccess?.();
     onClose?.();
   };
 
-  const signIn = async (event) => {
+  const finalizeAuth = async (resource, successMessage) => {
+    const { error } = await resource.finalize();
+    if (error) {
+      showError(readErrorMessage(error));
+      return false;
+    }
+    await onAuthDone(successMessage);
+    return true;
+  };
+
+  const handleSignIn = async (event) => {
     event.preventDefault();
-    if (!hooksLoaded || submitting || !signInState?.signIn) return;
+    if (isBusy) return;
+    if (!signIn) {
+      showError("The sign-in service is not ready. Please try again.");
+      return;
+    }
     const normalizedEmail = normalizeEmail(email);
     if (!normalizedEmail || !password) {
       showError("Enter both your email and password.");
@@ -63,15 +75,13 @@ export default function AuthModal({
     setSubmitting(true);
     showStatus("Signing in…");
     try {
-      const result = await signInState.signIn.create({
-        identifier: normalizedEmail,
+      const { error } = await signIn.password({
+        emailAddress: normalizedEmail,
         password,
-        strategy: "password",
       });
-      if (result.status !== "complete" || !result.createdSessionId) throw new Error("This account needs an additional step before sign-in.");
-      if (!signInState.setActive) throw new Error("Identity session activation is unavailable.");
-      await signInState.setActive({ session: result.createdSessionId });
-      await onAuthDone();
+      if (error) throw error;
+      if (signIn.status !== "complete") throw new Error("This account needs an additional step before sign-in.");
+      await finalizeAuth(signIn, "Welcome back. You are signed in.");
     } catch (error) {
       showError(readErrorMessage(error));
     } finally {
@@ -80,20 +90,36 @@ export default function AuthModal({
   };
 
   const requestVerificationCode = async () => {
-    if (!signUpState?.signUp) return;
+    if (!signUp) {
+      showError("The account service is not ready. Please try again.");
+      return false;
+    }
     showStatus("Sending a fresh verification code to your email...");
     try {
-      await signUpState.signUp.prepareEmailAddressVerification({ strategy: "email_code" });
+      const { error } = await signUp.verifications.sendEmailCode();
+      if (error) throw error;
       showStatus(`A verification code was sent to ${normalizeEmail(email)}.`);
+      return true;
     } catch (error) {
       showError(readErrorMessage(error));
-      throw error;
+      return false;
     }
   };
 
-  const signUp = async (event) => {
+  const resendVerificationCode = async () => {
+    if (isBusy) return;
+    setSubmitting(true);
+    await requestVerificationCode();
+    setSubmitting(false);
+  };
+
+  const handleSignUp = async (event) => {
     event.preventDefault();
-    if (!hooksLoaded || submitting || !signUpState?.signUp) return;
+    if (isBusy) return;
+    if (!signUp) {
+      showError("The account service is not ready. Please try again.");
+      return;
+    }
     const normalizedEmail = normalizeEmail(email);
     if (!normalizedEmail || !password) {
       showError("Enter both your email and password.");
@@ -103,15 +129,17 @@ export default function AuthModal({
     setSubmitting(true);
     showStatus("Creating your account…");
     try {
-      const result = await signUpState.signUp.create({ emailAddress: normalizedEmail, password });
-      if (result.status === "complete" && result.createdSessionId && signUpState.setActive) {
-        await signUpState.setActive({ session: result.createdSessionId });
-        await onAuthDone();
+      const { error } = await signUp.password({ emailAddress: normalizedEmail, password });
+      if (error) throw error;
+      if (signUp.status === "complete") {
+        await finalizeAuth(signUp, "Your Pawline account is ready.");
         return;
       }
-      if (result.status === "missing_requirements" && Array.isArray(result.unverifiedFields) && result.unverifiedFields.includes("email_address")) {
-        await requestVerificationCode();
-        resetMode("verify");
+      if (signUp.status === "missing_requirements" && signUp.unverifiedFields.includes("email_address")) {
+        if (await requestVerificationCode()) {
+          setMode("verify");
+          setCode("");
+        }
         return;
       }
       throw new Error("Your account can’t be activated yet.");
@@ -124,7 +152,11 @@ export default function AuthModal({
 
   const verifyEmail = async (event) => {
     event.preventDefault();
-    if (!hooksLoaded || submitting || !signUpState?.signUp) return;
+    if (isBusy) return;
+    if (!signUp) {
+      showError("The account service is not ready. Please try again.");
+      return;
+    }
     const cleanCode = code.trim();
     if (!cleanCode) {
       showError("Enter the six-digit verification code.");
@@ -134,11 +166,10 @@ export default function AuthModal({
     setSubmitting(true);
     showStatus("Verifying your email…");
     try {
-      const verified = await signUpState.signUp.attemptEmailAddressVerification({ code: cleanCode });
-      if (verified.status !== "complete" || !verified.createdSessionId) throw new Error("The code was accepted, but sign-in could not be finished.");
-      if (!signUpState.setActive) throw new Error("Identity session activation is unavailable.");
-      await signUpState.setActive({ session: verified.createdSessionId });
-      await onAuthDone();
+      const { error } = await signUp.verifications.verifyEmailCode({ code: cleanCode });
+      if (error) throw error;
+      if (signUp.status !== "complete") throw new Error("The code was accepted, but sign-in could not be finished.");
+      await finalizeAuth(signUp, "Your Pawline account is ready.");
     } catch (error) {
       showError(readErrorMessage(error));
     } finally {
@@ -146,13 +177,9 @@ export default function AuthModal({
     }
   };
 
-  if (!hooksLoaded) {
-    return <Dialog title="Secure sign-in" onClose={onClose}><p role="status">Preparing your account form…</p></Dialog>;
-  }
-
   const title = mode === "verify" ? "Verify your email" : mode === "signup" ? "Create a Pawline account" : "Sign in to Pawline";
   const submitLabel = mode === "verify" ? "Verify code" : mode === "signup" ? "Create account" : "Sign in";
-  const submitHandler = mode === "verify" ? verifyEmail : mode === "signup" ? signUp : signIn;
+  const submitHandler = mode === "verify" ? verifyEmail : mode === "signup" ? handleSignUp : handleSignIn;
   const codeLabel = mode === "verify" ? "Verification code" : "Password";
 
   return <Dialog title={title} onClose={onClose}>
@@ -166,12 +193,12 @@ export default function AuthModal({
       </label> : <label>Verification code
         <input type="text" name="code" required value={code} onChange={(event) => setCode(event.target.value)} placeholder="123456" maxLength={8} inputMode="numeric" />
       </label>}
-      <button type="submit" className="button" disabled={submitting}>
-        {submitting ? <LoaderCircle className="community-spinner" /> : submitLabel}
+      <button type="submit" className="button" disabled={isBusy}>
+        {isBusy ? <LoaderCircle className="community-spinner" /> : submitLabel}
       </button>
     </form>
-    {mode === "verify" ? <button type="button" className="text-action auth-modal-resend" onClick={requestVerificationCode} disabled={submitting}>
-      {submitting ? <LoaderCircle className="community-spinner" /> : <><RefreshCcw /> Send a new code</>}
+    {mode === "verify" ? <button type="button" className="text-action auth-modal-resend" onClick={resendVerificationCode} disabled={isBusy}>
+      {isBusy ? <LoaderCircle className="community-spinner" /> : <><RefreshCcw /> Send a new code</>}
     </button> : null}
     <div className="auth-mode-switch">
       {isSignInMode ? <button type="button" onClick={() => resetMode("signup")}>Need an account? Create one</button> : null}
