@@ -1,7 +1,8 @@
 "use client";
 
-import { ClerkProvider, SignInButton, useAuth } from "@clerk/nextjs";
+import { ClerkProvider, useAuth } from "@clerk/nextjs";
 import { useCallback, useEffect, useState } from "react";
+import AuthModal from "../../src/AuthModal";
 
 export const metadata = {
   title: "Review moderation",
@@ -60,10 +61,11 @@ function ReviewQueue() {
 
 function ReviewModerationGate() {
   const { isLoaded, isSignedIn } = useAuth();
+  const [showAuthModal, setShowAuthModal] = useState(false);
   // Do not mount the queue or issue authenticated requests until Clerk has
   // confirmed a session. The API remains the role authorization boundary.
   if (!isLoaded) return <main style={styles.shell}><section style={styles.card}><p role="status">Checking sign-in status…</p></section></main>;
-  if (!isSignedIn) return <main style={styles.shell}><section style={styles.card}><h1>Sign in to moderate reviews</h1><SignInButton mode="modal"><button type="button" style={styles.button}>Sign in</button></SignInButton></section></main>;
+  if (!isSignedIn) return <main style={styles.shell}><section style={styles.card}><h1>Sign in to moderate reviews</h1><button type="button" style={styles.button} onClick={() => setShowAuthModal(true)}>Sign in</button>{showAuthModal ? <AuthModal initialMode="signin" onClose={() => setShowAuthModal(false)} onSuccess={() => setShowAuthModal(false)} /> : null}</section></main>;
   return <ReviewQueue />;
 }
 

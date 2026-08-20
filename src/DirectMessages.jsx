@@ -2,11 +2,12 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import Ably from "ably";
-import { SignInButton, SignUpButton, UserButton, useAuth } from "@clerk/nextjs";
+import { UserButton, useAuth } from "@clerk/nextjs";
 import {
   AlertTriangle, ArrowLeft, CheckCircle2, Flag, LoaderCircle, LockKeyhole,
   MessageCircle, PawPrint, Send, ShieldCheck, Users,
 } from "lucide-react";
+import AuthModal from "./AuthModal";
 
 async function json(response, fallback) {
   if (!response.headers.get("content-type")?.includes("application/json")) throw new Error(fallback);
@@ -56,6 +57,8 @@ function SafetyRail({ conversation }) {
 
 export default function DirectMessages({ initialListing, onInitialListingHandled, onBrowse }) {
   const { isLoaded, isSignedIn, userId, getToken } = useAuth();
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authMode, setAuthMode] = useState("signin");
   const [conversations, setConversations] = useState([]);
   const [selected, setSelected] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -188,11 +191,12 @@ export default function DirectMessages({ initialListing, onInitialListingHandled
 
   if (!isLoaded) return <div className="community-auth-state"><LoaderCircle className="community-spinner" /><h2>Opening Messages…</h2></div>;
   if (!isSignedIn) return <div className="community-auth-state">
+    {showAuthModal ? <AuthModal initialMode={authMode} onClose={() => setShowAuthModal(false)} onSuccess={() => setShowAuthModal(false)} /> : null}
     <span><MessageCircle /></span><h2>Message a shelter or foster</h2>
     <p>Sign in to register a pet, ask about a Pawline listing, or respond as its caretaker. Your contact details stay private.</p>
     <div className="auth-actions">
-      <SignUpButton mode="modal"><button className="button">Create account</button></SignUpButton>
-      <SignInButton mode="modal"><button className="button button-outline">Sign in</button></SignInButton>
+      <button className="button" onClick={() => { setAuthMode("signup"); setShowAuthModal(true); }}>Create account</button>
+      <button className="button button-outline" onClick={() => { setAuthMode("signin"); setShowAuthModal(true); }}>Sign in</button>
     </div>
     <div className="auth-safety"><ShieldCheck /><span><strong>Private by design</strong>Every conversation is tied to one listing and protected by Pawline moderation.</span></div>
   </div>;

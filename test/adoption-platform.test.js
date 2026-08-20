@@ -169,7 +169,8 @@ test("claim links retain their fragment credential through modal sign-in without
   assert.match(page, /function ClaimFlow\(\)/);
   assert.match(page, /new URLSearchParams\(window\.location\.hash\.slice\(1\)\)/);
   assert.match(page, /window\.history\.replaceState\(null, "", "\/shelter\/claim"\)/);
-  assert.match(page, /<SignInButton mode="modal">/);
+  assert.match(page, /setShowAuthModal\(true\)/);
+  assert.match(page, /<AuthModal initialMode=\"signin\"/);
   assert.match(page, /<ClaimForm token=\{token\} onConsumed=/);
   assert.doesNotMatch(page, /\bSignedIn\b|\bSignedOut\b/);
   assert.match(page, /const \{ isLoaded, isSignedIn \} = useAuth\(\)/);

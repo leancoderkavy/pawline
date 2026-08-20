@@ -589,3 +589,10 @@ html:has(.adopter-experience),body:has(.adopter-experience) { min-width:0; }
   .journey-map-link { position:relative; }
   .journey-map-link span { position:absolute;display:block;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap; }
 }
+
+.form-success { color:#285b47;background:#e6f4e8;padding:10px;border-radius:7px;font-size:11px; }
+.auth-modal-note { margin: 6px 0 0; color:#556a60; font-size:11px; }
+.auth-mode-switch { display:flex; align-items:center; justify-content:center; gap:6px; flex-wrap:wrap; margin-top:10px; }
+.auth-mode-switch button { min-height:40px; padding:0 12px; border:1px solid #d9d1c0; border-radius:8px; background:#fffdf9; color:var(--green); }
+.auth-mode-switch button:hover { border-color:var(--green); }
+.auth-modal-resend { display:inline-flex; gap:6px; margin-top:10px; }
