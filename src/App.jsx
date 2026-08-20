@@ -1209,6 +1209,11 @@ export default function App({ clerkPublishableKey = "" }) {
     catch { setFavoriteError("Favorites could not be saved in this browser. Free storage space and retry."); }
   }, [saved, savedHydrated]);
   useEffect(() => {
+    if (!coordinates || !Number.isFinite(coordinates.latitude) || !Number.isFinite(coordinates.longitude)) {
+      setNearbyShelters([]);
+      setShelterState({ status: "error", message: "Nearby shelter locations need a valid map center." });
+      return undefined;
+    }
     const controller = new AbortController();
     const params = new URLSearchParams();
     if (species !== "All") params.set("species", species);
@@ -1268,7 +1273,7 @@ export default function App({ clerkPublishableKey = "" }) {
         }
       });
     return () => controller.abort();
-  }, [coordinates.latitude, coordinates.longitude]);
+  }, [coordinates?.latitude, coordinates?.longitude]);
   useEffect(() => {
     fetch("/api/health")
       .then(response => readJson(response, "Integration status is unavailable."))
@@ -1331,8 +1336,9 @@ export default function App({ clerkPublishableKey = "" }) {
       return;
     }
     if (!integrations.mapboxConfigured) {
-      setCoordinates(null);
-      setLocationState({ status: "error", message: "Live location search is unavailable until the map provider is connected." });
+      const currentMapArea = coordinates?.name || "the current map area";
+      setLocation(currentMapArea);
+      setLocationState({ status: "error", message: `Live location search is unavailable until the map provider is connected. ${currentMapArea} remains selected.` });
       document.getElementById("map")?.scrollIntoView({ behavior: "smooth" });
       return;
     }
