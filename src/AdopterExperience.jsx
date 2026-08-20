@@ -24,6 +24,27 @@ function suppliedHours(item) {
       : null;
 }
 
+function PetImage({ src, alt, className = "", fallbackText = "Photo unavailable" }) {
+  const safeSrc = typeof src === "string" ? src.trim() : "";
+  const [isError, setIsError] = useState(false);
+
+  useEffect(() => {
+    setIsError(false);
+  }, [safeSrc]);
+
+  if (!safeSrc || isError) {
+    const fallbackClassName = className ? `${className}-fallback` : "pet-image-fallback";
+    const label = typeof alt === "string" && alt.trim().length > 0 ? `${alt} photo unavailable` : fallbackText;
+    return (
+      <span className={fallbackClassName} role="img" aria-label={label}>
+        <span>{label}</span>
+      </span>
+    );
+  }
+
+  return <img className={className} src={safeSrc} alt={alt} onError={() => setIsError(true)} />;
+}
+
 function loadLocalJourney() {
   if (typeof window === "undefined") return { profile: DEFAULT_PROFILE, applications: [] };
   try {
@@ -84,7 +105,15 @@ function JourneyTimeline({ application }) {
 
 function MatchCard({ match, saved, onSave, onOpen }) {
   const { pet, reasons, considerations, questions } = match;
-  return <article className="journey-pet-card"><img src={pet.image} alt={`${pet.name}${pet.breed ? `, a ${pet.breed}` : ""}`} /><div><div className="pet-card-topline"><p className="eyebrow">{resultFreshness(pet)}</p><button type="button" className={saved ? "journey-heart saved" : "journey-heart"} onClick={() => onSave(pet.id)} aria-label={`${saved ? "Remove" : "Save"} ${pet.name}`}><Heart fill={saved ? "currentColor" : "none"} /></button></div><h3>{pet.name}</h3><p className="pet-card-meta">{[pet.breed, pet.age, pet.city].filter(Boolean).join(" · ")}</p>{reasons[0] ? <p className="fit-reason"><CheckCircle2 /> {reasons[0]}</p> : null}{considerations[0] ? <p className="fit-consider"><Info /> {considerations[0]}</p> : null}{questions[0] ? <p className="fit-question">Ask: {questions[0]}</p> : null}<button type="button" className="text-action" onClick={() => onOpen(pet)}>See fit details <ChevronRight /></button></div></article>;
+  return <article className="journey-pet-card">
+    <PetImage
+      src={pet.image}
+      alt={`${pet.name}${pet.breed ? `, a ${pet.breed}` : ""}`}
+      className="journey-pet-card-photo"
+      fallbackText={`${pet.name} photo unavailable`}
+    />
+    <div><div className="pet-card-topline"><p className="eyebrow">{resultFreshness(pet)}</p><button type="button" className={saved ? "journey-heart saved" : "journey-heart"} onClick={() => onSave(pet.id)} aria-label={`${saved ? "Remove" : "Save"} ${pet.name}`}><Heart fill={saved ? "currentColor" : "none"} /></button></div><h3>{pet.name}</h3><p className="pet-card-meta">{[pet.breed, pet.age, pet.city].filter(Boolean).join(" · ")}</p>{reasons[0] ? <p className="fit-reason"><CheckCircle2 /> {reasons[0]}</p> : null}{considerations[0] ? <p className="fit-consider"><Info /> {considerations[0]}</p> : null}{questions[0] ? <p className="fit-question">Ask: {questions[0]}</p> : null}<button type="button" className="text-action" onClick={() => onOpen(pet)}>See fit details <ChevronRight /></button></div>
+  </article>;
 }
 
 function Discovery({ pets, profile, saved, onSave, onOpen, onOpenMap, feed }) {
@@ -110,7 +139,14 @@ function PetPage({ pet, profile, saved, onSave, onBack, onStartApplication }) {
   return <section className="journey-pet-page" aria-labelledby="pet-page-title">
     <button type="button" className="back-action" onClick={onBack}><ArrowLeft /> Back to pets</button>
     <div className="pet-page-sticky"><button type="button" onClick={() => onStartApplication(pet)}><ClipboardList /> Start application</button>{sourceUrl ? <a href={sourceUrl} target="_blank" rel="noreferrer">External route <ExternalLink /></a> : null}</div>
-    <div className="journey-pet-layout"><div className="pet-page-image"><img src={pet.image} alt={`${pet.name}${pet.breed ? `, a ${pet.breed}` : ""}`} /></div><div className="pet-page-main"><p className="eyebrow">{resultFreshness(pet)}</p><h1 id="pet-page-title">{pet.name}</h1><p className="pet-page-meta">{[pet.species, pet.breed, pet.age, pet.size, pet.sex].filter(Boolean).join(" · ")}</p><p className="pet-page-location"><MapPin /> {pet.address || pet.city || "Location available from the official listing"}</p><section className="fit-panel"><h2>What Pawline can explain</h2>{match?.reasons.length ? <ul>{match.reasons.map(reason => <li key={reason}><CheckCircle2 /> {reason}</li>)}</ul> : <p>There are not enough public listing facts to assess fit yet.</p>}{match?.considerations.length ? <ul className="considerations">{match.considerations.map(item => <li key={item}><Info /> {item}</li>)}</ul> : null}{match?.questions.length ? <div><h3>Questions to ask the shelter</h3><ul>{match.questions.map(question => <li key={question}>{question}</li>)}</ul></div> : null}</section><section className="shelter-facts"><h2>About this listing</h2><p><ShieldCheck /> {pet.shelter || "Listed organization"}</p><p><CalendarClock /> {suppliedHours(pet) || "Hours were not supplied by this listing. Confirm before visiting."}</p><p><Info /> Availability and adoption requirements should be confirmed with the shelter.</p></section><div className="pet-page-actions"><button type="button" className="outline-action" onClick={() => onSave(pet.id)}><Heart fill={saved ? "currentColor" : "none"} /> {saved ? "Saved" : "Save pet"}</button>{directionsUrl ? <a className="outline-action" href={directionsUrl} target="_blank" rel="noreferrer"><Compass /> Directions</a> : null}{sourceUrl ? <a className="outline-action" href={sourceUrl} target="_blank" rel="noreferrer">Official listing <ExternalLink /></a> : null}</div></div></div>
+    <div className="journey-pet-layout"><div className="pet-page-image">
+      <PetImage
+        src={pet.image}
+        alt={`${pet.name}${pet.breed ? `, a ${pet.breed}` : ""}`}
+        className="pet-page-photo"
+        fallbackText={`${pet.name} photo unavailable`}
+      />
+    </div><div className="pet-page-main"><p className="eyebrow">{resultFreshness(pet)}</p><h1 id="pet-page-title">{pet.name}</h1><p className="pet-page-meta">{[pet.species, pet.breed, pet.age, pet.size, pet.sex].filter(Boolean).join(" · ")}</p><p className="pet-page-location"><MapPin /> {pet.address || pet.city || "Location available from the official listing"}</p><section className="fit-panel"><h2>What Pawline can explain</h2>{match?.reasons.length ? <ul>{match.reasons.map(reason => <li key={reason}><CheckCircle2 /> {reason}</li>)}</ul> : <p>There are not enough public listing facts to assess fit yet.</p>}{match?.considerations.length ? <ul className="considerations">{match.considerations.map(item => <li key={item}><Info /> {item}</li>)}</ul> : null}{match?.questions.length ? <div><h3>Questions to ask the shelter</h3><ul>{match.questions.map(question => <li key={question}>{question}</li>)}</ul></div> : null}</section><section className="shelter-facts"><h2>About this listing</h2><p><ShieldCheck /> {pet.shelter || "Listed organization"}</p><p><CalendarClock /> {suppliedHours(pet) || "Hours were not supplied by this listing. Confirm before visiting."}</p><p><Info /> Availability and adoption requirements should be confirmed with the shelter.</p></section><div className="pet-page-actions"><button type="button" className="outline-action" onClick={() => onSave(pet.id)}><Heart fill={saved ? "currentColor" : "none"} /> {saved ? "Saved" : "Save pet"}</button>{directionsUrl ? <a className="outline-action" href={directionsUrl} target="_blank" rel="noreferrer"><Compass /> Directions</a> : null}{sourceUrl ? <a className="outline-action" href={sourceUrl} target="_blank" rel="noreferrer">Official listing <ExternalLink /></a> : null}</div></div></div>
   </section>;
 }
 
