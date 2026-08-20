@@ -3,6 +3,17 @@
 import { ClerkProvider, SignInButton, useAuth } from "@clerk/nextjs";
 import { useCallback, useEffect, useState } from "react";
 
+export const metadata = {
+  title: "Review moderation",
+  description: "Pawline staff review queue for submitted, verified adopter feedback before publication.",
+  openGraph: {
+    title: "Review moderation | Pawline",
+    description: "Pawline staff review queue for verified adopter feedback before publication.",
+    images: [{ url: "/social-card.png", alt: "Pawline staff review moderation workflow" }],
+  },
+  twitter: { card: "summary_large_image", title: "Review moderation | Pawline", description: "Pawline staff review queue for verified adopter feedback before publication.", images: [{ url: "/social-card.png", alt: "Pawline staff review moderation workflow" }] },
+};
+
 async function readResponse(response) {
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error || "Review moderation is temporarily unavailable.");
@@ -65,7 +76,7 @@ export default function ReviewModerationPage() {
 const styles = {
   shell: { minHeight: "100vh", padding: 20, background: "#f6f2e8", color: "#173b2a" },
   card: { maxWidth: 860, margin: "24px auto", padding: 28, background: "#fffdf8", border: "1px solid #d6ded6", borderRadius: 16, lineHeight: 1.5 },
-  eyebrow: { color: "#a8522d", fontSize: 12, fontWeight: 700, letterSpacing: ".08em", textTransform: "uppercase" },
+  eyebrow: { color: "#6a2f17", fontSize: 12, fontWeight: 700, letterSpacing: ".08em", textTransform: "uppercase" },
   note: { color: "#526b5d" }, error: { color: "#a32d20", fontWeight: 700 },
   list: { listStyle: "none", padding: 0, display: "grid", gap: 16 }, item: { borderTop: "1px solid #d9dfd5", paddingTop: 16 },
   appeal: { color: "#7a3a1f" }, actions: { display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12 },

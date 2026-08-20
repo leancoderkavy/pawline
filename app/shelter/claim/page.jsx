@@ -3,6 +3,17 @@
 import { ClerkProvider, SignInButton, useAuth } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
 
+export const metadata = {
+  title: "Shelter claim",
+  description: "Use your invitation link to connect a verified shelter organization to Pawline and manage applications and listing workflows.",
+  openGraph: {
+    title: "Shelter claim | Pawline",
+    description: "Connect a verified shelter organization to Pawline and manage listings safely.",
+    images: [{ url: "/social-card.png", alt: "Pawline shelter claiming and verification workflow" }],
+  },
+  twitter: { card: "summary_large_image", title: "Shelter claim | Pawline", description: "Connect a verified shelter organization to Pawline and manage listings safely.", images: [{ url: "/social-card.png", alt: "Pawline shelter claiming and verification workflow" }] },
+};
+
 function ClaimForm({ token, onConsumed }) {
   const { getToken } = useAuth();
   const [state, setState] = useState("ready");
@@ -65,7 +76,7 @@ export default function ClaimOrganizationPage() {
 const styles = {
   shell: { minHeight: "100vh", display: "grid", placeItems: "center", padding: 20, background: "#f6f2e8", color: "#173b2a" },
   card: { width: "min(100%, 580px)", padding: 28, borderRadius: 16, border: "1px solid #d6ded6", background: "#fffdf8", lineHeight: 1.55 },
-  eyebrow: { color: "#a8522d", fontSize: 12, letterSpacing: ".08em", textTransform: "uppercase", fontWeight: 700 },
+  eyebrow: { color: "#6a2f17", fontSize: 12, letterSpacing: ".08em", textTransform: "uppercase", fontWeight: 700 },
   button: { minHeight: 44, padding: "10px 15px", border: 0, borderRadius: 8, background: "#174d36", color: "#fff", fontWeight: 700, cursor: "pointer" },
   link: { color: "#174d36", fontWeight: 700 }, error: { color: "#a32d20" }, success: { color: "#174d36", fontWeight: 700 }, note: { fontSize: ".88rem", color: "#526b5d", marginTop: 16 },
 };
