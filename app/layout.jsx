@@ -7,7 +7,10 @@ const serif = DM_Serif_Display({ subsets: ["latin"], weight: "400", variable: "-
 
 export const metadata = {
   metadataBase: new URL("https://www.pawlineadopt.com"),
-  title: "Find Adoptable Dogs & Cats Near You | Pawline",
+  title: {
+    default: "Find Adoptable Dogs & Cats Near You | Pawline",
+    template: "%s | Pawline",
+  },
   description: "Find adoptable dogs and cats near you, then compare listed needs with your home, routine, household, and pet experience before you contact the shelter.",
   alternates: { canonical: "/", types: { "text/plain": "https://www.pawlineadopt.com/llms.txt" } },
   robots: { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1, "max-video-preview": -1 } },

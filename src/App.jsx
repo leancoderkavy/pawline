@@ -32,6 +32,27 @@ async function readJson(response, fallbackMessage) {
   return response.json();
 }
 
+function PetImage({ src, alt, className = "", fallbackText = "Photo unavailable" }) {
+  const safeSrc = typeof src === "string" ? src.trim() : "";
+  const [isError, setIsError] = useState(false);
+
+  useEffect(() => {
+    setIsError(false);
+  }, [safeSrc]);
+
+  if (!safeSrc || isError) {
+    const fallbackClassName = className ? `${className}-fallback` : "pet-image-fallback";
+    const label = typeof alt === "string" && alt.trim().length > 0 ? `${alt} photo unavailable` : fallbackText;
+    return (
+      <span className={fallbackClassName} role="img" aria-label={label}>
+        <span>{label}</span>
+      </span>
+    );
+  }
+
+  return <img className={className} src={safeSrc} alt={alt} onError={() => setIsError(true)} />;
+}
+
 function LocationAutocomplete({ value, mapboxConfigured, locationState, onChange, onSearch, onSelect }) {
   const [suggestions, setSuggestions] = useState([]);
   const [suggestionState, setSuggestionState] = useState("idle");
@@ -344,7 +365,12 @@ function SubmissionForm({ onClose, getToken }) {
 
 function PetTile({ pet, saved, onSave, onOpen }) {
   return <article className="pet-tile">
-    <img src={pet.image} alt={`${pet.name}, a ${pet.breed}`} />
+    <PetImage
+      src={pet.image}
+      alt={`${pet.name}, a ${pet.breed}`}
+      className="pet-tile-photo"
+      fallbackText={`${pet.name} photo unavailable`}
+    />
     <button className={`heart ${saved ? "is-saved" : ""}`} onClick={() => onSave(pet.id)} aria-label={`${saved ? "Remove" : "Save"} ${pet.name}`}><Heart fill={saved ? "currentColor" : "none"} /></button>
     <button className="pet-open" onClick={() => onOpen(pet)} aria-label={`View ${pet.name}'s details`}><span className="pet-overlay"><strong>{pet.name}</strong><span>{pet.age} · {pet.breed}</span><span><MapPin /> {pet.distance} mi away</span></span></button>
   </article>;
@@ -365,7 +391,14 @@ function PetDetail({ pet, onClose, saved, onSave, onMessage }) {
     : null;
   return <Dialog title={pet.name} onClose={onClose}>
     <div className="pet-detail">
-      <div className="pet-detail-media"><img src={pet.image} alt={`${pet.name}${hasSpecificBreed ? `, a ${pet.breed}` : ""}`} /></div>
+      <div className="pet-detail-media">
+        <PetImage
+          src={pet.image}
+          alt={`${pet.name}${hasSpecificBreed ? `, a ${pet.breed}` : ""}`}
+          className="pet-detail-photo"
+          fallbackText={`${pet.name} photo unavailable`}
+        />
+      </div>
       {detailTags.length ? <div className="detail-meta">{detailTags.map(tag => <span key={tag}>{tag}</span>)}</div> : null}
       {hasSpecificBreed ? <h3>{pet.breed}</h3> : null}
       <p className="detail-location"><MapPin /><span><strong>{pet.locationAccuracy === "shelter" ? "Current shelter location" : "Location"}</strong>{pet.address || pet.city}{pet.address && pet.city ? <small>{pet.city}</small> : null}</span></p>
@@ -1012,7 +1045,12 @@ function MatchResult({ match, rank }) {
   const { pet, score, reasons, considerations, questions } = match;
   return <article className="match-result">
     <span className="match-rank" aria-label={`Match ${rank}`}>{rank}</span>
-    <img src={pet.image} alt={`${pet.name}, a ${pet.breed}`} />
+    <PetImage
+      src={pet.image}
+      alt={`${pet.name}, a ${pet.breed}`}
+      className="match-result-photo"
+      fallbackText={`${pet.name} photo unavailable`}
+    />
     <div className="match-body">
       <div className="match-title"><div><h3>{pet.name}</h3><p>{[pet.breed, pet.age, pet.city].filter(Boolean).join(" · ")}</p></div><strong>{score}%<small>match</small></strong></div>
       <div className="match-evidence">

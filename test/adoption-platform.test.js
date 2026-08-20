@@ -165,17 +165,18 @@ test("claim redemption is recipient-bound and its token mutation is one atomic s
 });
 
 test("claim links retain their fragment credential through modal sign-in without leaving it in the URL", async () => {
-  const page = await readFile(new URL("../app/shelter/claim/page.jsx", import.meta.url), "utf8");
+  const page = await readFile(new URL("../app/shelter/claim/ClaimOrganizationClient.jsx", import.meta.url), "utf8");
   assert.match(page, /function ClaimFlow\(\)/);
   assert.match(page, /new URLSearchParams\(window\.location\.hash\.slice\(1\)\)/);
   assert.match(page, /window\.history\.replaceState\(null, "", "\/shelter\/claim"\)/);
-  assert.match(page, /<SignInButton mode="modal">/);
+  assert.match(page, /setShowAuthModal\(true\)/);
+  assert.match(page, /<AuthModal initialMode=\"signin\"/);
   assert.match(page, /<ClaimForm token=\{token\} onConsumed=/);
   assert.doesNotMatch(page, /\bSignedIn\b|\bSignedOut\b/);
   assert.match(page, /const \{ isLoaded, isSignedIn \} = useAuth\(\)/);
   assert.match(page, /if \(!isLoaded\).*Checking sign-in status/s);
   assert.match(page, /if \(!isSignedIn\).*Sign in to claim this organization/s);
-  const moderationPage = await readFile(new URL("../app/pawline-moderation/reviews/page.jsx", import.meta.url), "utf8");
+  const moderationPage = await readFile(new URL("../app/pawline-moderation/reviews/ReviewModerationClient.jsx", import.meta.url), "utf8");
   assert.doesNotMatch(moderationPage, /\bSignedIn\b|\bSignedOut\b/);
   assert.match(moderationPage, /const \{ isLoaded, isSignedIn \} = useAuth\(\)/);
   assert.match(moderationPage, /if \(!isSignedIn\).*Sign in to moderate reviews/s);
@@ -219,7 +220,7 @@ test("verified organization reviews remain moderated, private by default, and us
   assert.match(reviews, /organizationMembership\(database, organizationId, user\.id, "administrator"\)/);
   assert.equal(isPawlineModerator({ email: "moderator@pawline.example" }, { PAWLINE_MODERATION_EMAIL: "moderator@pawline.example" }), true);
   assert.equal(isPawlineModerator({ email: "member@pawline.example" }, { PAWLINE_MODERATION_EMAIL: "moderator@pawline.example" }), false);
-  const moderatorPage = await readFile(new URL("../app/pawline-moderation/reviews/page.jsx", import.meta.url), "utf8");
+  const moderatorPage = await readFile(new URL("../app/pawline-moderation/reviews/ReviewModerationClient.jsx", import.meta.url), "utf8");
   assert.match(moderatorPage, /organization-reviews\?moderation=true/);
   assert.match(moderatorPage, /action: "moderate"/);
 });
