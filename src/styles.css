@@ -496,6 +496,7 @@ body { background:#dce3d5; }
 .methodology-brand { color:var(--green);font:400 32px/1 var(--serif);letter-spacing:-.04em;text-decoration:none; }
 .methodology-header-actions { display:flex;align-items:center;justify-content:flex-end;gap:16px; }
 .methodology-nav { min-height:44px;display:inline-flex;align-items:center;color:var(--green);font-size:13px;font-weight:800;text-decoration:none; }
+.methodology-nav-short,.methodology-discover-short { display:none; }
 .methodology-nav:hover,.methodology-nav:focus-visible { color:#285445;text-decoration:underline;text-underline-offset:4px;outline:2px solid var(--green);outline-offset:3px; }
 .methodology-discover,.methodology-next a { min-height:44px;padding:0 16px;border-radius:999px;background:var(--green);color:#fffdf9;display:inline-flex;align-items:center;justify-content:center;gap:8px;font-size:13px;font-weight:800;text-decoration:none; }
 .methodology-discover:hover,.methodology-discover:focus-visible,.methodology-next a:hover,.methodology-next a:focus-visible { background:#285445;outline:2px solid var(--green);outline-offset:3px; }
@@ -519,7 +520,7 @@ body { background:#dce3d5; }
 .adoption-guides { margin-top:12px;padding:13px;border:1px solid #e1d6bc;border-radius:13px;background:#fff9ed;display:grid;gap:8px; }.adoption-guides > div { display:flex;align-items:center;gap:9px; }.adoption-guides > div > svg { width:17px;color:#9a6d25; }.adoption-guides > div span { display:grid;gap:1px; }.adoption-guides small { color:#9a6d25;font-size:8px;font-weight:800;letter-spacing:.1em;text-transform:uppercase; }.adoption-guides strong { font:400 15px "DM Serif Display"; }.adoption-guides p { margin:0;color:#746544;font-size:9px;line-height:1.45; }.adoption-guides a { display:inline-flex;align-items:center;gap:3px;color:#76531a;font-size:9px;font-weight:800;text-decoration:none; }.adoption-guides a svg { width:12px; }
 
 @media (max-width:600px) {
-  .methodology-page { padding:18px; }.methodology-brand { font-size:28px; }.methodology-header-actions { gap:10px; }.methodology-nav { min-height:44px;font-size:12px; }.methodology-discover { padding:0 13px;font-size:12px; }.methodology-content { margin-top:66px; }.methodology-lede { margin-bottom:48px; }.methodology-records { grid-template-columns:1fr; }.methodology-records section { min-height:0;padding:21px; }.methodology-content > section { margin-top:35px; }.guide-card { min-height:0;padding:21px; }.guide-card h3 { font-size:24px; }.guide-note { margin-top:35px;padding:23px; }
+  .methodology-page { padding:18px; }.methodology-header { gap:8px; }.methodology-brand { font-size:27px; }.methodology-header-actions { gap:8px; }.methodology-nav { min-height:44px;font-size:11px;white-space:nowrap; }.methodology-discover { padding:0 12px;font-size:12px;white-space:nowrap; }.methodology-nav-long,.methodology-discover-long { display:none; }.methodology-nav-short,.methodology-discover-short { display:inline; }.methodology-content { margin-top:66px; }.methodology-lede { margin-bottom:48px; }.methodology-records { grid-template-columns:1fr; }.methodology-records section { min-height:0;padding:21px; }.methodology-content > section { margin-top:35px; }.guide-card { min-height:0;padding:21px; }.guide-card h3 { font-size:24px; }.guide-note { margin-top:35px;padding:23px; }
 }
 
 @media (prefers-reduced-motion:reduce) {

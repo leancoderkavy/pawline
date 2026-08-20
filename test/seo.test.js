@@ -38,15 +38,15 @@ test("adoption guides are canonical, connected, and explain honest matching", as
   ]);
   assert.match(app, /href="\/guides"/);
   assert.match(app, /Share your home, routine, household, and pet experience/);
-  assert.match(hub, /title: "Pet Adoption Guides \| Pawline"/);
+  assert.match(hub, /export const metadata = \{\s+title: "Pet Adoption Guides",/);
   assert.match(hub, /"@type": "CollectionPage"/);
   assert.match(hub, /find-adoptable-pets-near-you/);
   assert.match(hub, /find-a-pet-that-fits-your-home-and-routine/);
-  assert.match(discoveryGuide, /title: "How to Find Adoptable Pets Near You \| Pawline"/);
+  assert.match(discoveryGuide, /export const metadata = \{\s+title: "How to Find Adoptable Pets Near You",/);
   assert.match(discoveryGuide, /alternates: \{ canonical: "\/guides\/find-adoptable-pets-near-you" \}/);
   assert.match(discoveryGuide, /Provider-backed pet listings/);
   assert.match(discoveryGuide, /"@type": "BreadcrumbList"/);
-  assert.match(matchingGuide, /title: "Find a Pet That Fits Your Home & Routine \| Pawline"/);
+  assert.match(matchingGuide, /export const metadata = \{\s+title: "Find a Pet That Fits Your Home & Routine",/);
   assert.match(matchingGuide, /home, routine, household, and pet experience/);
   assert.match(matchingGuide, /not a guarantee/);
   assert.match(matchingGuide, /"@type": "BreadcrumbList"/);

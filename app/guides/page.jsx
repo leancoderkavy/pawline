@@ -1,7 +1,7 @@
 const canonicalUrl = "https://www.pawlineadopt.com/guides";
 
 export const metadata = {
-  title: "Pet Adoption Guides | Pawline",
+  title: "Pet Adoption Guides",
   description: "Practical Pawline guides for finding current adoptable dogs and cats, understanding listing status, and confirming details with shelters.",
   alternates: { canonical: "/guides" },
   openGraph: {
@@ -44,8 +44,8 @@ export default function AdoptionGuidesPage() {
     <header className="methodology-header">
       <a className="methodology-brand" href="/" aria-label="Pawline adoption discovery home">Pawline</a>
       <div className="methodology-header-actions">
-        <a className="methodology-nav" href="/how-pawline-works">How Pawline works</a>
-        <a className="methodology-discover" href="/">Find adoptable pets <span aria-hidden="true">→</span></a>
+        <a className="methodology-nav" href="/how-pawline-works"><span className="methodology-nav-long">How Pawline works</span><span className="methodology-nav-short">How it works</span></a>
+        <a className="methodology-discover" href="/"><span className="methodology-discover-long">Find adoptable pets</span><span className="methodology-discover-short">Find pets</span> <span aria-hidden="true">→</span></a>
       </div>
     </header>
 
