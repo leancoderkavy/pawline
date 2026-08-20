@@ -13,7 +13,7 @@ test("every signed-out account gate offers explicit signup and sign-in actions",
 
   for (const source of files) {
     assert.match(source, />Create account<\/button>/);
-    assert.match(source, /button[^>]*button-outline[^>]*>Sign in<\/button>/);
+    assert.match(source, /<button className="button button-outline"[\s\S]*?>Sign in<\/button>/);
     assert.match(source, /setShowAuthModal\(true\)/);
     assert.match(source, /<AuthModal/);
     assert.doesNotMatch(source, /<SignInButton|<SignUpButton/);
