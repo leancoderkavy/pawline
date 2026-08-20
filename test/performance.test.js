@@ -75,7 +75,9 @@ test("the map surprise control chooses only an existing current listing", async 
 test("the discovery drawer keeps pet finding primary and secondary views tucked away", async () => {
   const [app, styles] = await Promise.all([read("src/App.jsx"), read("src/styles.css")]);
   assert.match(styles, /\.rail-tabs \{[^}]*grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
+  assert.match(styles, /\.rail-tabs \{ position:relative;z-index:7;/);
   assert.match(styles, /--mobile-drawer-height:min\(76dvh,680px\)/);
+  assert.match(styles, /\.rail-tabs \{ height:60px;border-radius:18px;background:rgba\(255,253,249,\.97\);overflow:visible; \}/);
   assert.match(styles, /\.rail-tabs \{ height:48px;grid-template-columns:repeat\(3,minmax\(0,1fr\)\);grid-template-rows:1fr/);
   assert.match(styles, /\.rail-tabs button \{ min-height:44px;padding:0 8px;[^}]*flex-direction:row;[^}]*font-size:11px/);
   assert.match(styles, /\.rail-more > div \{[^}]*top:calc\(100% \+ 6px\)/);
