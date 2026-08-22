@@ -5,6 +5,7 @@ import {
   createShelterSearchLimiter,
   normalizeShelterQuery,
   parseNearbyShelters,
+  shelterSearchRadii,
 } from "../api/nearby-shelters.js";
 
 test("nearby shelter queries clamp map coordinates and radius", () => {
@@ -15,6 +16,12 @@ test("nearby shelter queries clamp map coordinates and radius", () => {
   });
   assert.equal(normalizeShelterQuery({ latitude: "north", longitude: "-118" }).latitude, null);
   assert.match(buildShelterQuery({ latitude: 34.1478, longitude: -118.1445, radiusMiles: 25 }), /around:40234,34\.14780,-118\.14450/);
+});
+
+test("nearby shelter searches use a responsive radius plan with a tighter retry", () => {
+  assert.deepEqual(shelterSearchRadii(50), [25, 12]);
+  assert.deepEqual(shelterSearchRadii(25), [25, 12]);
+  assert.deepEqual(shelterSearchRadii(12), [12]);
 });
 
 test("nearby shelter parsing keeps safe public contact fields and center coordinates", () => {
