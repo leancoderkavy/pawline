@@ -1492,6 +1492,7 @@ export default function App({ clerkPublishableKey = "" }) {
         />;
   }
   return <div className="app map-app">
+    <a className="skip-link" href="#discover">Skip to main content</a>
     {clerkConfigured && accountSyncReady ? <Suspense fallback={null}><FavoritesSyncWithAuth key={favoriteSyncVersion} publishableKey={clerkPublishableKey} localFavorites={saved} onLoad={loadAccountFavorites} onSessionChange={setFavoriteSession} onError={setFavoriteError} /></Suspense> : null}
     {favoriteError ? <div className="favorites-sync-alert" role="alert"><span>{favoriteError}</span><button type="button" onClick={retryFavoriteSync}>Retry favorites</button></div> : null}
     <header className="map-app-header">
@@ -1504,7 +1505,7 @@ export default function App({ clerkPublishableKey = "" }) {
       </div>
     </header>
 
-  <main id="discover" className={`map-workspace panel-${activePanel} ${railCollapsed ? "rail-collapsed" : ""} ${selectedPet ? "detail-open" : ""}`}>
+  <main id="discover" tabIndex={-1} className={`map-workspace panel-${activePanel} ${railCollapsed ? "rail-collapsed" : ""} ${selectedPet ? "detail-open" : ""}`}>
       <MapPanel location={location} coordinates={coordinates} userCoordinates={userCoordinates} locationPrompt={locationPrompt} configured={integrations.mapboxConfigured} view={mapView} petType={mapPetType} showEvents={showMapEvents} densityMode={densityMode} routePets={routePets} featuredPet={featuredPet} onChooseSurprise={chooseSurprisePet} onOpenPet={openPetDetail} onOpenEvent={setSelectedEvent} onOpenDiscovery={setSelectedDiscovery} onOpenShelter={setSelectedShelter} onMapMove={searchThisMapArea} onRequestLocation={requestUserLocation} onDismissLocation={dismissLocationPrompt} />
 
       <aside className={`map-rail ${railCollapsed ? "is-collapsed" : ""}`} aria-label="Map discovery tools">
