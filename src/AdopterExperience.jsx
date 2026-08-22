@@ -15,6 +15,7 @@ import {
 } from "./adopterJourney";
 
 const STORAGE_KEY = "pawline-adopter-journey-v1";
+const DISCOVERY_PAGE_SIZE = 24;
 
 function suppliedHours(item) {
   return typeof item?.hours === "string" && item.hours.trim()
@@ -118,7 +119,9 @@ function MatchCard({ match, saved, onSave, onOpen }) {
 
 function Discovery({ pets, profile, saved, onSave, onOpen, onOpenMap, feed }) {
   const [species, setSpecies] = useState(profile.species === "Either" ? "All" : profile.species || "All");
+  const [visibleCount, setVisibleCount] = useState(DISCOVERY_PAGE_SIZE);
   const ranked = useMemo(() => rankPets(pets, { ...profile, species: species === "All" ? "Either" : species }), [pets, profile, species]);
+  const visibleRanked = ranked.slice(0, visibleCount);
   const isLoading = feed?.mode === "loading";
   const unavailable = feed?.mode === "error";
   const emptyHeading = isLoading ? "Current listings are loading." : unavailable ? "Current listings are temporarily unavailable." : "No current listings match this view.";
@@ -127,7 +130,7 @@ function Discovery({ pets, profile, saved, onSave, onOpen, onOpenMap, feed }) {
     : unavailable
       ? "Pawline could not load live shelter feeds just now. Please try again shortly."
       : "Pawline never fills empty results with pretend pets. Change the filters or check back after the shelter feeds refresh.";
-  return <section className="journey-content" aria-labelledby="discover-title"><header className="journey-page-heading"><div><p className="eyebrow">Discover</p><h1 id="discover-title">Current pets, shown with their evidence.</h1><p>Start with the map to plan a visit, or browse the evidence-backed list.</p></div><button type="button" className="outline-action" onClick={onOpenMap}><Map /> Open adoption map</button></header><div className="discovery-controls" role="group" aria-label="Pet type"><span>Show</span>{["All", "Dog", "Cat"].map(option => <button key={option} type="button" className={species === option ? "selected" : ""} onClick={() => setSpecies(option)} aria-pressed={species === option}>{option === "All" ? "All pets" : `${option}s`}</button>)}</div>{ranked.length ? <div className="journey-pet-grid">{ranked.map(match => <MatchCard key={match.pet.id} match={match} saved={saved.includes(match.pet.id)} onSave={onSave} onOpen={onOpen} />)}</div> : <div className="journey-empty" role={isLoading ? "status" : undefined}><PawPrint /><h2>{emptyHeading}</h2><p>{emptyMessage}</p></div>}</section>;
+  return <section className="journey-content" aria-labelledby="discover-title"><header className="journey-page-heading"><div><p className="eyebrow">Discover</p><h1 id="discover-title">Current pets, shown with their evidence.</h1><p>Start with the map to plan a visit, or browse the evidence-backed list.</p></div><button type="button" className="outline-action" onClick={onOpenMap}><Map /> Open adoption map</button></header><div className="discovery-controls" role="group" aria-label="Pet type"><span>Show</span>{["All", "Dog", "Cat"].map(option => <button key={option} type="button" className={species === option ? "selected" : ""} onClick={() => { setSpecies(option); setVisibleCount(DISCOVERY_PAGE_SIZE); }} aria-pressed={species === option}>{option === "All" ? "All pets" : `${option}s`}</button>)}</div>{ranked.length ? <><p className="discovery-result-count" role="status" aria-live="polite">Showing {visibleRanked.length} of {ranked.length} current pets.</p><div id="current-pet-results" className="journey-pet-grid">{visibleRanked.map(match => <MatchCard key={match.pet.id} match={match} saved={saved.includes(match.pet.id)} onSave={onSave} onOpen={onOpen} />)}</div>{visibleRanked.length < ranked.length ? <div className="discovery-pagination"><button type="button" className="outline-action" onClick={() => setVisibleCount(count => Math.min(count + DISCOVERY_PAGE_SIZE, ranked.length))} aria-controls="current-pet-results">Load {Math.min(DISCOVERY_PAGE_SIZE, ranked.length - visibleRanked.length)} more pets</button></div> : null}</> : <div className="journey-empty" role={isLoading ? "status" : undefined}><PawPrint /><h2>{emptyHeading}</h2><p>{emptyMessage}</p></div>}</section>;
 }
 
 function PetPage({ pet, profile, saved, onSave, onBack, onStartApplication }) {
@@ -425,12 +428,13 @@ export default function AdopterExperience({ pets, saved, onSave, clerkConfigured
           : view === "profile" ? <><Profile profile={profile} onChange={updateProfile} onSave={saveProfile} isSignedIn={isSignedIn} />{privateState.message ? <p className={privateState.status === "error" ? "journey-private-error" : "journey-private-state"} role={privateState.status === "error" ? "alert" : "status"}>{privateState.message}</p> : null}</>
             : <Home profile={profile} applications={applications} pets={pets} saved={saved} onSave={onSave} onOpen={openPet} onNavigate={navigate} isSignedIn={isSignedIn} />;
   return <div className="adopter-experience">
+    <a className="skip-link" href="#pawline-home">Skip to main content</a>
     <header className="journey-header">
       <a href="#pawline-home" onClick={event => { event.preventDefault(); navigate("home"); }} className="brand" aria-label="Pawline adoption journey"><span className="brand-mark"><PawPrint /></span><span>Pawline</span></a>
       <nav aria-label="Adopter navigation"><NavButton active={view === "home" && !selectedPet} icon={House} onClick={() => navigate("home")}>Home</NavButton><NavButton active={false} icon={Map} onClick={onOpenMap}>Map</NavButton><NavButton active={view === "discover" || Boolean(selectedPet)} icon={Search} onClick={() => navigate("discover")}>Discover</NavButton><NavButton active={view === "applications"} icon={ClipboardList} onClick={() => navigate("applications")}>Applications</NavButton><NavButton active={view === "messages"} icon={MessageCircle} onClick={() => navigate("messages")}>Messages</NavButton><NavButton active={view === "profile"} icon={UserRound} onClick={() => navigate("profile")}>Profile</NavButton></nav>
       <div className="journey-header-actions">{authAction}</div>
     </header>
     <nav className="journey-bottom-nav" aria-label="Adopter navigation">{[["home", House, "Home"], ["map", Map, "Map"], ["discover", Search, "Discover"], ["applications", ClipboardList, "Applications"], ["messages", MessageCircle, "Messages"], ["profile", UserRound, "Profile"]].map(([key, Icon, label]) => <NavButton key={key} active={view === key && !selectedPet} icon={Icon} onClick={() => key === "map" ? onOpenMap() : navigate(key)}>{label}</NavButton>)}</nav>
-    <main id="pawline-home">{currentPage}</main>
+    <main id="pawline-home" tabIndex={-1}>{currentPage}</main>
   </div>;
 }

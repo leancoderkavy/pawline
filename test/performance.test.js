@@ -13,6 +13,35 @@ test("the homepage server-renders without eagerly loading Clerk", async () => {
   assert.match(page, /<PawlineApp/);
 });
 
+test("discovery renders live listings incrementally and resets the list after a species change", async () => {
+  const [journey, styles] = await Promise.all([read("src/AdopterExperience.jsx"), read("src/styles.css")]);
+  assert.match(journey, /const DISCOVERY_PAGE_SIZE = 24;/);
+  assert.match(journey, /const \[visibleCount, setVisibleCount\] = useState\(DISCOVERY_PAGE_SIZE\);/);
+  assert.match(journey, /const visibleRanked = ranked\.slice\(0, visibleCount\);/);
+  assert.match(journey, /setSpecies\(option\); setVisibleCount\(DISCOVERY_PAGE_SIZE\);/);
+  assert.match(journey, /Showing \{visibleRanked\.length\} of \{ranked\.length\} current pets\./);
+  assert.match(journey, /Load \{Math\.min\(DISCOVERY_PAGE_SIZE, ranked\.length - visibleRanked\.length\)\} more pets/);
+  assert.match(styles, /\.discovery-pagination \{ display:flex;justify-content:center;/);
+});
+
+test("navigation shells expose a keyboard skip link with a focusable content target", async () => {
+  const [journey, app, styles, methodology, guides, nearbyGuide, matchingGuide] = await Promise.all([
+    read("src/AdopterExperience.jsx"), read("src/App.jsx"), read("src/styles.css"),
+    read("app/how-pawline-works/page.jsx"), read("app/guides/page.jsx"),
+    read("app/guides/find-adoptable-pets-near-you/page.jsx"), read("app/guides/find-a-pet-that-fits-your-home-and-routine/page.jsx"),
+  ]);
+  assert.match(journey, /<a className="skip-link" href="#pawline-home">Skip to main content<\/a>/);
+  assert.match(journey, /<main id="pawline-home" tabIndex=\{-1\}>/);
+  assert.match(app, /<a className="skip-link" href="#discover">Skip to main content<\/a>/);
+  assert.match(app, /<main id="discover" tabIndex=\{-1}/);
+  for (const page of [methodology, guides, nearbyGuide, matchingGuide]) {
+    assert.match(page, /<a className="skip-link" href="#main-content">Skip to main content<\/a>/);
+    assert.match(page, /<article id="main-content" className="methodology-content" tabIndex=\{-1\}>/);
+  }
+  assert.match(styles, /\.skip-link \{ position:fixed;z-index:100;/);
+  assert.match(styles, /\.skip-link:focus-visible \{ transform:translate\(-50%,0\);/);
+});
+
 test("support-page headers and protected fallbacks fit narrow screens", async () => {
   const [styles, methodology, guides, nearbyGuide, matchingGuide, claim, moderation] = await Promise.all([
     read("src/styles.css"),

@@ -41,6 +41,7 @@ const guides = [
 
 export default function AdoptionGuidesPage() {
   return <main className="methodology-page guides-page">
+    <a className="skip-link" href="#main-content">Skip to main content</a>
     <header className="methodology-header">
       <a className="methodology-brand" href="/" aria-label="Pawline adoption discovery home">Pawline</a>
       <div className="methodology-header-actions">
@@ -49,7 +50,7 @@ export default function AdoptionGuidesPage() {
       </div>
     </header>
 
-    <article className="methodology-content">
+    <article id="main-content" className="methodology-content" tabIndex={-1}>
       <p className="methodology-kicker">Pawline adoption guides</p>
       <h1>Clearer steps for finding an adoptable pet</h1>
       <p className="methodology-lede">These guides explain how to use Pawline's current listing search, what the different record types mean, and when to go directly to a shelter or rescue for the final answer.</p>
