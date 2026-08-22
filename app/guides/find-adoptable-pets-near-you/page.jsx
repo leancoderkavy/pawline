@@ -20,6 +20,7 @@ export const metadata = {
 
 export default function FindAdoptablePetsGuidePage() {
   return <main className="methodology-page guide-page">
+    <a className="skip-link" href="#main-content">Skip to main content</a>
     <header className="methodology-header">
       <a className="methodology-brand" href="/" aria-label="Pawline adoption discovery home">Pawline</a>
       <div className="methodology-header-actions">
@@ -28,7 +29,7 @@ export default function FindAdoptablePetsGuidePage() {
       </div>
     </header>
 
-    <article className="methodology-content">
+    <article id="main-content" className="methodology-content" tabIndex={-1}>
       <nav className="guide-crumbs" aria-label="Breadcrumb"><a href="/guides">Adoption guides</a><span aria-hidden="true">/</span><span>Find adoptable pets near you</span></nav>
       <p className="methodology-kicker">Adoption search guide</p>
       <h1>How to find adoptable dogs and cats near you</h1>

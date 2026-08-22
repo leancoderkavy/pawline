@@ -20,6 +20,7 @@ export const metadata = {
 
 export default function FindAPetThatFitsGuidePage() {
   return <main className="methodology-page guide-page">
+    <a className="skip-link" href="#main-content">Skip to main content</a>
     <header className="methodology-header">
       <a className="methodology-brand" href="/" aria-label="Pawline adoption discovery home">Pawline</a>
       <div className="methodology-header-actions">
@@ -28,7 +29,7 @@ export default function FindAPetThatFitsGuidePage() {
       </div>
     </header>
 
-    <article className="methodology-content">
+    <article id="main-content" className="methodology-content" tabIndex={-1}>
       <nav className="guide-crumbs" aria-label="Breadcrumb"><a href="/guides">Adoption guides</a><span aria-hidden="true">/</span><span>Find a pet that fits your home and routine</span></nav>
       <p className="methodology-kicker">Pet adoption matching guide</p>
       <h1>How to find a pet that fits your home and routine</h1>
