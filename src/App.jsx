@@ -851,19 +851,21 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
 }
 
 function MapFilters({ petType, distance, showEvents, densityMode, hoursFilter, onPetTypeChange, onDistanceChange, onShowEventsChange, onDensityChange, onHoursFilterChange, onReset }) {
+  const activeFilterCount = [distance !== "150", hoursFilter !== "all", !showEvents, densityMode].filter(Boolean).length;
+  const activeFilterLabel = `${activeFilterCount} active ${activeFilterCount === 1 ? "filter" : "filters"}`;
+
   return <div className="map-toolbar" role="group" aria-label="Map filters">
-    <div className="mobile-pet-types" role="group" aria-label="Pet type">
+    <div className="map-pet-types" role="group" aria-label="Pet type">
       {["All", "Dog", "Cat"].map(type => <button key={type} type="button" className={petType === type ? "is-active" : ""} onClick={() => onPetTypeChange(type)} aria-pressed={petType === type}>{type === "All" ? "All" : `${type}s`}</button>)}
     </div>
-    <label className="map-select"><SlidersHorizontal /><span>Pet type</span><select value={petType} onChange={event => onPetTypeChange(event.target.value)} aria-label="Filter map by pet type"><option>All</option><option>Dog</option><option>Cat</option></select></label>
-    <label className="map-select"><LocateFixed /><span>Radius</span><select value={distance} onChange={event => onDistanceChange(event.target.value)} aria-label="Map search radius"><option value="25">25 mi</option><option value="50">50 mi</option><option value="100">100 mi</option><option value="150">150 mi</option></select></label>
     <details className="more-filters">
-      <summary><SlidersHorizontal /> More filters</summary>
+      <summary><SlidersHorizontal /><span>Filters</span>{activeFilterCount ? <span className="filter-count" aria-label={activeFilterLabel}>{activeFilterCount}</span> : null}</summary>
       <div>
+        <label className="map-select"><LocateFixed /><span>Search radius</span><select value={distance} onChange={event => onDistanceChange(event.target.value)} aria-label="Map search radius"><option value="25">25 mi</option><option value="50">50 mi</option><option value="100">100 mi</option><option value="150">150 mi</option></select></label>
         <label className="map-select"><CalendarClock /><span>Shelter hours</span><select value={hoursFilter} onChange={event => onHoursFilterChange(event.target.value)} aria-label="Filter by supplied shelter hours"><option value="all">All listings</option><option value="known">Hours supplied</option></select></label>
         <button type="button" className={`map-toggle ${showEvents ? "is-active" : ""}`} onClick={() => onShowEventsChange(value => !value)} aria-pressed={showEvents}><CalendarDays /> Show events</button>
         <button type="button" className={`map-toggle ${densityMode ? "is-active" : ""}`} onClick={() => onDensityChange(value => !value)} aria-pressed={densityMode}><Layers3 /> Show pet density</button>
-        <button type="button" className="map-reset" onClick={onReset} aria-label="Reset all filters"><RotateCcw /> Reset filters</button>
+        {activeFilterCount ? <button type="button" className="map-reset" onClick={onReset} aria-label="Reset all filters"><RotateCcw /> Reset filters</button> : null}
       </div>
     </details>
   </div>;

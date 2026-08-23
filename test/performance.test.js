@@ -113,13 +113,28 @@ test("the discovery drawer keeps pet finding primary and secondary views tucked 
   assert.match(styles, /\.rail-tabs button svg \{ display:none; \}/);
   assert.match(styles, /\.rail-tabs \.rail-label-full \{ display:inline; \}/);
   assert.match(styles, /\.rail-tabs \.rail-label-short \{ display:none; \}/);
-  assert.match(styles, /\.mobile-pet-types \{ display:grid;grid-template-columns:repeat\(3,1fr\)/);
+  assert.match(styles, /\.map-rail \.map-pet-types \{[^}]*display:grid;grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
   assert.match(styles, /\.mobile-view-map \{ min-height:44px/);
   assert.match(app, /\["All", "Dog", "Cat"\]\.map/);
   assert.match(app, /<Compass \/> View map/);
   assert.match(app, /aria-label="Match quiz"/);
   assert.match(app, /className="rail-label-full">Match me/);
   assert.match(app, /<summary><Menu \/>More<\/summary>/);
+});
+
+test("map filters keep species choice primary and disclose secondary controls inline", async () => {
+  const [app, styles] = await Promise.all([read("src/App.jsx"), read("src/styles.css")]);
+  const filters = app.slice(app.indexOf("function MapFilters"), app.indexOf("function NearbyShelters"));
+
+  assert.match(filters, /const activeFilterCount = \[distance !== "150", hoursFilter !== "all", !showEvents, densityMode\]\.filter\(Boolean\)\.length/);
+  assert.match(filters, /className="map-pet-types"/);
+  assert.match(filters, /<span>Filters<\/span>/);
+  assert.match(filters, /aria-label="Map search radius"/);
+  assert.doesNotMatch(filters, /Filter map by pet type/);
+  assert.match(styles, /\.map-rail \.map-toolbar \{ display:grid !important;grid-template-columns:minmax\(0,1fr\) auto/);
+  assert.match(styles, /\.map-rail \.more-filters\[open\] \{ grid-column:1\/-1/);
+  assert.match(styles, /\.map-rail \.more-filters > div \{ position:static/);
+  assert.match(styles, /\.map-rail \.map-pet-types button \{ min-height:46px/);
 });
 
 test("the top location search offers map-backed autocomplete", async () => {
