@@ -83,3 +83,16 @@ test("the nearby match quiz ranks the current map candidates and applies its spe
   assert.match(app, /const setMatchSpecies = value => \{\s*setMapPetType\(value\);\s*setSpecies\(value\);\s*\}/s);
   assert.match(app, /<Matchmaker pets=\{mapView\.pets\} feed=\{feed\} location=\{location\} onLocationChange=\{setLocation\} onSpeciesChange=\{setMatchSpecies\}/);
 });
+
+test("mobile map controls and identified links keep accessible pointer targets", async () => {
+  const styles = await read("src/styles.css");
+
+  assert.match(styles, /\.rail-toggle \{[^}]*z-index:8/);
+  assert.match(styles, /\.map-workspace:not\(\.rail-collapsed\) \.map-activate \{ visibility:hidden;pointer-events:none; \}/);
+  assert.match(styles, /\.heart \{[^}]*width: 44px; height: 44px;/);
+  assert.match(styles, /\.journey-heart \{ min-width:44px;flex:none; \}/);
+  assert.match(styles, /\.journey-pet-card \.text-action \{ min-width:44px; \}/);
+  assert.match(styles, /\.methodology-brand \{ min-height:44px;/);
+  assert.match(styles, /\.methodology-related a \{ min-height:24px;/);
+  assert.match(styles, /\.guide-crumbs a \{ min-height:24px;/);
+});
