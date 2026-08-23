@@ -1442,6 +1442,10 @@ export default function App({ clerkPublishableKey = "" }) {
     setDensityMode(false);
     setHoursFilter("all");
   };
+  const setMatchSpecies = value => {
+    setMapPetType(value);
+    setSpecies(value);
+  };
   const chooseSurprisePet = () => {
     const alternatives = mapView.pets.filter(pet => pet.id !== featuredPet?.id);
     const candidates = alternatives.length ? alternatives : mapView.pets;
@@ -1558,7 +1562,7 @@ export default function App({ clerkPublishableKey = "" }) {
               <a href="/guides">Browse adoption guides <ChevronRight /></a>
             </section>
           </div> : null}
-          {activePanel === "match" ? <Matchmaker pets={remotePets} feed={feed} location={location} onLocationChange={setLocation} onSpeciesChange={setSpecies} onFindLocation={findMatch} locationState={locationState} /> : null}
+          {activePanel === "match" ? <Matchmaker pets={mapView.pets} feed={feed} location={location} onLocationChange={setLocation} onSpeciesChange={setMatchSpecies} onFindLocation={findMatch} locationState={locationState} /> : null}
           {activePanel === "events" ? <EventPanel events={remoteEvents} state={eventState} /> : null}
           {activePanel === "messages" ? clerkConfigured
             ? <Suspense fallback={<div className="community-auth-state" role="status"><span><MessageCircle /></span><h2>Opening Messages…</h2></div>}><DirectMessages initialListing={messagePet} onInitialListingHandled={() => setMessagePet(null)} onBrowse={() => openPanel("explore")} /></Suspense>

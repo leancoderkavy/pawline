@@ -42,3 +42,21 @@ test("mobile keeps the pet application action, map filters, and map link accessi
   assert.match(journey, /\["map", Map, "Map"\]/);
   assert.match(journey, /key === "map" \? onOpenMap\(\) : navigate\(key\)/);
 });
+
+test("mobile Messages exposes usable account actions and the discovery rail only scrolls vertically", async () => {
+  const [styles, journey] = await Promise.all([read("src/styles.css"), read("src/AdopterExperience.jsx")]);
+
+  assert.match(journey, /className="journey-guest-auth-actions"/);
+  assert.match(styles, /\.journey-guest-auth-actions \{ display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:18px; \}/);
+  assert.match(styles, /\.journey-guest-auth-actions button \{ min-height:44px/);
+  assert.doesNotMatch(styles, /@media \(max-width:820px\) \{[^}]*journey-guest-auth-actions[^}]*display:none/);
+  assert.match(styles, /\.rail-content \{ height:calc\(100% - 68px\);overflow-x:hidden;overflow-y:auto; \}/);
+  assert.match(styles, /\.match-title > div \{ min-width:0; \}/);
+});
+
+test("the nearby match quiz ranks the current map candidates and applies its species filter there", async () => {
+  const app = await read("src/App.jsx");
+
+  assert.match(app, /const setMatchSpecies = value => \{\s*setMapPetType\(value\);\s*setSpecies\(value\);\s*\}/s);
+  assert.match(app, /<Matchmaker pets=\{mapView\.pets\} feed=\{feed\} location=\{location\} onLocationChange=\{setLocation\} onSpeciesChange=\{setMatchSpecies\}/);
+});
