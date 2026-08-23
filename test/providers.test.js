@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  boundMergedPetPage,
   canonicalSpecies,
   cleanText,
   createPetFeedFallbackLimiter,
@@ -97,6 +98,12 @@ test("pet feed provider fan-out has bounded query pagination", () => {
   assert.deepEqual(normalizePetQuery({ page: "-5", limit: "0", species: "Dog" }), {
     species: ["Dog"], limit: 24, page: 1,
   });
+});
+
+test("merged provider pages never exceed the normalized response limit", () => {
+  const pets = Array.from({ length: 8 }, (_, index) => ({ id: `pet-${index}` }));
+  assert.deepEqual(boundMergedPetPage(pets, 3).map(pet => pet.id), ["pet-0", "pet-1", "pet-2"]);
+  assert.deepEqual(boundMergedPetPage([], 24), []);
 });
 
 test("public pet feeds retain bounded fallback limits if durable limits are unavailable", () => {
