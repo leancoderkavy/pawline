@@ -20,7 +20,7 @@
     "@clerk/react": "^6.12.9",
     "@neondatabase/serverless": "^1.0.1",
     "ably": "^2.26.0",
-    "ai": "^7.0.37",
+    "ai": "^7.0.70",
     "lucide-react": "^0.468.0",
     "mapbox-gl": "^3.27.0",
     "next": "^16.2.12",
