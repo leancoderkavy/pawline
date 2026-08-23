@@ -56,6 +56,16 @@ test("mobile keeps the pet application action, map filters, and map link accessi
   assert.match(journey, /key === "map" \? onOpenMap\(\) : navigate\(key\)/);
 });
 
+test("the floating map navigation reserves room for desktop actions and compacts before mobile", async () => {
+  const styles = await read("src/styles.css");
+
+  assert.match(styles, /\.map-app-header \{[^}]*grid-template-columns:max-content minmax\(320px,550px\) minmax\(0,1fr\)/);
+  assert.match(styles, /\.map-app-actions \{ justify-self:end;display:flex;align-items:center;gap:10px;white-space:nowrap; \}/);
+  assert.match(styles, /\.map-app-actions \.button \{ min-height:46px;border-radius:10px;padding:0 18px;white-space:nowrap; \}/);
+  assert.match(styles, /@media \(min-width:901px\) and \(max-width:1100px\) \{\s*\.map-app-header \{ grid-template-columns:max-content minmax\(0,1fr\) max-content;padding:0 12px;gap:10px; \}/s);
+  assert.match(styles, /\.map-app-actions \.saved-action span,\.map-app-actions \.button span \{ display:none; \}/);
+});
+
 test("mobile Messages exposes usable account actions and the discovery rail only scrolls vertically", async () => {
   const [styles, journey] = await Promise.all([read("src/styles.css"), read("src/AdopterExperience.jsx")]);
 
