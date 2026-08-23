@@ -20,6 +20,19 @@ test("every signed-out account gate offers explicit signup and sign-in actions",
   }
 });
 
+test("the mobile Messages gate opens the configured custom auth modal", async () => {
+  const [journey, journeyWithAuth] = await Promise.all([
+    read("src/AdopterExperience.jsx"),
+    read("src/AdopterExperienceWithAuth.jsx"),
+  ]);
+
+  assert.match(journey, /function ApplicationMessages\(\{ applications, isSignedIn, getToken, onDiscover, onOpenAuth \}\)/);
+  assert.match(journey, /className="journey-guest-auth-actions"/);
+  assert.match(journey, /onOpenAuth\("signup"\).*?>Create account<\/button>/);
+  assert.match(journey, /onOpenAuth\("signin"\).*?>Sign in<\/button>/);
+  assert.match(journeyWithAuth, /onOpenAuth=\{openAuth\}/);
+});
+
 test("documented Clerk parties include current local Next.js preview origins", async () => {
   const example = await read(".env.example");
   assert.match(example, /CLERK_AUTHORIZED_PARTIES=.*http:\/\/localhost:3000/);

@@ -12,6 +12,19 @@ test("the map location prompt has a real dismiss target above the discovery rail
   assert.match(app, /onPointerDown=\{event => event\.stopPropagation\(\)\} onClick=\{onDismissLocation\} aria-label="Dismiss location prompt"/);
   assert.match(styles, /\.location-permission \{ position:absolute;z-index:30/);
   assert.match(styles, /\.location-permission-dismiss \{[^}]*min-width:44px;min-height:32px/);
+  assert.match(app, /ref=\{locationDialogRef\} className="location-permission" role="dialog" aria-modal="true" aria-label="See where you are"/);
+  assert.match(app, /focusable\(\)\[0\]\?\.focus\(\)/);
+  assert.match(app, /event\.key === "Escape"[\s\S]*onDismissLocation\(\)/);
+  assert.match(app, /event\.key !== "Tab"/);
+  assert.match(app, /previousFocus\?\.isConnected/);
+  assert.match(app, /document\.getElementById\("map"\)\?\.focus\(\)/);
+});
+
+test("the map distinguishes pet counts from mixed supporting results", async () => {
+  const app = await read("src/App.jsx");
+
+  assert.match(app, /Current pet listings/);
+  assert.match(app, /Pets, events, and web leads on this map/);
 });
 
 test("the mobile location field stays usable without a zoom-sized or undersized control", async () => {
@@ -41,4 +54,22 @@ test("mobile keeps the pet application action, map filters, and map link accessi
   assert.match(styles, /\.journey-bottom-nav \{[^}]*grid-template-columns:repeat\(6,minmax\(0,1fr\)\)/);
   assert.match(journey, /\["map", Map, "Map"\]/);
   assert.match(journey, /key === "map" \? onOpenMap\(\) : navigate\(key\)/);
+});
+
+test("mobile Messages exposes usable account actions and the discovery rail only scrolls vertically", async () => {
+  const [styles, journey] = await Promise.all([read("src/styles.css"), read("src/AdopterExperience.jsx")]);
+
+  assert.match(journey, /className="journey-guest-auth-actions"/);
+  assert.match(styles, /\.journey-guest-auth-actions \{ display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:18px; \}/);
+  assert.match(styles, /\.journey-guest-auth-actions button \{ min-height:44px/);
+  assert.doesNotMatch(styles, /@media \(max-width:820px\) \{[^}]*journey-guest-auth-actions[^}]*display:none/);
+  assert.match(styles, /\.rail-content \{ height:calc\(100% - 68px\);overflow-x:hidden;overflow-y:auto; \}/);
+  assert.match(styles, /\.match-title > div \{ min-width:0; \}/);
+});
+
+test("the nearby match quiz ranks the current map candidates and applies its species filter there", async () => {
+  const app = await read("src/App.jsx");
+
+  assert.match(app, /const setMatchSpecies = value => \{\s*setMapPetType\(value\);\s*setSpecies\(value\);\s*\}/s);
+  assert.match(app, /<Matchmaker pets=\{mapView\.pets\} feed=\{feed\} location=\{location\} onLocationChange=\{setLocation\} onSpeciesChange=\{setMatchSpecies\}/);
 });

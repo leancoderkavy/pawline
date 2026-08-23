@@ -66,9 +66,25 @@ test("crawler and AI discovery files use the canonical production domain", async
   assert.match(sitemap, /<loc>https:\/\/www\.pawlineadopt\.com\/guides<\/loc>/);
   assert.match(sitemap, /<loc>https:\/\/www\.pawlineadopt\.com\/guides\/find-adoptable-pets-near-you<\/loc>/);
   assert.match(sitemap, /<loc>https:\/\/www\.pawlineadopt\.com\/guides\/find-a-pet-that-fits-your-home-and-routine<\/loc>/);
+  assert.match(sitemap, /<loc>https:\/\/www\.pawlineadopt\.com\/privacy<\/loc>/);
+  assert.match(sitemap, /<loc>https:\/\/www\.pawlineadopt\.com\/terms<\/loc>/);
   assert.match(llms, /Web-discovered leads are labeled as approximate leads/);
   assert.match(llms, /home, routine, household, and pet experience/);
   assert.match(full, /Canonical URL: https:\/\/www\.pawlineadopt\.com\//);
+});
+
+test("privacy and terms are canonical, crawlable, and linked site-wide", async () => {
+  const [layout, privacy, terms] = await Promise.all([
+    read("app/layout.jsx"),
+    read("app/privacy/page.jsx"),
+    read("app/terms/page.jsx"),
+  ]);
+  assert.match(layout, /href="\/privacy"/);
+  assert.match(layout, /href="\/terms"/);
+  assert.match(privacy, /alternates: \{ canonical: "\/privacy" \}/);
+  assert.match(privacy, /Information Pawline handles/);
+  assert.match(terms, /alternates: \{ canonical: "\/terms" \}/);
+  assert.match(terms, /Verify information with the source/);
 });
 
 test("the apex host redirects to the canonical www host", async () => {

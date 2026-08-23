@@ -34,6 +34,7 @@ export default function AdopterExperienceWithAuth({
       isSignedIn={isSignedIn}
       getToken={isSignedIn ? getToken : null}
       authAction={authAction}
+      onOpenAuth={openAuth}
       initialView={isSignedIn ? "home" : "discover"}
       onOpenMap={onOpenMap}
       onOpenMessages={onOpenMessages}
