@@ -49,6 +49,11 @@ export default function RootLayout({ children }) {
         ],
       }).replace(/</g, "\\u003c") }} />
       {children}
+      <div className="legal-footer" role="contentinfo" aria-label="Pawline legal information">
+        <span>© {new Date().getFullYear()} Pawline</span>
+        <a href="/privacy">Privacy</a>
+        <a href="/terms">Terms</a>
+      </div>
     </body>
   </html>;
 }

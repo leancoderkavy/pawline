@@ -12,6 +12,19 @@ test("the map location prompt has a real dismiss target above the discovery rail
   assert.match(app, /onPointerDown=\{event => event\.stopPropagation\(\)\} onClick=\{onDismissLocation\} aria-label="Dismiss location prompt"/);
   assert.match(styles, /\.location-permission \{ position:absolute;z-index:30/);
   assert.match(styles, /\.location-permission-dismiss \{[^}]*min-width:44px;min-height:32px/);
+  assert.match(app, /ref=\{locationDialogRef\} className="location-permission" role="dialog" aria-modal="true" aria-label="See where you are"/);
+  assert.match(app, /focusable\(\)\[0\]\?\.focus\(\)/);
+  assert.match(app, /event\.key === "Escape"[\s\S]*onDismissLocation\(\)/);
+  assert.match(app, /event\.key !== "Tab"/);
+  assert.match(app, /previousFocus\?\.isConnected/);
+  assert.match(app, /document\.getElementById\("map"\)\?\.focus\(\)/);
+});
+
+test("the map distinguishes pet counts from mixed supporting results", async () => {
+  const app = await read("src/App.jsx");
+
+  assert.match(app, /Current pet listings/);
+  assert.match(app, /Pets, events, and web leads on this map/);
 });
 
 test("the mobile location field stays usable without a zoom-sized or undersized control", async () => {

@@ -13,6 +13,7 @@ import { restoreFavoriteAfterFailure } from "./favoritesState";
 import Dialog from "./Dialog";
 import { createMapSearchInteraction } from "./mapSearchInteraction";
 import AdopterExperience from "./AdopterExperience";
+import { discoveryDisplayLocation } from "./discoveryLocation";
 
 const CommunityWithAuth = lazy(() => import("./CommunityWithAuth"));
 const DirectMessages = lazy(() => import("./DirectMessages"));
@@ -908,7 +909,7 @@ function MapResults({ view, saved, showSavedOnly, onToggleSavedOnly, onSave, onO
     : `Open ${item.name || item.title || item.resultType} details`;
 
   return <section className="map-results" aria-labelledby="map-results-title">
-    <div><strong id="map-results-title">{showSavedOnly ? "Favorite listings" : "On this map"}</strong><button type="button" className={`favorites-filter ${showSavedOnly ? "is-active" : ""}`} onClick={onToggleSavedOnly} aria-pressed={showSavedOnly}><Heart fill={showSavedOnly ? "currentColor" : "none"} />{showSavedOnly ? "Show all" : `${saved.length} saved`}</button></div>
+    <div><strong id="map-results-title">{showSavedOnly ? "Favorite pet listings" : "Pets, events, and web leads on this map"}</strong><button type="button" className={`favorites-filter ${showSavedOnly ? "is-active" : ""}`} onClick={onToggleSavedOnly} aria-pressed={showSavedOnly}><Heart fill={showSavedOnly ? "currentColor" : "none"} />{showSavedOnly ? "Show all" : `${saved.length} saved`}</button></div>
     {items.length ? <div className="map-result-list">{items.map(item =>
       <div className="map-result-row" key={`${item.resultType}-${item.id}`}>
         <button type="button" className="map-result-open" onClick={() => open(item)} aria-label={accessibleName(item)}>
@@ -945,7 +946,42 @@ function VisitPlanner({ pets, location }) {
 }
 
 function MapPanel({ location, coordinates, userCoordinates, locationPrompt, configured, view, petType, showEvents, densityMode, routePets, featuredPet, onChooseSurprise, onOpenPet, onOpenEvent, onOpenDiscovery, onOpenShelter, onMapMove, onRequestLocation, onDismissLocation }) {
+  const locationDialogRef = useRef(null);
   const { pets: visiblePets, events: visibleEvents, discoveries: visibleDiscoveries, shelters: visibleShelters } = view;
+  const locationDialogOpen = configured === true && locationPrompt.status !== "hidden" && !userCoordinates;
+  useEffect(() => {
+    if (!locationDialogOpen) return undefined;
+    const previousFocus = document.activeElement;
+    const dialog = locationDialogRef.current;
+    const focusable = () => [...dialog.querySelectorAll("button:not([disabled]), a[href], [tabindex]:not([tabindex='-1'])")]
+      .filter(element => element.getClientRects().length);
+    focusable()[0]?.focus();
+    const handleKeyDown = event => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onDismissLocation();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const elements = focusable();
+      if (!elements.length) return;
+      const first = elements[0];
+      const last = elements[elements.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      if (previousFocus?.isConnected) previousFocus.focus?.();
+      else document.getElementById("map")?.focus();
+    };
+  }, [locationDialogOpen, onDismissLocation]);
   const points = [
     ...visiblePets
       .map(pet => ({ id: pet.id, longitude: pet.longitude, latitude: pet.latitude, type: "pet" })),
@@ -975,7 +1011,7 @@ function MapPanel({ location, coordinates, userCoordinates, locationPrompt, conf
     const pet = visiblePets.find(item => String(item.id) === String(id));
     if (pet) onOpenPet?.(pet);
   };
-  return <section id="map" className="map-discovery" aria-labelledby="map-title">
+  return <section id="map" tabIndex={-1} className="map-discovery" aria-labelledby="map-title">
     <header className="map-header">
       <div><span className="map-kicker"><MapPin /> Explore nearby</span><h2 id="map-title">Find your next hello.</h2><p>Browse current pet listings, reviewed events, and nearby shelter locations around your search area.</p></div>
       <div className="map-count" aria-live="polite"><strong>{visiblePets.length}</strong><span>mapped pets in this view</span></div>
@@ -990,7 +1026,7 @@ function MapPanel({ location, coordinates, userCoordinates, locationPrompt, conf
         </button>
         <span id="map-surprise-note" aria-live="polite">{featuredPet ? `${featuredPet.name || "A pet"} is on your trail.` : visiblePets.length ? "Choose a current listing at random." : "Waiting for current listings."}</span>
       </div>
-      {configured === true && locationPrompt.status !== "hidden" && !userCoordinates ? <div className="location-permission" role="dialog" aria-labelledby="location-permission-title" aria-describedby="location-permission-description">
+      {locationDialogOpen ? <div ref={locationDialogRef} className="location-permission" role="dialog" aria-modal="true" aria-label="See where you are" aria-describedby="location-permission-description">
         <span className="location-permission-icon" aria-hidden="true"><LocateFixed /></span>
         <div><strong id="location-permission-title">See where you are</strong><span id="location-permission-description">{locationPrompt.message || "Share your location to show your position on the map."}</span></div>
         <button type="button" className="button primary" onClick={onRequestLocation} disabled={locationPrompt.status === "loading"}>{locationPrompt.status === "loading" ? "Locating…" : "Use my location"}</button>
@@ -1532,7 +1568,7 @@ export default function App({ clerkPublishableKey = "" }) {
         <div id="map-rail-content" className="rail-content">
           {activePanel === "explore" ? <div className="explore-intro">
             <MapFilters petType={mapPetType} distance={mapDistance} showEvents={showMapEvents} densityMode={densityMode} hoursFilter={hoursFilter} onPetTypeChange={setMapPetType} onDistanceChange={setMapDistance} onShowEventsChange={setShowMapEvents} onDensityChange={setDensityMode} onHoursFilterChange={setHoursFilter} onReset={resetMapFilters} />
-            <div className="explore-heading"><div><h1>Find adoptable pets</h1><span className={`live-state feed-${feed.mode}`}><i />{feed.mode === "live" ? "Current listings" : feed.mode === "loading" ? "Checking listings" : "Listings unavailable"}</span></div><button type="button" className="mobile-view-map" onClick={() => setRailCollapsed(true)}><Compass /> View map</button></div>
+            <div className="explore-heading"><div><h1>Find adoptable pets</h1><span className={`live-state feed-${feed.mode}`}><i />{feed.mode === "live" ? "Current pet listings" : feed.mode === "loading" ? "Checking pet listings" : "Pet listings unavailable"}</span></div><button type="button" className="mobile-view-map" onClick={() => setRailCollapsed(true)}><Compass /> View map</button></div>
             <p>{feed.mode === "live" ? `${petCountLabel(mapView.pets.length, mapPetType)} within ${mapDistance} miles. Open a pet to see details and the shelter's listing.` : feed.message || "Current shelter listings are unavailable. Pawline does not show made-up pets."}</p>
             {mapSearchMoved ? <p className="map-area-status" role="status">Showing results around the map center.</p> : null}
             <MapResults view={mapView} saved={saved} showSavedOnly={showSavedOnly} onToggleSavedOnly={toggleSavedOnly} onSave={toggleSave} onOpenPet={openPetDetail} onOpenEvent={setSelectedEvent} onOpenDiscovery={setSelectedDiscovery} />
@@ -1543,7 +1579,7 @@ export default function App({ clerkPublishableKey = "" }) {
               <div><Globe2 /><span><small>Web discovery</small><strong>Fresh adoption leads</strong></span></div>
               <p>Search results are approximate map leads, not shelter-verified pet records.</p>
               {remoteDiscoveries.slice(0, 3).map(item => <a key={item.id} href={item.source_url} target="_blank" rel="noreferrer">
-                <span>{item.title}</span><small>{item.city} · {item.source_domain}</small>
+                <span>{item.title}</span><small>{discoveryDisplayLocation(item)} · {item.source_domain}</small>
               </a>)}
             </section> : null}
             <details className="source-methodology">
