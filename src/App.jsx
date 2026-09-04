@@ -507,7 +507,7 @@ function addPawImage(map, id, color) {
   map.addImage(id, { width: size, height: size, data: context.getImageData(0, 0, size, size).data });
 }
 
-function InteractiveMap({ coordinates, userCoordinates, points, location, onPointClick, onMoveSearch, densityMode, routePets }) {
+function InteractiveMap({ coordinates, userCoordinates, points, location, onPointClick, onMoveSearch, densityMode, routePets, onRevealMap }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const geoJsonRef = useRef(null);
@@ -826,6 +826,7 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
       <button type="button" className="map-fit-results" disabled={!points.length} onClick={() => {
         const bounds = mapResultBounds(points);
         if (!bounds) return;
+        onRevealMap?.();
         mapRef.current?.fitBounds(bounds, {
           padding: { top: 80, bottom: 100, left: 45, right: 65 },
           maxZoom: 13,
@@ -934,7 +935,7 @@ function VisitPlanner({ pets, location }) {
   </section>;
 }
 
-function MapPanel({ location, coordinates, userCoordinates, locationPrompt, configured, view, petType, showEvents, densityMode, routePets, onOpenPet, onOpenEvent, onOpenDiscovery, onOpenShelter, onMapMove, onRequestLocation, onDismissLocation }) {
+function MapPanel({ location, coordinates, userCoordinates, locationPrompt, configured, view, petType, showEvents, densityMode, routePets, onOpenPet, onOpenEvent, onOpenDiscovery, onOpenShelter, onMapMove, onRequestLocation, onDismissLocation, onRevealMap }) {
   const locationDialogRef = useRef(null);
   const { pets: visiblePets, events: visibleEvents, discoveries: visibleDiscoveries, shelters: visibleShelters } = view;
   const locationDialogOpen = configured === true && locationPrompt.status !== "hidden" && !userCoordinates;
@@ -1007,7 +1008,7 @@ function MapPanel({ location, coordinates, userCoordinates, locationPrompt, conf
     </header>
     <div className="map-canvas">
       {configured === true
-        ? <InteractiveMap coordinates={coordinates} userCoordinates={userCoordinates} points={points} location={location} onPointClick={openPoint} onMoveSearch={onMapMove} densityMode={densityMode} routePets={routePets} />
+        ? <InteractiveMap coordinates={coordinates} userCoordinates={userCoordinates} points={points} location={location} onPointClick={openPoint} onMoveSearch={onMapMove} densityMode={densityMode} routePets={routePets} onRevealMap={onRevealMap} />
         : <div className="map-unavailable" role={configured === null ? "status" : undefined}><span className="map-unavailable-icon"><MapPin /></span><strong>{configured === null ? "Checking map availability" : "Interactive map unavailable"}</strong><span>{configured === null ? "Your discovery tools will be ready in a moment." : "You can still browse current pets and use the filters. Location search is unavailable right now."}</span></div>}
       {locationDialogOpen ? <div ref={locationDialogRef} className="location-permission" role="dialog" aria-modal="true" aria-label="See where you are" aria-describedby="location-permission-description">
         <span className="location-permission-icon" aria-hidden="true"><LocateFixed /></span>
@@ -1275,7 +1276,7 @@ export default function App({ clerkPublishableKey = "" }) {
     if (species !== "All") params.set("species", species);
     const subscription = startFeedRefresh({
       load: async signal => {
-        const response = await fetch(`/api/pets?${params}`, { signal, cache: "no-cache" });
+        const response = await fetch(`/api/pets?${params}`, { signal: AbortSignal.any([signal, AbortSignal.timeout(15000)]), cache: "no-cache" });
         const body = await readJson(response, "Live feeds require the configured Pawline API.");
         if (!response.ok || body.mode === "error") throw new Error(body.message || "Feed unavailable");
         return body;
@@ -1509,7 +1510,7 @@ export default function App({ clerkPublishableKey = "" }) {
       accountAction={clerkConfigured ? <Suspense fallback={null}><MapAccountActions onProfile={() => openPanel("profile")} /></Suspense> : null} />
 
   <main id="discover" tabIndex={-1} className={`map-workspace panel-${activePanel} ${railCollapsed ? "rail-collapsed" : ""} ${selectedPet ? "detail-open" : ""}`}>
-      <MapPanel location={location} coordinates={coordinates} userCoordinates={userCoordinates} locationPrompt={locationPrompt} configured={integrations.mapboxConfigured} view={mapView} petType={mapPetType} showEvents={showMapEvents} densityMode={densityMode} routePets={routePets} onOpenPet={openPetDetail} onOpenEvent={setSelectedEvent} onOpenDiscovery={setSelectedDiscovery} onOpenShelter={setSelectedShelter} onMapMove={searchThisMapArea} onRequestLocation={requestUserLocation} onDismissLocation={dismissLocationPrompt} />
+      <MapPanel location={location} coordinates={coordinates} userCoordinates={userCoordinates} locationPrompt={locationPrompt} configured={integrations.mapboxConfigured} view={mapView} petType={mapPetType} showEvents={showMapEvents} densityMode={densityMode} routePets={routePets} onOpenPet={openPetDetail} onOpenEvent={setSelectedEvent} onOpenDiscovery={setSelectedDiscovery} onOpenShelter={setSelectedShelter} onMapMove={searchThisMapArea} onRequestLocation={requestUserLocation} onDismissLocation={dismissLocationPrompt} onRevealMap={() => setRailCollapsed(true)} />
 
       <aside className={`map-rail ${railCollapsed ? "is-collapsed" : ""}`} aria-label="Map discovery tools">
         <button className="rail-toggle" type="button" onClick={() => setRailCollapsed(value => !value)} aria-expanded={!railCollapsed} aria-controls="map-rail-content">
@@ -1572,7 +1573,7 @@ export default function App({ clerkPublishableKey = "" }) {
           {activePanel === "events" ? <EventPanel events={remoteEvents} state={eventState} /> : null}
           {activePanel === "messages" ? clerkConfigured
             ? <Suspense fallback={<div className="community-auth-state" role="status"><span><MessageCircle /></span><h2>Opening Messages…</h2></div>}><DirectMessages initialListing={messagePet} onInitialListingHandled={() => setMessagePet(null)} onBrowse={() => openPanel("explore")} /></Suspense>
-            : <div className="community-auth-state"><span><MessageCircle /></span><h2>Messages need an account</h2><p>Configure Pawline Clerk to let shelters, fosters, and adopters register and message privately.</p><div className="auth-safety"><ShieldCheck /><span><strong>Failing closed</strong>Private listing chat never opens without verified identity.</span></div></div>
+            : <div className="community-auth-state"><span><MessageCircle /></span><h2>Messaging is temporarily unavailable</h2><p>You can still explore pets and contact the shelter through its official listing. Please try Messages again later.</p><div className="auth-safety"><ShieldCheck /><span><strong>Your conversations stay private</strong>Sign-in must be available before messages or video calls can open.</span></div></div>
           : null}
           {activePanel === "community" ? clerkConfigured
             ? <Suspense fallback={<div className="community-auth-state" role="status"><span><MessageCircle /></span><h2>Opening the community…</h2></div>}><CommunityWithAuth publishableKey={clerkPublishableKey} onLeadsChange={setCommunityLeads} /></Suspense>

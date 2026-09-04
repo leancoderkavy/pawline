@@ -426,7 +426,7 @@ export function normalizeDatabasePet(pet, index) {
     reviews: null,
     source: "Pawline community · Verified",
     sourceUrl: safeHttpUrl(pet.source_url),
-    messageAvailable: Boolean(pet.claimed_by_clerk_user_id),
+    messageAvailable: pet.organization_id ? Boolean(pet.organization_has_members) : Boolean(pet.claimed_by_clerk_user_id),
     image: safeImageUrl(pet.image_url),
     latitude: pet.latitude == null ? null : Number(pet.latitude),
     longitude: pet.longitude == null ? null : Number(pet.longitude),
@@ -441,7 +441,8 @@ async function fetchDatabasePets({ limit, page }) {
   const offset = (page - 1) * limit;
   const rows = await database`
     SELECT id, external_id, name, species, breed, age, sex, size, city, country,
-           shelter, image_url, source_url, latitude, longitude, claimed_by_clerk_user_id
+           shelter, image_url, source_url, latitude, longitude, claimed_by_clerk_user_id, organization_id,
+           EXISTS (SELECT 1 FROM organization_memberships m WHERE m.organization_id = pets.organization_id) AS organization_has_members
     FROM pets
     WHERE status = 'available' AND verified_at IS NOT NULL
     ORDER BY updated_at DESC

@@ -12,6 +12,7 @@
     "db:migrate": "node scripts/migrate.mjs",
     "db:migrate:dry-run": "node scripts/migrate.mjs --dry-run",
     "start": "next start",
+    "test:chat": "playwright test --config playwright.chat.config.js",
     "test": "node --test && python -m unittest discover -s test -p \"test_*.py\""
   },
   "dependencies": {
@@ -28,7 +29,10 @@
     "react-dom": "^19.2.8"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "@playwright/test": "^1.62.1",
     "autoprefixer": "^10.4.21",
+    "esbuild": "^0.28.2",
     "postcss": "^8.5.26",
     "tailwindcss": "^3.4.17"
   },

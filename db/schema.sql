@@ -789,3 +789,54 @@ CREATE TABLE IF NOT EXISTS ai_evaluation_results (
   metrics jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Shared shelter messaging and private video sessions.
+UPDATE direct_conversations c SET organization_id = p.organization_id
+FROM pets p WHERE p.id = c.listing_id AND c.organization_id IS NULL
+  AND p.organization_id IS NOT NULL
+  AND EXISTS (SELECT 1 FROM organization_memberships m
+    WHERE m.organization_id = p.organization_id AND m.clerk_user_id = c.owner_clerk_user_id);
+ALTER TABLE direct_conversations ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'open'
+  CHECK (status IN ('open', 'resolved'));
+ALTER TABLE direct_messages ADD COLUMN IF NOT EXISTS client_message_id uuid;
+CREATE UNIQUE INDEX IF NOT EXISTS direct_messages_idempotency
+  ON direct_messages (conversation_id, sender_clerk_user_id, client_message_id);
+CREATE INDEX IF NOT EXISTS direct_messages_page
+  ON direct_messages (conversation_id, created_at DESC, id DESC) WHERE moderation_state = 'visible';
+CREATE TABLE IF NOT EXISTS direct_conversation_state (
+  conversation_id uuid NOT NULL REFERENCES direct_conversations(id) ON DELETE CASCADE,
+  clerk_user_id text NOT NULL,
+  last_read_at timestamptz,
+  blocked_at timestamptz,
+  PRIMARY KEY (conversation_id, clerk_user_id)
+);
+CREATE TABLE IF NOT EXISTS direct_video_calls (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  conversation_id uuid NOT NULL REFERENCES direct_conversations(id) ON DELETE CASCADE,
+  caller_user_id text NOT NULL,
+  callee_user_id text,
+  caller_name text NOT NULL,
+  caller_is_inquirer boolean NOT NULL,
+  state text NOT NULL DEFAULT 'ringing' CHECK (state IN ('ringing', 'accepted', 'declined', 'cancelled', 'ended', 'missed')),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  accepted_at timestamptz,
+  ended_at timestamptz,
+  caller_seen_at timestamptz NOT NULL DEFAULT now(),
+  callee_seen_at timestamptz,
+  expires_at timestamptz NOT NULL DEFAULT now() + interval '90 seconds',
+  CHECK (caller_user_id <> callee_user_id)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS direct_video_one_active
+  ON direct_video_calls (conversation_id) WHERE state IN ('ringing', 'accepted');
+CREATE INDEX IF NOT EXISTS direct_video_recent ON direct_video_calls (conversation_id, created_at DESC);
+CREATE TABLE IF NOT EXISTS direct_video_signals (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  call_id uuid NOT NULL REFERENCES direct_video_calls(id) ON DELETE CASCADE,
+  sender_user_id text NOT NULL,
+  client_signal_id uuid NOT NULL,
+  kind text NOT NULL CHECK (kind IN ('offer', 'answer', 'candidate')),
+  payload jsonb NOT NULL CHECK (octet_length(payload::text) <= 65536),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (call_id, sender_user_id, client_signal_id)
+);
+CREATE INDEX IF NOT EXISTS direct_video_signals_call ON direct_video_signals (call_id, id);
