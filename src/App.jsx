@@ -16,6 +16,7 @@ import Dialog from "./Dialog";
 import { startFeedRefresh } from "./feedRefresh";
 import { createMapSearchInteraction } from "./mapSearchInteraction";
 import AdopterExperience from "./AdopterExperience";
+import { discoveryDisplayLocation } from "./discoveryLocation";
 import MapNavigation from "./MapNavigation";
 import { JOURNEY_PANELS, panelFromHash, panelHash } from "./mapPanels";
 
@@ -838,19 +839,21 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
 }
 
 function MapFilters({ petType, distance, showEvents, densityMode, hoursFilter, onPetTypeChange, onDistanceChange, onShowEventsChange, onDensityChange, onHoursFilterChange, onReset }) {
+  const activeFilterCount = [distance !== "150", hoursFilter !== "all", !showEvents, densityMode].filter(Boolean).length;
+  const activeFilterLabel = `${activeFilterCount} active ${activeFilterCount === 1 ? "filter" : "filters"}`;
+
   return <div className="map-toolbar" role="group" aria-label="Map filters">
-    <div className="mobile-pet-types" role="group" aria-label="Pet type">
+    <div className="map-pet-types" role="group" aria-label="Pet type">
       {["All", "Dog", "Cat"].map(type => <button key={type} type="button" className={petType === type ? "is-active" : ""} onClick={() => onPetTypeChange(type)} aria-pressed={petType === type}>{type === "All" ? "All" : `${type}s`}</button>)}
     </div>
-    <label className="map-select"><SlidersHorizontal /><span>Pet type</span><select value={petType} onChange={event => onPetTypeChange(event.target.value)} aria-label="Filter map by pet type"><option>All</option><option>Dog</option><option>Cat</option></select></label>
-    <label className="map-select"><LocateFixed /><span>Radius</span><select value={distance} onChange={event => onDistanceChange(event.target.value)} aria-label="Map search radius"><option value="25">25 mi</option><option value="50">50 mi</option><option value="100">100 mi</option><option value="150">150 mi</option></select></label>
     <details className="more-filters">
-      <summary><SlidersHorizontal /> Filters</summary>
+      <summary><SlidersHorizontal /><span>Filters</span>{activeFilterCount ? <span className="filter-count" aria-label={activeFilterLabel}>{activeFilterCount}</span> : null}</summary>
       <div>
+        <label className="map-select"><LocateFixed /><span>Search radius</span><select value={distance} onChange={event => onDistanceChange(event.target.value)} aria-label="Map search radius"><option value="25">25 mi</option><option value="50">50 mi</option><option value="100">100 mi</option><option value="150">150 mi</option></select></label>
         <label className="map-select"><CalendarClock /><span>Shelter hours</span><select value={hoursFilter} onChange={event => onHoursFilterChange(event.target.value)} aria-label="Filter by supplied shelter hours"><option value="all">All listings</option><option value="known">Hours supplied</option></select></label>
         <button type="button" className={`map-toggle ${showEvents ? "is-active" : ""}`} onClick={() => onShowEventsChange(value => !value)} aria-pressed={showEvents}><CalendarDays /> Show events</button>
         <button type="button" className={`map-toggle ${densityMode ? "is-active" : ""}`} onClick={() => onDensityChange(value => !value)} aria-pressed={densityMode}><Layers3 /> Show pet density</button>
-        <button type="button" className="map-reset" onClick={onReset} aria-label="Reset all filters"><RotateCcw /> Reset filters</button>
+        {activeFilterCount ? <button type="button" className="map-reset" onClick={onReset} aria-label="Reset all filters"><RotateCcw /> Reset filters</button> : null}
       </div>
     </details>
   </div>;
@@ -896,7 +899,7 @@ function MapResults({ view, saved, showSavedOnly, onToggleSavedOnly, onSave, onO
     : `Open ${item.name || item.title || item.resultType} details`;
 
   return <section className="map-results" aria-labelledby="map-results-title">
-    <div><strong id="map-results-title">{showSavedOnly ? "Favorite listings" : "On this map"}</strong><button type="button" className={`favorites-filter ${showSavedOnly ? "is-active" : ""}`} onClick={onToggleSavedOnly} aria-pressed={showSavedOnly}><Heart fill={showSavedOnly ? "currentColor" : "none"} />{showSavedOnly ? "Show all" : `${saved.length} saved`}</button></div>
+    <div><strong id="map-results-title">{showSavedOnly ? "Favorite pet listings" : "Pets, events, and web leads on this map"}</strong><button type="button" className={`favorites-filter ${showSavedOnly ? "is-active" : ""}`} onClick={onToggleSavedOnly} aria-pressed={showSavedOnly}><Heart fill={showSavedOnly ? "currentColor" : "none"} />{showSavedOnly ? "Show all" : `${saved.length} saved`}</button></div>
     {items.length ? <div className="map-result-list">{items.map(item =>
       <div className="map-result-row" key={`${item.resultType}-${item.id}`}>
         <button type="button" className="map-result-open" onClick={() => open(item)} aria-label={accessibleName(item)}>
@@ -933,7 +936,42 @@ function VisitPlanner({ pets, location }) {
 }
 
 function MapPanel({ location, coordinates, userCoordinates, locationPrompt, configured, view, petType, showEvents, densityMode, routePets, onOpenPet, onOpenEvent, onOpenDiscovery, onOpenShelter, onMapMove, onRequestLocation, onDismissLocation, onRevealMap }) {
+  const locationDialogRef = useRef(null);
   const { pets: visiblePets, events: visibleEvents, discoveries: visibleDiscoveries, shelters: visibleShelters } = view;
+  const locationDialogOpen = configured === true && locationPrompt.status !== "hidden" && !userCoordinates;
+  useEffect(() => {
+    if (!locationDialogOpen) return undefined;
+    const previousFocus = document.activeElement;
+    const dialog = locationDialogRef.current;
+    const focusable = () => [...dialog.querySelectorAll("button:not([disabled]), a[href], [tabindex]:not([tabindex='-1'])")]
+      .filter(element => element.getClientRects().length);
+    focusable()[0]?.focus();
+    const handleKeyDown = event => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onDismissLocation();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const elements = focusable();
+      if (!elements.length) return;
+      const first = elements[0];
+      const last = elements[elements.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      if (previousFocus?.isConnected) previousFocus.focus?.();
+      else document.getElementById("map")?.focus();
+    };
+  }, [locationDialogOpen, onDismissLocation]);
   const points = useMemo(() => [
     ...visiblePets
       .map(pet => ({ id: pet.id, longitude: pet.longitude, latitude: pet.latitude, type: "pet" })),
@@ -963,7 +1001,7 @@ function MapPanel({ location, coordinates, userCoordinates, locationPrompt, conf
     const pet = visiblePets.find(item => String(item.id) === String(id));
     if (pet) onOpenPet?.(pet);
   };
-  return <section id="map" className="map-discovery" aria-labelledby="map-title">
+  return <section id="map" tabIndex={-1} className="map-discovery" aria-labelledby="map-title">
     <header className="map-header">
       <div><span className="map-kicker"><MapPin /> Explore nearby</span><h2 id="map-title">Find your next hello.</h2><p>Browse current pet listings, reviewed events, and nearby shelter locations around your search area.</p></div>
       <div className="map-count" aria-live="polite"><strong>{visiblePets.length}</strong><span>mapped pets in this view</span></div>
@@ -972,7 +1010,7 @@ function MapPanel({ location, coordinates, userCoordinates, locationPrompt, conf
       {configured === true
         ? <InteractiveMap coordinates={coordinates} userCoordinates={userCoordinates} points={points} location={location} onPointClick={openPoint} onMoveSearch={onMapMove} densityMode={densityMode} routePets={routePets} onRevealMap={onRevealMap} />
         : <div className="map-unavailable" role={configured === null ? "status" : undefined}><span className="map-unavailable-icon"><MapPin /></span><strong>{configured === null ? "Checking map availability" : "Interactive map unavailable"}</strong><span>{configured === null ? "Your discovery tools will be ready in a moment." : "You can still browse current pets and use the filters. Location search is unavailable right now."}</span></div>}
-      {configured === true && locationPrompt.status !== "hidden" && !userCoordinates ? <div className="location-permission" role="dialog" aria-labelledby="location-permission-title" aria-describedby="location-permission-description">
+      {locationDialogOpen ? <div ref={locationDialogRef} className="location-permission" role="dialog" aria-modal="true" aria-label="See where you are" aria-describedby="location-permission-description">
         <span className="location-permission-icon" aria-hidden="true"><LocateFixed /></span>
         <div><strong id="location-permission-title">See where you are</strong><span id="location-permission-description">{locationPrompt.message || "Share your location to show your position on the map."}</span></div>
         <button type="button" className="button primary" onClick={onRequestLocation} disabled={locationPrompt.status === "loading"}>{locationPrompt.status === "loading" ? "Locating…" : "Use my location"}</button>
@@ -1432,6 +1470,10 @@ export default function App({ clerkPublishableKey = "" }) {
     setDensityMode(false);
     setHoursFilter("all");
   };
+  const setMatchSpecies = value => {
+    setMapPetType(value);
+    setSpecies(value);
+  };
   const openPetDetail = pet => {
     setRailCollapsed(true);
     setSelectedPet(pet);
@@ -1461,12 +1503,13 @@ export default function App({ clerkPublishableKey = "" }) {
   const journeyProps = { pets: remotePets, feed, saved, onSave: toggleSave, view: journeyView, active: JOURNEY_PANELS.includes(activePanel), onNavigate: openPanel,
     applicationPet, onApplicationHandled: () => setApplicationPet(null), onOpenMap: () => openPanel("explore") };
   return <div className="app map-app">
+    <a className="skip-link" href="#discover">Skip to main content</a>
     {clerkConfigured && savedHydrated ? <Suspense fallback={null}><FavoritesSyncWithAuth key={favoriteSyncVersion} publishableKey={clerkPublishableKey} localFavorites={saved} onLoad={loadAccountFavorites} onSessionChange={setFavoriteSession} onError={setFavoriteError} /></Suspense> : null}
     {favoriteError ? <div className="favorites-sync-alert" role="alert"><span>{favoriteError}</span><button type="button" onClick={retryFavoriteSync}>Retry favorites</button></div> : null}
     <MapNavigation activePanel={activePanel} savedCount={saved.length} onNavigate={openPanel} onSubmit={() => setSubmitOpen(true)}
       accountAction={clerkConfigured ? <Suspense fallback={null}><MapAccountActions onProfile={() => openPanel("profile")} /></Suspense> : null} />
 
-  <main id="discover" className={`map-workspace panel-${activePanel} ${railCollapsed ? "rail-collapsed" : ""} ${selectedPet ? "detail-open" : ""}`}>
+  <main id="discover" tabIndex={-1} className={`map-workspace panel-${activePanel} ${railCollapsed ? "rail-collapsed" : ""} ${selectedPet ? "detail-open" : ""}`}>
       <MapPanel location={location} coordinates={coordinates} userCoordinates={userCoordinates} locationPrompt={locationPrompt} configured={integrations.mapboxConfigured} view={mapView} petType={mapPetType} showEvents={showMapEvents} densityMode={densityMode} routePets={routePets} onOpenPet={openPetDetail} onOpenEvent={setSelectedEvent} onOpenDiscovery={setSelectedDiscovery} onOpenShelter={setSelectedShelter} onMapMove={searchThisMapArea} onRequestLocation={requestUserLocation} onDismissLocation={dismissLocationPrompt} onRevealMap={() => setRailCollapsed(true)} />
 
       <aside className={`map-rail ${railCollapsed ? "is-collapsed" : ""}`} aria-label="Map discovery tools">
@@ -1479,7 +1522,7 @@ export default function App({ clerkPublishableKey = "" }) {
         </div>
         <div id="map-rail-content" className="rail-content" ref={railContentRef}>
           {["explore", "favorites"].includes(activePanel) ? <div className="explore-intro">
-            <div className="explore-heading"><div><h1>{showSavedOnly ? "Saved pets" : "Pets near you"}</h1><span className={`live-state feed-${feed.mode}`}><i />{feed.mode === "live" ? "Current listings" : feed.mode === "loading" ? "Checking listings" : "Listings unavailable"}</span></div><button type="button" className="mobile-view-map" onClick={() => setRailCollapsed(true)}><Compass /> View map</button></div>
+            <div className="explore-heading"><div><h1>{showSavedOnly ? "Saved pets" : "Pets near you"}</h1><span className={`live-state feed-${feed.mode}`}><i />{feed.mode === "live" ? "Current pet listings" : feed.mode === "loading" ? "Checking listings" : "Listings unavailable"}</span></div><button type="button" className="mobile-view-map" onClick={() => setRailCollapsed(true)}><Compass /> View map</button></div>
             <p>{feed.mode === "live" ? `${petCountLabel(showSavedOnly ? mapView.pets.filter(pet => saved.includes(pet.id)).length : mapView.pets.length, mapPetType)}${showSavedOnly ? " saved" : ""} within ${mapDistance} miles.` : feed.message || "Current shelter listings are unavailable. Pawline does not show made-up pets."}</p>
             <div className="feed-refresh"><span role="status">{feedRefresh.loading ? "Checking for updates…" : feedRefresh.error || (feedRefresh.updatedAt ? `Checked ${feedRefresh.updatedAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} · checks every minute` : "Waiting for connection")}</span><button type="button" disabled={feedRefresh.loading} onClick={() => refreshFeedRef.current?.()} aria-label="Refresh listings"><RotateCcw size={16} /> Refresh</button></div>
             <MapFilters petType={mapPetType} distance={mapDistance} showEvents={showMapEvents} densityMode={densityMode} hoursFilter={hoursFilter} onPetTypeChange={setMapPetType} onDistanceChange={setMapDistance} onShowEventsChange={setShowMapEvents} onDensityChange={setDensityMode} onHoursFilterChange={setHoursFilter} onReset={resetMapFilters} />
@@ -1492,7 +1535,7 @@ export default function App({ clerkPublishableKey = "" }) {
               <div><Globe2 /><span><small>Web discovery</small><strong>Fresh adoption leads</strong></span></div>
               <p>Search results are approximate map leads, not shelter-verified pet records.</p>
               {remoteDiscoveries.slice(0, 3).map(item => <a key={item.id} href={item.source_url} target="_blank" rel="noreferrer">
-                <span>{item.title}</span><small>{item.city} · {item.source_domain}</small>
+                <span>{item.title}</span><small>{discoveryDisplayLocation(item)} · {item.source_domain}</small>
               </a>)}
             </section> : null}
             <details className="source-methodology">
@@ -1526,7 +1569,7 @@ export default function App({ clerkPublishableKey = "" }) {
             : <div className="community-auth-state"><Building2 /><h1>Shelter workspace</h1><p>Organization accounts are unavailable in this local environment.</p></div> : null}
           {activePanel === "claim" ? <Suspense fallback={<p className="panel-loading" role="status">Opening organization claim…</p>}><ClaimOrganizationClient embedded /></Suspense> : null}
           {activePanel === "moderation" ? <Suspense fallback={<p className="panel-loading" role="status">Opening review moderation…</p>}><ReviewModerationClient embedded /></Suspense> : null}
-          {activePanel === "match" ? <Matchmaker pets={remotePets} feed={feed} location={location} onLocationChange={setLocation} onSpeciesChange={setSpecies} onFindLocation={findMatch} locationState={locationState} /> : null}
+          {activePanel === "match" ? <Matchmaker pets={mapView.pets} feed={feed} location={location} onLocationChange={setLocation} onSpeciesChange={setMatchSpecies} onFindLocation={findMatch} locationState={locationState} /> : null}
           {activePanel === "events" ? <EventPanel events={remoteEvents} state={eventState} /> : null}
           {activePanel === "messages" ? clerkConfigured
             ? <Suspense fallback={<div className="community-auth-state" role="status"><span><MessageCircle /></span><h2>Opening Messages…</h2></div>}><DirectMessages initialListing={messagePet} onInitialListingHandled={() => setMessagePet(null)} onBrowse={() => openPanel("explore")} /></Suspense>

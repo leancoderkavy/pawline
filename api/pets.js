@@ -49,6 +49,10 @@ export function normalizePetQuery(query = {}) {
     page: Math.min(Math.max(Number(query.page) || 1, 1), 20),
   };
 }
+
+export function boundMergedPetPage(pets, limit) {
+  return pets.slice(0, limit);
+}
 const MONTGOMERY_ADOPTION_URL =
   "https://www.montgomerycountymd.gov/animalservices/adoption/index.html";
 const LOS_ANGELES_CENTERS = {
@@ -431,9 +435,10 @@ export function normalizeDatabasePet(pet, index) {
   };
 }
 
-async function fetchDatabasePets() {
+async function fetchDatabasePets({ limit, page }) {
   const database = getDatabase();
   if (!database) return [];
+  const offset = (page - 1) * limit;
   const rows = await database`
     SELECT id, external_id, name, species, breed, age, sex, size, city, country,
            shelter, image_url, source_url, latitude, longitude, claimed_by_clerk_user_id, organization_id,
@@ -441,7 +446,8 @@ async function fetchDatabasePets() {
     FROM pets
     WHERE status = 'available' AND verified_at IS NOT NULL
     ORDER BY updated_at DESC
-    LIMIT 200
+    LIMIT ${limit}
+    OFFSET ${offset}
   `;
   return rows.map(normalizeDatabasePet);
 }
@@ -551,7 +557,7 @@ export default async function handler(request, response) {
 
   try {
     const requests = [
-      { id: "Pawline", promise: fetchDatabasePets() },
+      { id: "Pawline", promise: fetchDatabasePets({ limit, page }) },
       {
         id: "Montgomery County",
         promise: fetchMontgomeryPets(species, { limit, page }),
@@ -598,13 +604,14 @@ export default async function handler(request, response) {
     } catch (error) {
       console.error("RescueGroups shelter geocoding unavailable", error);
     }
-    const pets = deduplicatePets([
+    const mergedPets = deduplicatePets([
       ...montgomeryPets,
       ...kingCountyPets,
       ...losAngelesPets,
       ...providerPets,
       ...databasePets,
     ]);
+    const pets = boundMergedPetPage(mergedPets, limit);
     const providerCount = payloads.reduce(
       (total, payload) => total + Number(payload.meta?.count || 0),
       0,
@@ -635,6 +642,8 @@ export default async function handler(request, response) {
       count: pets.length,
       providerCount,
       page,
+      limit,
+      hasMore: page < 20 && pets.length === limit,
       partial: isPartial,
       fetchedAt: new Date().toISOString(),
       message: providerUnavailable

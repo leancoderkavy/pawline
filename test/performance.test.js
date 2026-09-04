@@ -13,6 +13,35 @@ test("the homepage server-renders without eagerly loading Clerk", async () => {
   assert.match(page, /<PawlineApp/);
 });
 
+test("discovery renders live listings incrementally and resets the list after a species change", async () => {
+  const [journey, styles] = await Promise.all([read("src/AdopterExperience.jsx"), read("src/styles.css")]);
+  assert.match(journey, /const DISCOVERY_PAGE_SIZE = 24;/);
+  assert.match(journey, /const \[visibleCount, setVisibleCount\] = useState\(DISCOVERY_PAGE_SIZE\);/);
+  assert.match(journey, /const visibleRanked = ranked\.slice\(0, visibleCount\);/);
+  assert.match(journey, /setSpecies\(option\); setVisibleCount\(DISCOVERY_PAGE_SIZE\);/);
+  assert.match(journey, /Showing \{visibleRanked\.length\} of \{ranked\.length\} current pets\./);
+  assert.match(journey, /Load \{Math\.min\(DISCOVERY_PAGE_SIZE, ranked\.length - visibleRanked\.length\)\} more pets/);
+  assert.match(styles, /\.discovery-pagination \{ display:flex;justify-content:center;/);
+});
+
+test("the persistent map exposes a keyboard skip link and embedded content", async () => {
+  const [app, journey, styles] = await Promise.all([read("src/App.jsx"), read("src/AdopterExperience.jsx"), read("src/styles.css")]);
+  assert.ok(app.includes('className="skip-link" href="#discover"'));
+  assert.ok(app.includes('<main id="discover" tabIndex={-1}'));
+  assert.ok(journey.includes('map-journey-panel'));
+  assert.ok(!journey.includes('<main'));
+  assert.match(styles, /\.skip-link:focus-visible/);
+});
+
+test("protected embedded fallbacks fit narrow screens", async () => {
+  for (const file of ["app/shelter/claim/ClaimOrganizationClient.jsx", "app/pawline-moderation/reviews/ReviewModerationClient.jsx"]) {
+    const source = await read(file);
+    assert.match(source, /boxSizing: "border-box"/);
+    assert.match(source, /overflowWrap: "anywhere"/);
+    assert.match(source, /if \(embedded\)/);
+  }
+});
+
 test("the map uses a lightweight preview before loading Mapbox", async () => {
   const [app, mapApi] = await Promise.all([read("src/App.jsx"), read("api/map.js")]);
   assert.match(app, /const \[interactive, setInteractive\] = useState\(false\)/);
@@ -37,6 +66,21 @@ test("unavailable map search keeps the existing map center and reports the limit
   assert.match(app, /coordinates\?\.latitude, coordinates\?\.longitude/);
   assert.match(app, /setLocation\(currentMapArea\)/);
   assert.match(app, /remains selected/);
+});
+
+test("map filters keep species choice primary and disclose secondary controls inline", async () => {
+  const [app, styles] = await Promise.all([read("src/App.jsx"), read("src/styles.css")]);
+  const filters = app.slice(app.indexOf("function MapFilters"), app.indexOf("function NearbyShelters"));
+
+  assert.match(filters, /const activeFilterCount = \[distance !== "150", hoursFilter !== "all", !showEvents, densityMode\]\.filter\(Boolean\)\.length/);
+  assert.match(filters, /className="map-pet-types"/);
+  assert.match(filters, /<span>Filters<\/span>/);
+  assert.match(filters, /aria-label="Map search radius"/);
+  assert.doesNotMatch(filters, /Filter map by pet type/);
+  assert.match(styles, /\.map-rail \.map-toolbar \{ display:grid !important;grid-template-columns:minmax\(0,1fr\) auto/);
+  assert.match(styles, /\.map-rail \.more-filters\[open\] \{ grid-column:1\/-1/);
+  assert.match(styles, /\.map-rail \.more-filters > div \{ position:static/);
+  assert.match(styles, /\.map-rail \.map-pet-types button \{ min-height:46px/);
 });
 
 test("the top location search offers map-backed autocomplete", async () => {
