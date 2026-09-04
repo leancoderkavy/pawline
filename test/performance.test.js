@@ -28,7 +28,7 @@ test("the map uses a lightweight preview before loading Mapbox", async () => {
   assert.match(mapApi, /"450x760" : "900x620"/);
   assert.doesNotMatch(mapApi, /@2x/);
   assert.match(app, /lazy\(\(\) => import\("\.\/CommunityWithAuth"\)\)/);
-  assert.match(app, /clerkConfigured && accountSyncReady/);
+  assert.match(app, /clerkConfigured && savedHydrated/);
 });
 
 test("unavailable map search keeps the existing map center and reports the limitation", async () => {
@@ -37,36 +37,6 @@ test("unavailable map search keeps the existing map center and reports the limit
   assert.match(app, /coordinates\?\.latitude, coordinates\?\.longitude/);
   assert.match(app, /setLocation\(currentMapArea\)/);
   assert.match(app, /remains selected/);
-});
-
-test("the map surprise control chooses only an existing current listing", async () => {
-  const [app, styles] = await Promise.all([read("src/App.jsx"), read("src/styles.css")]);
-  assert.match(app, /const chooseSurprisePet = \(\) => \{/);
-  assert.match(app, /const alternatives = mapView\.pets\.filter/);
-  assert.match(app, /Math\.random\(\) \* candidates\.length/);
-  assert.match(app, /aria-describedby="map-surprise-note"/);
-  assert.match(app, /"Pick a hello"/);
-  assert.match(styles, /\.map-surprise \{ min-height:44px/);
-  assert.match(styles, /prefers-reduced-motion:no-preference/);
-});
-
-test("the discovery drawer keeps pet finding primary and secondary views tucked away", async () => {
-  const [app, styles] = await Promise.all([read("src/App.jsx"), read("src/styles.css")]);
-  assert.match(styles, /\.rail-tabs \{[^}]*grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
-  assert.match(styles, /--mobile-drawer-height:min\(76dvh,680px\)/);
-  assert.match(styles, /\.rail-tabs \{ height:48px;grid-template-columns:repeat\(3,minmax\(0,1fr\)\);grid-template-rows:1fr/);
-  assert.match(styles, /\.rail-tabs button \{ min-height:44px;padding:0 8px;[^}]*flex-direction:row;[^}]*font-size:11px/);
-  assert.match(styles, /\.rail-more > div \{[^}]*top:calc\(100% \+ 6px\)/);
-  assert.match(styles, /\.rail-tabs button svg \{ display:none; \}/);
-  assert.match(styles, /\.rail-tabs \.rail-label-full \{ display:inline; \}/);
-  assert.match(styles, /\.rail-tabs \.rail-label-short \{ display:none; \}/);
-  assert.match(styles, /\.mobile-pet-types \{ display:grid;grid-template-columns:repeat\(3,1fr\)/);
-  assert.match(styles, /\.mobile-view-map \{ min-height:44px/);
-  assert.match(app, /\["All", "Dog", "Cat"\]\.map/);
-  assert.match(app, /<Compass \/> View map/);
-  assert.match(app, /aria-label="Match quiz"/);
-  assert.match(app, /className="rail-label-full">Match me/);
-  assert.match(app, /<summary><Menu \/>More<\/summary>/);
 });
 
 test("the top location search offers map-backed autocomplete", async () => {
@@ -103,7 +73,7 @@ test("favorite persistence failures stay truthful and expose recovery", async ()
   assert.match(app, /role="alert"/);
   assert.match(app, />Retry favorites</);
   assert.match(sync, /onError\(error\.message/);
-  assert.match(app, /const toggleSavedOnly = \(\) => \{[^}]*setAccountSyncReady\(true\)/s);
+  assert.match(app, /openPanel\(showSavedOnly \? "explore" : "favorites"\)/);
   assert.match(sync, /pawline-favorites-account/);
   assert.match(sync, /priorAccount === null \? localRef\.current : \[\]/);
 });

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <rect width="200" height="200" fill="#e8ede2"/>
+  <g fill="#789180">
+    <ellipse cx="65" cy="82" rx="10" ry="14" transform="rotate(-25 65 82)"/>
+    <ellipse cx="87" cy="65" rx="10" ry="14" transform="rotate(-10 87 65)"/>
+    <ellipse cx="113" cy="65" rx="10" ry="14" transform="rotate(10 113 65)"/>
+    <ellipse cx="135" cy="82" rx="10" ry="14" transform="rotate(25 135 82)"/>
+    <path d="M77 104c7-8 12-18 23-18s16 10 23 18c16 19 1 30-13 24-7-3-13-3-20 0-14 6-29-5-13-24Z"/>
+  </g>
+  <text x="100" y="157" text-anchor="middle" fill="#425d4c" font-family="Arial, sans-serif" font-size="14">Photo unavailable</text>
+</svg>

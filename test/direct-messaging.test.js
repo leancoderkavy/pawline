@@ -33,7 +33,7 @@ test("direct messaging exposes only safe message fields and marks the sender", (
 });
 
 test("mobile conversations use a full-width inbox or thread instead of two squeezed columns", async () => {
-  const component = await readFile(new URL("../src/DirectMessages.jsx", import.meta.url), "utf8");
+  const component = await readFile(new URL("../src/DirectMessagesWorkspace.jsx", import.meta.url), "utf8");
   const styles = await readFile(new URL("../src/styles.css", import.meta.url), "utf8");
   assert.match(component, /direct-workspace \$\{selected \? "has-selection"/);
   assert.match(component, /aria-label="Back to conversations"/);

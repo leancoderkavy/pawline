@@ -19,37 +19,18 @@ test("homepage publishes canonical search and social metadata", async () => {
   assert.match(layout, /"@type": "WebApplication"/);
 });
 
-test("the methodology page is a crawlable, canonical explanation of listing provenance", async () => {
-  const page = await read("app/how-pawline-works/page.jsx");
-  assert.match(page, /title: "How Pawline Finds and Verifies Adoptable Pets"/);
-  assert.match(page, /alternates: \{ canonical: "\/how-pawline-works" \}/);
-  assert.match(page, /Provider-backed pet listings/);
-  assert.match(page, /Approximate web leads/);
-  assert.match(page, /type="application\/ld\+json"/);
-  assert.match(page, /"@type": "WebPage"/);
-});
-
-test("adoption guides are canonical, connected, and explain honest matching", async () => {
-  const [app, hub, discoveryGuide, matchingGuide] = await Promise.all([
-    read("src/App.jsx"),
-    read("app/guides/page.jsx"),
-    read("app/guides/find-adoptable-pets-near-you/page.jsx"),
-    read("app/guides/find-a-pet-that-fits-your-home-and-routine/page.jsx"),
-  ]);
-  assert.match(app, /href="\/guides"/);
-  assert.match(app, /Share your home, routine, household, and pet experience/);
-  assert.match(hub, /title: "Pet Adoption Guides \| Pawline"/);
-  assert.match(hub, /"@type": "CollectionPage"/);
-  assert.match(hub, /find-adoptable-pets-near-you/);
-  assert.match(hub, /find-a-pet-that-fits-your-home-and-routine/);
-  assert.match(discoveryGuide, /title: "How to Find Adoptable Pets Near You \| Pawline"/);
-  assert.match(discoveryGuide, /alternates: \{ canonical: "\/guides\/find-adoptable-pets-near-you" \}/);
-  assert.match(discoveryGuide, /Provider-backed pet listings/);
-  assert.match(discoveryGuide, /"@type": "BreadcrumbList"/);
-  assert.match(matchingGuide, /title: "Find a Pet That Fits Your Home & Routine \| Pawline"/);
-  assert.match(matchingGuide, /home, routine, household, and pet experience/);
-  assert.match(matchingGuide, /not a guarantee/);
-  assert.match(matchingGuide, /"@type": "BreadcrumbList"/);
+test("former content pages redirect into the map while their guide content remains available", async () => {
+  const targets = [
+    ["how-pawline-works", "#how-pawline-works", "Methodology", "Approximate web leads"],
+    ["guides", "#guides", "Guides", "#guides/nearby"],
+    ["guides/find-adoptable-pets-near-you", "#guides/nearby", "NearbyGuide", "Provider-backed pet listings"],
+    ["guides/find-a-pet-that-fits-your-home-and-routine", "#guides/matching", "MatchingGuide", "not a guarantee"],
+  ];
+  for (const [route, hash, component, content] of targets) {
+    const page = await read(`app/${route}/page.jsx`);
+    assert.ok(page.includes(`redirect("/${hash}")`));
+    assert.ok((await read(`src/resources/${component}.jsx`)).includes(content));
+  }
 });
 
 test("crawler and AI discovery files use the canonical production domain", async () => {
@@ -62,10 +43,7 @@ test("crawler and AI discovery files use the canonical production domain", async
   assert.match(robots, /Sitemap: https:\/\/www\.pawlineadopt\.com\/sitemap\.xml/);
   assert.match(robots, /User-agent: OAI-SearchBot[\s\S]*Allow: \//);
   assert.match(sitemap, /<loc>https:\/\/www\.pawlineadopt\.com\/<\/loc>/);
-  assert.match(sitemap, /<loc>https:\/\/www\.pawlineadopt\.com\/how-pawline-works<\/loc>/);
-  assert.match(sitemap, /<loc>https:\/\/www\.pawlineadopt\.com\/guides<\/loc>/);
-  assert.match(sitemap, /<loc>https:\/\/www\.pawlineadopt\.com\/guides\/find-adoptable-pets-near-you<\/loc>/);
-  assert.match(sitemap, /<loc>https:\/\/www\.pawlineadopt\.com\/guides\/find-a-pet-that-fits-your-home-and-routine<\/loc>/);
+  assert.doesNotMatch(sitemap, /\/guides|\/how-pawline-works/);
   assert.match(llms, /Web-discovered leads are labeled as approximate leads/);
   assert.match(llms, /home, routine, household, and pet experience/);
   assert.match(full, /Canonical URL: https:\/\/www\.pawlineadopt\.com\//);

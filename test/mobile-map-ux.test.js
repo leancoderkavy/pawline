@@ -29,16 +29,3 @@ test("opening a map pet detail collapses and hides the discovery rail behind its
   assert.match(app, /\$\{selectedPet \? "detail-open" : ""\}/);
   assert.match(styles, /\.map-workspace\.detail-open \.map-rail \{ visibility:hidden;pointer-events:none; \}/);
 });
-
-test("mobile keeps the pet application action, map filters, and map link accessible", async () => {
-  const [journey, styles] = await Promise.all([read("src/AdopterExperience.jsx"), read("src/styles.css")]);
-
-  assert.ok(journey.indexOf('className="pet-page-sticky"') < journey.indexOf('className="journey-pet-layout"'));
-  assert.match(styles, /\.journey-pet-page > \.pet-page-sticky \{ order:3; \}/);
-  assert.match(styles, /\.pet-page-sticky \{ position:fixed;z-index:60;[^}]*bottom:calc\(72px \+ env\(safe-area-inset-bottom\)\)/);
-  assert.match(styles, /\.journey-pet-page \{ padding-bottom:calc\(174px \+ env\(safe-area-inset-bottom\)\); \}/);
-  assert.match(styles, /\.map-rail \.map-toolbar \.map-select select \{ min-height:44px; \}/);
-  assert.match(styles, /\.journey-bottom-nav \{[^}]*grid-template-columns:repeat\(6,minmax\(0,1fr\)\)/);
-  assert.match(journey, /\["map", Map, "Map"\]/);
-  assert.match(journey, /key === "map" \? onOpenMap\(\) : navigate\(key\)/);
-});

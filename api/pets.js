@@ -1,4 +1,5 @@
 import { getDatabase } from "./_db.js";
+import { createPublicFeedCoalescer, readBoundedText, deduplicatePets } from "./_public-feed.js";
 import { safeHttpUrl, safeImageUrl } from "./_safe-url.js";
 import { buildRescueGroupsUrl } from "./_rescuegroups.js";
 import { consumeUsageChain, createUsageFallbackLimiter, requestClientKey } from "./_usage-limit.js";
@@ -12,6 +13,7 @@ const KING_COUNTY_API =
 const LOS_ANGELES_PETS_URL =
   "https://www.laanimalservices.com/search/pets";
 const PET_FEED_WINDOW_MS = 60 * 60 * 1000;
+const coalescePublicFeed = createPublicFeedCoalescer();
 
 export const createPetFeedFallbackLimiter = (options = {}) => createUsageFallbackLimiter({
   clientLimit: 120,
@@ -128,18 +130,22 @@ function socrataUrl(base, { limit, page, where }) {
 }
 
 async function fetchSocrata(url, provider) {
-  const upstream = await fetch(url.toString(), {
-    headers: { Accept: "application/json" },
-    signal: AbortSignal.timeout(10000),
+  return coalescePublicFeed(url.toString(), async () => {
+    const upstream = await fetch(url.toString(), {
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!upstream.ok) {
+      await upstream.body?.cancel();
+      throw new Error(`${provider} returned ${upstream.status}`);
+    }
+    const payload = JSON.parse(await readBoundedText(upstream));
+    if (!Array.isArray(payload)) {
+      throw new Error(`${provider} returned an invalid payload`);
+    }
+    return payload;
   });
-  if (!upstream.ok) {
-    throw new Error(`${provider} returned ${upstream.status}`);
-  }
-  const payload = await upstream.json();
-  if (!Array.isArray(payload)) {
-    throw new Error(`${provider} returned an invalid payload`);
-  }
-  return payload;
 }
 
 export function normalizeMontgomeryPet(pet, index) {
@@ -280,15 +286,21 @@ async function fetchLosAngelesPets(species, { limit, page }) {
   url.searchParams.set("page", String(page - 1));
   if (species.includes("Cat")) url.searchParams.set("species[28]", "28");
   if (species.includes("Dog")) url.searchParams.set("species[29]", "29");
-  const upstream = await fetch(url.toString(), {
-    headers: {
-      Accept: "text/html",
-      "User-Agent": "Pawline adoption search (pawlineadopt.com)",
-    },
-    signal: AbortSignal.timeout(15000),
+  return coalescePublicFeed(url.toString(), async () => {
+    const upstream = await fetch(url.toString(), {
+      cache: "no-store",
+      headers: {
+        Accept: "text/html",
+        "User-Agent": "Pawline adoption search (pawlineadopt.com)",
+      },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!upstream.ok) {
+      await upstream.body?.cancel();
+      throw new Error(`LA Animal Services returned ${upstream.status}`);
+    }
+    return parseLosAngelesPets(await readBoundedText(upstream));
   });
-  if (!upstream.ok) throw new Error(`LA Animal Services returned ${upstream.status}`);
-  return parseLosAngelesPets(await upstream.text());
 }
 
 function findRelated(included, relationship) {
@@ -410,7 +422,7 @@ export function normalizeDatabasePet(pet, index) {
     reviews: null,
     source: "Pawline community · Verified",
     sourceUrl: safeHttpUrl(pet.source_url),
-    messageAvailable: Boolean(pet.claimed_by_clerk_user_id),
+    messageAvailable: pet.organization_id ? Boolean(pet.organization_has_members) : Boolean(pet.claimed_by_clerk_user_id),
     image: safeImageUrl(pet.image_url),
     latitude: pet.latitude == null ? null : Number(pet.latitude),
     longitude: pet.longitude == null ? null : Number(pet.longitude),
@@ -424,7 +436,8 @@ async function fetchDatabasePets() {
   if (!database) return [];
   const rows = await database`
     SELECT id, external_id, name, species, breed, age, sex, size, city, country,
-           shelter, image_url, source_url, latitude, longitude, claimed_by_clerk_user_id
+           shelter, image_url, source_url, latitude, longitude, claimed_by_clerk_user_id, organization_id,
+           EXISTS (SELECT 1 FROM organization_memberships m WHERE m.organization_id = pets.organization_id) AS organization_has_members
     FROM pets
     WHERE status = 'available' AND verified_at IS NOT NULL
     ORDER BY updated_at DESC
@@ -585,19 +598,13 @@ export default async function handler(request, response) {
     } catch (error) {
       console.error("RescueGroups shelter geocoding unavailable", error);
     }
-    const pets = [
+    const pets = deduplicatePets([
       ...montgomeryPets,
       ...kingCountyPets,
       ...losAngelesPets,
       ...providerPets,
       ...databasePets,
-    ].filter(
-      (pet, index, all) =>
-        all.findIndex((item) =>
-          item.id === pet.id ||
-          (pet.externalId && item.externalId === pet.externalId)
-        ) === index,
-    );
+    ]);
     const providerCount = payloads.reduce(
       (total, payload) => total + Number(payload.meta?.count || 0),
       0,

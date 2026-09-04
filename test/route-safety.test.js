@@ -16,7 +16,7 @@ test("authenticated mutation and realtime routes reserve durable capacity", asyn
     "api/community-report.js", "api/direct-conversations.js", "api/direct-messages.js",
     "api/direct-message-report.js", "api/extract-submission.js", "api/favorites.js", "api/submissions.js",
   ]) {
-    const source = await read(path);
+    const source = await read(path) + (path.startsWith("api/direct-") ? await read("api/_direct.js") : "");
     assert.match(source, /requireUser/, path);
     assert.match(source, /consumeUsage(?:Chain)?\(/, path);
   }
@@ -25,7 +25,8 @@ test("authenticated mutation and realtime routes reserve durable capacity", asyn
 test("UUID-backed public and report handlers use canonical UUID validation", async () => {
   const canonical = /\[0-9a-f\]\{8\}.*\[0-9a-f\]\{4\}.*\[1-5\]\[0-9a-f\]\{3\}/s;
   for (const path of ["api/community-report.js", "api/direct-message-report.js", "api/pet-media.js"]) {
-    assert.match(await read(path), canonical, path);
+    const source = await read(path) + (path === "api/direct-message-report.js" ? await read("api/_direct.js") : "");
+    assert.match(source, canonical, path);
   }
 });
 

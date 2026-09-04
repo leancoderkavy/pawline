@@ -27,6 +27,10 @@ export default function ShelterWorkspace({
         </label>
       </header>
       <div style={styles.grid}>
+        <WorkspaceCard title="Adoption questions">
+          <p style={styles.muted}>Answer questions about your listed pets with your team, and arrange a private video introduction.</p>
+          <a href="#messages" className="button">Open shelter inbox</a>
+        </WorkspaceCard>
         <WorkspaceCard title={`Applications (${applications.length})`}>
           {applications.length ? <ul style={styles.list}>
             {applications.map((application) => <li key={application.id} style={styles.listItem}>

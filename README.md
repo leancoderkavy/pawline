@@ -359,3 +359,93 @@ reviewed official adapter, preserve the same no-fallback/ZDR contract, and
 rerun the frozen task evaluations. The server rejects invalid structured output,
 uncited summary assertions, and decision language; AI cannot score, rank,
 approve, decline, or act on an application.
+
+### Shelter messaging and private video calls
+
+Open **Messages → Listing chats** (`/#messages`). Adopters can start a thread
+from the **Message** button on an available, verified Pawline pet. Shelter staff
+can also open the inbox from **Shelter workspace → Adoption questions**. The
+inbox includes search, unread/open/resolved filters, and a Shelter inbox filter.
+Each conversation has paginated history, per-person unread counts, draft text
+while switching conversations, retry-safe sends, reporting, resolve/reopen, and
+block/unblock controls. Drafts remain in memory and clear when the user leaves
+Messages or signs out; messages persist in PostgreSQL.
+
+Canonical `pets.organization_id` links and current `organization_memberships`
+give a shelter team access to its conversations. A shelter name alone never
+grants access. Available, verified listings without a canonical organization
+continue to use their individual claimed owner. Team membership is rechecked
+on every API request, including reporting and video signaling. Removed team
+members lose access even if they originally owned the thread. Migration only
+shares legacy owner threads where that owner already belongs to the pet's
+explicitly linked organization.
+
+`/api/direct-conversations`, `/api/direct-messages`, `/api/direct-message-report`,
+and `/api/direct-video` require verified Clerk bearer tokens and a migrated
+database. Direct messages retain the existing moderation rules and durable
+rate limits. Message creation requires a UUID `clientMessageId`; clients reuse
+it when retrying the same send. Newest messages load first in pages of 60, with
+a `before` UUID cursor for older history. The inbox returns up to 200 recent
+conversations. `PATCH /api/direct-conversations` supports `read` (with the last
+visible `messageId`), `resolve`, `reopen`, `block`, and `unblock`. Blocking pauses
+both messages and calls; only the account that blocked can remove its block.
+
+Ably is optional for listing chat. With `ABLY_API_KEY`, the server publishes
+content-free invalidations to each participant's private channel; the client
+reloads through authenticated APIs. Five-second polling while Messages is
+visible provides a fallback and picks up missed events/new inquiries. No email,
+push, or background ringing is sent. Arrange a time in chat and keep Messages
+open to receive an incoming video invitation.
+
+Video calls are one-to-one, scoped to the conversation, and require explicit
+acceptance. Either side can invite; a single shelter staff member can accept.
+The camera/microphone stay off until **Preview devices** is selected. The user
+then chooses **Start call** or **Accept and join**. Controls include mute,
+camera off, decline, cancel, and hang up. Leaving closes the peer connection
+and stops media tracks. The server expires unanswered invitations after 90
+seconds (or a 45-second caller heartbeat timeout), disconnected accepted calls
+after 45 seconds, and all calls after one hour. Pawline does not record media.
+Only the caller and accepted recipient can access SDP/ICE signaling; other
+shelter staff can see call status. The implementation follows the browser
+[WebRTC API](https://developer.mozilla.org/en-US/docs/Web/API/WebRTC_API).
+
+Before enabling production:
+
+1. Run `npm run db:migrate:dry-run`, then apply `npm run db:migrate` against the
+   intended database as a reviewed migration. The migration is idempotent and
+   request handlers never create tables. Deploy schema before application code.
+2. Configure `CLERK_SECRET_KEY`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, and the
+   authorized origins. The local test fixture does not exercise live Clerk.
+3. Configure a coturn-compatible relay with `PAWLINE_TURN_URLS` (comma-separated
+   `turn:`/`turns:` URLs) and server-only `PAWLINE_TURN_SHARED_SECRET`. The server
+   issues per-call HMAC credentials valid for 65 minutes. Production uses
+   relay-only ICE; the TURN shared secret never reaches the browser. Relay
+   hosting/provider billing must be configured separately.
+4. Set `PAWLINE_VIDEO_ENABLED=true` only after testing the relay over separate
+   networks. `PAWLINE_VIDEO_ALLOW_DIRECT=true` is for local development and is
+   ignored in production. With missing relay configuration, chat stays usable
+   and the Video call action explains that calling is unavailable.
+5. Configure `CRON_SECRET` and ensure `/api/cron/purge-video-signals` runs every
+   15 minutes as specified in `vercel.json`. Hangup/block/resolve delete signaling
+   immediately; session reads remove expired signaling too. The scheduled job
+   handles abandoned sessions. Signals older than 70 minutes are deleted on the
+   next job, so worst-case scheduled retention is approximately 85 minutes.
+   Call status metadata remains for the conversation's recent-call history.
+
+`/api/health` exposes configuration booleans for direct messaging and video;
+these do not prove that the database is migrated or the relay works.
+
+Validation:
+
+- `npm test` includes real PostgreSQL integration tests using disposable PGlite
+  storage and the production handler factories. No production DB writes occur.
+- `npm run test:chat` runs the actual chat components and handlers on a loopback
+  fixture server, with two isolated users and Chromium simulated media devices.
+  It exercises persistence, mobile interaction, moderation, unread counts,
+  failure recovery, and actual WebRTC media between two browser contexts.
+  Install Chromium with `npx playwright install chromium` if needed. Traces and
+  screenshots are written to the OS temporary directory.
+- The fixture identity resolver exists only under `e2e/`; the production app
+  imports neither that resolver nor its database. No auth bypass is enabled by
+  an environment flag. Live Clerk, Ably, and cross-network TURN checks remain
+  separate deployment checks.
