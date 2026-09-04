@@ -30,7 +30,7 @@ test("the mobile Messages gate opens the configured custom auth modal", async ()
   assert.match(journey, /className="journey-guest-auth-actions"/);
   assert.match(journey, /onOpenAuth\("signup"\).*?>Create account<\/button>/);
   assert.match(journey, /onOpenAuth\("signin"\).*?>Sign in<\/button>/);
-  assert.match(journeyWithAuth, /onOpenAuth=\{openAuth\}/);
+  assert.match(journeyWithAuth, /onOpenAuth=\{setAuthMode\}/);
 });
 
 test("documented Clerk parties include current local Next.js preview origins", async () => {

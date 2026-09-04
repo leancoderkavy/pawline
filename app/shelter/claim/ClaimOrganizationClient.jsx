@@ -3,6 +3,7 @@
 import { ClerkProvider, useAuth } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
 import AuthModal from "../../../src/AuthModal";
+import { claimTokenFromHash } from "../../../src/mapPanels";
 
 function ClaimForm({ token, onConsumed }) {
   const { getToken } = useAuth();
@@ -42,12 +43,14 @@ function ClaimFlow() {
   const [token, setToken] = useState("");
 
   useEffect(() => {
-    const supplied = new URLSearchParams(window.location.hash.slice(1)).get("token") || "";
+    const supplied = claimTokenFromHash(window.location.hash);
     // Capture the fragment before authentication UI can navigate. It remains
     // only in this client component's memory while Clerk's modal completes.
     if (supplied) {
       setToken(supplied);
-      window.history.replaceState(null, "", "/shelter/claim");
+      const url = new URL(window.location.href);
+      url.searchParams.delete("token");
+      window.history.replaceState(null, "", `${url.pathname}${url.search}#claim`);
     }
   }, []);
 
@@ -58,14 +61,15 @@ function ClaimFlow() {
   return <ClaimForm token={token} onConsumed={() => setToken("")} />;
 }
 
-export default function ClaimOrganizationPage() {
+export default function ClaimOrganizationPage({ embedded = false }) {
   const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || "";
   if (!publishableKey) return <main style={styles.shell}><section style={styles.card}><h1 style={styles.title}>Organization claiming is unavailable</h1><p>Pawline identity services are not configured for this environment.</p></section></main>;
+  if (embedded) return <ClaimFlow />;
   return <ClerkProvider publishableKey={publishableKey}><ClaimFlow /></ClerkProvider>;
 }
 
 const styles = {
-  shell: { minHeight: "100vh", display: "grid", placeItems: "center", padding: 20, background: "#f6f2e8", color: "#173b2a" },
+  shell: { display: "grid", placeItems: "center", padding: 20, background: "#f6f2e8", color: "#173b2a" },
   card: { boxSizing: "border-box", width: "min(100%, 580px)", padding: 28, borderRadius: 16, border: "1px solid #d6ded6", background: "#fffdf8", lineHeight: 1.55 },
   title: { margin: "0 0 16px", fontSize: "clamp(2.15rem, 10.5vw, 3.6rem)", lineHeight: 0.98, letterSpacing: "-.04em", overflowWrap: "anywhere" },
   eyebrow: { color: "#6a2f17", fontSize: 12, letterSpacing: ".08em", textTransform: "uppercase", fontWeight: 700 },

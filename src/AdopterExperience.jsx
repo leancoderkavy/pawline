@@ -1,5 +1,7 @@
 "use client";
 
+import PetImage from "./PetImage";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft, CalendarClock, Check, CheckCircle2, ChevronRight, ClipboardList,
@@ -25,26 +27,6 @@ function suppliedHours(item) {
       : null;
 }
 
-function PetImage({ src, alt, className = "", fallbackText = "Photo unavailable" }) {
-  const safeSrc = typeof src === "string" ? src.trim() : "";
-  const [isError, setIsError] = useState(false);
-
-  useEffect(() => {
-    setIsError(false);
-  }, [safeSrc]);
-
-  if (!safeSrc || isError) {
-    const fallbackClassName = className ? `${className}-fallback` : "pet-image-fallback";
-    const label = typeof alt === "string" && alt.trim().length > 0 ? `${alt} photo unavailable` : fallbackText;
-    return (
-      <span className={fallbackClassName} role="img" aria-label={label}>
-        <span>{label}</span>
-      </span>
-    );
-  }
-
-  return <img className={className} src={safeSrc} alt={alt} onError={() => setIsError(true)} />;
-}
 
 function loadLocalJourney() {
   if (typeof window === "undefined") return { profile: DEFAULT_PROFILE, applications: [] };
@@ -262,13 +244,13 @@ function Home({ profile, applications, pets, saved, onSave, onOpen, onNavigate, 
   return <section className="journey-content home-page" aria-labelledby="home-title"><header className="journey-hero"><div><p className="eyebrow">Your adoption journey</p><h1 id="home-title">Find the right next step, not just the next pet.</h1><p>Pawline keeps your household preferences, current listing facts, and application progress together—without deciding for you.</p>{!isSignedIn ? <p className="journey-guest-note"><Info /> You are browsing as a guest. Sign in to use private messaging or request an AI-assisted writing suggestion.</p> : null}<div><button type="button" onClick={() => onNavigate("discover")}>Discover pets <Search /></button><button type="button" className="outline-action" onClick={() => onNavigate("profile")}>Update profile <UserRound /></button></div></div><aside><span><PawPrint /></span><strong>{readiness.percent}% ready</strong><p>Complete your profile to make match explanations more useful.</p></aside></header><div className="home-grid"><JourneyTimeline application={activeApplication} /><ProfileReadiness profile={profile} onEdit={() => onNavigate("profile")} /></div><section className="home-matches" aria-labelledby="home-matches-title"><header><div><p className="eyebrow">Matches near you</p><h2 id="home-matches-title">Supported by listing facts, never guesswork.</h2></div><button type="button" className="text-action" onClick={() => onNavigate("discover")}>View all pets <ChevronRight /></button></header>{ranked.length ? <div className="journey-pet-grid">{ranked.map(match => <MatchCard key={match.pet.id} match={match} saved={saved.includes(match.pet.id)} onSave={onSave} onOpen={onOpen} />)}</div> : <div className="journey-empty"><PawPrint /><h3>Current listings are loading.</h3><p>When the feed is unavailable, Pawline leaves this honest and empty.</p></div>}</section></section>;
 }
 
-export default function AdopterExperience({ pets, saved, onSave, clerkConfigured, isSignedIn = false, initialView = "discover", authAction = null, onOpenMap, onOpenMessages, onOpenAuth, getToken, feed }) {
+export default function AdopterExperience({ pets, saved, onSave, isSignedIn = false, view = "home", active = true, onNavigate, applicationPet, onApplicationHandled, onOpenMap, onOpenMessages, onOpenAuth, clerkConfigured, getToken, feed }) {
   const [localJourney, setLocalJourney] = useState(loadLocalJourney);
-  const [view, setView] = useState(initialView);
   const [selectedPet, setSelectedPet] = useState(null);
   const [selectedApplicationId, setSelectedApplicationId] = useState(null);
   const [checkins, setCheckins] = useState([]);
   const [privateState, setPrivateState] = useState({ status: "idle", message: "" });
+  useEffect(() => { setSelectedPet(null); }, [view, active]);
   const { profile, applications } = localJourney;
   const syncServerApplications = useCallback(serverApplications => {
     setLocalJourney(current => ({
@@ -349,7 +331,7 @@ export default function AdopterExperience({ pets, saved, onSave, clerkConfigured
     window.addEventListener("popstate", syncPetRoute);
     return () => window.removeEventListener("popstate", syncPetRoute);
   }, [pets]);
-  const navigate = next => { if (selectedPet) closePet(); setView(next); window.scrollTo?.({ top: 0, behavior: "smooth" }); };
+  const navigate = next => { if (selectedPet) closePet(); onNavigate(next === "discover" ? "explore" : next === "messages" ? "application-messages" : next); };
   const updateProfile = nextProfile => setLocalJourney(current => ({ ...current, profile: normalizeAdopterProfile(nextProfile) }));
   const updateApplication = next => setLocalJourney(current => ({ ...current, applications: current.applications.map(item => item.id === next.id ? next : item) }));
   const saveProfile = async () => {
@@ -420,6 +402,14 @@ export default function AdopterExperience({ pets, saved, onSave, clerkConfigured
     setSelectedApplicationId(draft.id);
     navigate("applications");
   };
+  useEffect(() => {
+    if (!applicationPet) return;
+    const existing = applications.find(item => item.petId === String(applicationPet.id) && !["declined", "withdrawn", "adopted"].includes(item.status));
+    const draft = existing || createApplicationDraft(applicationPet, profile);
+    if (!existing) setLocalJourney(current => ({ ...current, applications: [draft, ...current.applications] }));
+    setSelectedApplicationId(draft.id);
+    onApplicationHandled();
+  }, [applicationPet]);
   const currentPage = selectedPet
     ? <PetPage pet={selectedPet} profile={profile} saved={saved.includes(selectedPet.id)} onSave={onSave} onBack={closePet} onStartApplication={startApplication} />
     : view === "discover" ? <Discovery pets={pets} feed={feed} profile={profile} saved={saved} onSave={onSave} onOpen={openPet} onOpenMap={onOpenMap} />
@@ -427,14 +417,5 @@ export default function AdopterExperience({ pets, saved, onSave, clerkConfigured
         : view === "messages" ? <ApplicationMessages applications={applications} isSignedIn={isSignedIn} getToken={getToken} onDiscover={() => navigate("discover")} onOpenAuth={onOpenAuth} />
           : view === "profile" ? <><Profile profile={profile} onChange={updateProfile} onSave={saveProfile} isSignedIn={isSignedIn} />{privateState.message ? <p className={privateState.status === "error" ? "journey-private-error" : "journey-private-state"} role={privateState.status === "error" ? "alert" : "status"}>{privateState.message}</p> : null}</>
             : <Home profile={profile} applications={applications} pets={pets} saved={saved} onSave={onSave} onOpen={openPet} onNavigate={navigate} isSignedIn={isSignedIn} />;
-  return <div className="adopter-experience">
-    <a className="skip-link" href="#pawline-home">Skip to main content</a>
-    <header className="journey-header">
-      <a href="#pawline-home" onClick={event => { event.preventDefault(); navigate("home"); }} className="brand" aria-label="Pawline adoption journey"><span className="brand-mark"><PawPrint /></span><span>Pawline</span></a>
-      <nav aria-label="Adopter navigation"><NavButton active={view === "home" && !selectedPet} icon={House} onClick={() => navigate("home")}>Home</NavButton><NavButton active={false} icon={Map} onClick={onOpenMap}>Map</NavButton><NavButton active={view === "discover" || Boolean(selectedPet)} icon={Search} onClick={() => navigate("discover")}>Discover</NavButton><NavButton active={view === "applications"} icon={ClipboardList} onClick={() => navigate("applications")}>Applications</NavButton><NavButton active={view === "messages"} icon={MessageCircle} onClick={() => navigate("messages")}>Messages</NavButton><NavButton active={view === "profile"} icon={UserRound} onClick={() => navigate("profile")}>Profile</NavButton></nav>
-      <div className="journey-header-actions">{authAction}</div>
-    </header>
-    <nav className="journey-bottom-nav" aria-label="Adopter navigation">{[["home", House, "Home"], ["map", Map, "Map"], ["discover", Search, "Discover"], ["applications", ClipboardList, "Applications"], ["messages", MessageCircle, "Messages"], ["profile", UserRound, "Profile"]].map(([key, Icon, label]) => <NavButton key={key} active={view === key && !selectedPet} icon={Icon} onClick={() => key === "map" ? onOpenMap() : navigate(key)}>{label}</NavButton>)}</nav>
-    <main id="pawline-home" tabIndex={-1}>{currentPage}</main>
-  </div>;
+  return <div className="adopter-experience map-journey-panel">{currentPage}</div>;
 }

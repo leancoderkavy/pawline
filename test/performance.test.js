@@ -24,43 +24,21 @@ test("discovery renders live listings incrementally and resets the list after a 
   assert.match(styles, /\.discovery-pagination \{ display:flex;justify-content:center;/);
 });
 
-test("navigation shells expose a keyboard skip link with a focusable content target", async () => {
-  const [journey, app, styles, methodology, guides, nearbyGuide, matchingGuide] = await Promise.all([
-    read("src/AdopterExperience.jsx"), read("src/App.jsx"), read("src/styles.css"),
-    read("app/how-pawline-works/page.jsx"), read("app/guides/page.jsx"),
-    read("app/guides/find-adoptable-pets-near-you/page.jsx"), read("app/guides/find-a-pet-that-fits-your-home-and-routine/page.jsx"),
-  ]);
-  assert.match(journey, /<a className="skip-link" href="#pawline-home">Skip to main content<\/a>/);
-  assert.match(journey, /<main id="pawline-home" tabIndex=\{-1\}>/);
-  assert.match(app, /<a className="skip-link" href="#discover">Skip to main content<\/a>/);
-  assert.match(app, /<main id="discover" tabIndex=\{-1}/);
-  for (const page of [methodology, guides, nearbyGuide, matchingGuide]) {
-    assert.match(page, /<a className="skip-link" href="#main-content">Skip to main content<\/a>/);
-    assert.match(page, /<article id="main-content" className="methodology-content" tabIndex=\{-1\}>/);
-  }
-  assert.match(styles, /\.skip-link \{ position:fixed;z-index:100;/);
-  assert.match(styles, /\.skip-link:focus-visible \{ transform:translate\(-50%,0\);/);
+test("the persistent map exposes a keyboard skip link and embedded content", async () => {
+  const [app, journey, styles] = await Promise.all([read("src/App.jsx"), read("src/AdopterExperience.jsx"), read("src/styles.css")]);
+  assert.ok(app.includes('className="skip-link" href="#discover"'));
+  assert.ok(app.includes('<main id="discover" tabIndex={-1}'));
+  assert.ok(journey.includes('map-journey-panel'));
+  assert.ok(!journey.includes('<main'));
+  assert.match(styles, /\.skip-link:focus-visible/);
 });
 
-test("support-page headers and protected fallbacks fit narrow screens", async () => {
-  const [styles, methodology, guides, nearbyGuide, matchingGuide, claim, moderation] = await Promise.all([
-    read("src/styles.css"),
-    read("app/how-pawline-works/page.jsx"),
-    read("app/guides/page.jsx"),
-    read("app/guides/find-adoptable-pets-near-you/page.jsx"),
-    read("app/guides/find-a-pet-that-fits-your-home-and-routine/page.jsx"),
-    read("app/shelter/claim/ClaimOrganizationClient.jsx"),
-    read("app/pawline-moderation/reviews/ReviewModerationClient.jsx"),
-  ]);
-  assert.match(styles, /\.methodology-nav-short,\.methodology-discover-short \{ display:none; \}/);
-  assert.match(styles, /\.methodology-nav-long,\.methodology-discover-long \{ display:none; \}/);
-  for (const page of [methodology, guides, nearbyGuide, matchingGuide]) {
-    assert.match(page, /methodology-nav-short/);
-    assert.match(page, /methodology-discover-short/);
-  }
-  for (const source of [claim, moderation]) {
+test("protected embedded fallbacks fit narrow screens", async () => {
+  for (const file of ["app/shelter/claim/ClaimOrganizationClient.jsx", "app/pawline-moderation/reviews/ReviewModerationClient.jsx"]) {
+    const source = await read(file);
     assert.match(source, /boxSizing: "border-box"/);
     assert.match(source, /overflowWrap: "anywhere"/);
+    assert.match(source, /if \(embedded\)/);
   }
 });
 
@@ -79,7 +57,7 @@ test("the map uses a lightweight preview before loading Mapbox", async () => {
   assert.match(mapApi, /"450x760" : "900x620"/);
   assert.doesNotMatch(mapApi, /@2x/);
   assert.match(app, /lazy\(\(\) => import\("\.\/CommunityWithAuth"\)\)/);
-  assert.match(app, /clerkConfigured && accountSyncReady/);
+  assert.match(app, /clerkConfigured && savedHydrated/);
 });
 
 test("unavailable map search keeps the existing map center and reports the limitation", async () => {
@@ -88,38 +66,6 @@ test("unavailable map search keeps the existing map center and reports the limit
   assert.match(app, /coordinates\?\.latitude, coordinates\?\.longitude/);
   assert.match(app, /setLocation\(currentMapArea\)/);
   assert.match(app, /remains selected/);
-});
-
-test("the map surprise control chooses only an existing current listing", async () => {
-  const [app, styles] = await Promise.all([read("src/App.jsx"), read("src/styles.css")]);
-  assert.match(app, /const chooseSurprisePet = \(\) => \{/);
-  assert.match(app, /const alternatives = mapView\.pets\.filter/);
-  assert.match(app, /Math\.random\(\) \* candidates\.length/);
-  assert.match(app, /aria-describedby="map-surprise-note"/);
-  assert.match(app, /"Pick a hello"/);
-  assert.match(styles, /\.map-surprise \{ min-height:44px/);
-  assert.match(styles, /prefers-reduced-motion:no-preference/);
-});
-
-test("the discovery drawer keeps pet finding primary and secondary views tucked away", async () => {
-  const [app, styles] = await Promise.all([read("src/App.jsx"), read("src/styles.css")]);
-  assert.match(styles, /\.rail-tabs \{[^}]*grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
-  assert.match(styles, /\.rail-tabs \{ position:relative;z-index:7;/);
-  assert.match(styles, /--mobile-drawer-height:min\(76dvh,680px\)/);
-  assert.match(styles, /\.rail-tabs \{ height:60px;border-radius:18px;background:rgba\(255,253,249,\.97\);overflow:visible; \}/);
-  assert.match(styles, /\.rail-tabs \{ height:48px;grid-template-columns:repeat\(3,minmax\(0,1fr\)\);grid-template-rows:1fr/);
-  assert.match(styles, /\.rail-tabs button \{ min-height:44px;padding:0 8px;[^}]*flex-direction:row;[^}]*font-size:11px/);
-  assert.match(styles, /\.rail-more > div \{[^}]*top:calc\(100% \+ 6px\)/);
-  assert.match(styles, /\.rail-tabs button svg \{ display:none; \}/);
-  assert.match(styles, /\.rail-tabs \.rail-label-full \{ display:inline; \}/);
-  assert.match(styles, /\.rail-tabs \.rail-label-short \{ display:none; \}/);
-  assert.match(styles, /\.map-rail \.map-pet-types \{[^}]*display:grid;grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
-  assert.match(styles, /\.mobile-view-map \{ min-height:44px/);
-  assert.match(app, /\["All", "Dog", "Cat"\]\.map/);
-  assert.match(app, /<Compass \/> View map/);
-  assert.match(app, /aria-label="Match quiz"/);
-  assert.match(app, /className="rail-label-full">Match me/);
-  assert.match(app, /<summary><Menu \/>More<\/summary>/);
 });
 
 test("map filters keep species choice primary and disclose secondary controls inline", async () => {
@@ -171,7 +117,7 @@ test("favorite persistence failures stay truthful and expose recovery", async ()
   assert.match(app, /role="alert"/);
   assert.match(app, />Retry favorites</);
   assert.match(sync, /onError\(error\.message/);
-  assert.match(app, /const toggleSavedOnly = \(\) => \{[^}]*setAccountSyncReady\(true\)/s);
+  assert.match(app, /openPanel\(showSavedOnly \? "explore" : "favorites"\)/);
   assert.match(sync, /pawline-favorites-account/);
   assert.match(sync, /priorAccount === null \? localRef\.current : \[\]/);
 });

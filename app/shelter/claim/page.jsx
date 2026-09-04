@@ -1,16 +1,12 @@
-import ClaimOrganizationClient from "./ClaimOrganizationClient";
+"use client";
 
-export const metadata = {
-  title: "Shelter claim",
-  description: "Use your invitation link to connect a verified shelter organization to Pawline and manage applications and listing workflows.",
-  openGraph: {
-    title: "Shelter claim | Pawline",
-    description: "Connect a verified shelter organization to Pawline and manage listings safely.",
-    images: [{ url: "/social-card.png", alt: "Pawline shelter claiming and verification workflow" }],
-  },
-  twitter: { card: "summary_large_image", title: "Shelter claim | Pawline", description: "Connect a verified shelter organization to Pawline and manage listings safely.", images: [{ url: "/social-card.png", alt: "Pawline shelter claiming and verification workflow" }] },
-};
+import { useEffect } from "react";
+import { claimMapLocation } from "../../../src/mapPanels";
 
-export default function ClaimOrganizationPage() {
-  return <ClaimOrganizationClient />;
+export default function LegacyClaimPage() {
+  useEffect(() => {
+    // Invitation credentials stay in the fragment and never reach the server.
+    window.location.replace(claimMapLocation(window.location.hash));
+  }, []);
+  return <p role="status">Opening the organization claim on your map…</p>;
 }

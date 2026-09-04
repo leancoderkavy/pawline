@@ -58,14 +58,15 @@ function ReviewModerationGate() {
   return <ReviewQueue />;
 }
 
-export default function ReviewModerationPage() {
+export default function ReviewModerationPage({ embedded = false }) {
   const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || "";
   if (!publishableKey) return <main style={styles.shell}><section style={styles.card}><h1 style={styles.title}>Review moderation is unavailable</h1><p>Identity services are not configured for this environment.</p></section></main>;
+  if (embedded) return <ReviewModerationGate />;
   return <ClerkProvider publishableKey={publishableKey}><ReviewModerationGate /></ClerkProvider>;
 }
 
 const styles = {
-  shell: { minHeight: "100vh", padding: 20, background: "#f6f2e8", color: "#173b2a" },
+  shell: { padding: 20, background: "#f6f2e8", color: "#173b2a" },
   card: { boxSizing: "border-box", width: "min(100%, 860px)", margin: "24px auto", padding: 28, background: "#fffdf8", border: "1px solid #d6ded6", borderRadius: 16, lineHeight: 1.5 },
   title: { margin: "0 0 16px", fontSize: "clamp(2.15rem, 10.5vw, 3.6rem)", lineHeight: 0.98, letterSpacing: "-.04em", overflowWrap: "anywhere" },
   eyebrow: { color: "#6a2f17", fontSize: 12, fontWeight: 700, letterSpacing: ".08em", textTransform: "uppercase" },

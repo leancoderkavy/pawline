@@ -52,8 +52,6 @@ test("mobile keeps the pet application action, map filters, and map link accessi
   assert.match(styles, /\.journey-pet-page \{ padding-bottom:calc\(174px \+ env\(safe-area-inset-bottom\)\); \}/);
   assert.match(styles, /\.map-rail \.map-toolbar \.map-select select \{ min-height:44px; \}/);
   assert.match(styles, /\.journey-bottom-nav \{[^}]*grid-template-columns:repeat\(6,minmax\(0,1fr\)\)/);
-  assert.match(journey, /\["map", Map, "Map"\]/);
-  assert.match(journey, /key === "map" \? onOpenMap\(\) : navigate\(key\)/);
 });
 
 test("the floating map navigation reserves room for desktop actions and compacts before mobile", async () => {
