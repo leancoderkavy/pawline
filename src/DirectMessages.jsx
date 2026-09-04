@@ -8,6 +8,7 @@ import {
   MessageCircle, PawPrint, Send, ShieldCheck, Users,
 } from "lucide-react";
 import AuthModal from "./AuthModal";
+import PetImage from "./PetImage";
 
 async function json(response, fallback) {
   if (!response.headers.get("content-type")?.includes("application/json")) throw new Error(fallback);
@@ -15,9 +16,7 @@ async function json(response, fallback) {
 }
 
 function ListingThumb({ listing }) {
-  return listing?.image
-    ? <img className="direct-listing-thumb" src={listing.image} alt="" />
-    : <span className="direct-listing-thumb direct-listing-fallback"><PawPrint /></span>;
+  return <PetImage className="direct-listing-thumb" src={listing?.image} alt={listing?.name || "Pet"} />;
 }
 
 function ConversationRow({ conversation, active, onClick }) {

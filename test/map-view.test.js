@@ -1,8 +1,20 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildMapView, distanceInMiles, hasMapCoordinates, petCountLabel, petResultDetail } from "../src/mapView.js";
+import { buildMapView, distanceInMiles, hasMapCoordinates, mapResultBounds, petCountLabel, petResultDetail } from "../src/mapView.js";
 
 const center = { latitude: 47.38, longitude: -122.23 };
+
+test("fit results bounds contain every valid point and handle empty and single results", () => {
+  assert.equal(mapResultBounds([]), null);
+  assert.deepEqual(mapResultBounds([center]), [[-122.23, 47.38], [-122.23, 47.38]]);
+  assert.deepEqual(mapResultBounds([center, { latitude: 34, longitude: -118 }, { latitude: 999, longitude: 0 }]), [[-122.23, 34], [-118, 47.38]]);
+});
+
+test("invalid coordinates are excluded and antipodal distances remain finite", () => {
+  assert.equal(hasMapCoordinates({ latitude: 91, longitude: 0 }), false);
+  assert.equal(distanceInMiles(center, { latitude: NaN, longitude: 0 }), null);
+  assert.ok(Number.isFinite(distanceInMiles({ latitude: -47.38, longitude: 57.77 }, center)));
+});
 
 test("map view excludes records without provider coordinates", () => {
   const view = buildMapView({
@@ -58,6 +70,7 @@ test("map view sorts coordinate-backed records nearest first and hides events", 
 test("pet result labels make species visible and use the selected species in counts", () => {
   assert.equal(petResultDetail({ species: "Cat", breed: "Domestic Shorthair", city: "Pasadena" }), "Cat · Domestic Shorthair");
   assert.equal(petResultDetail({ species: "Dog", city: "Pasadena" }), "Dog · Pasadena");
+  assert.equal(petResultDetail({ species: "Dog", breed: "Details available from LA Animal Services", city: "Los Angeles" }), "Dog · Los Angeles");
   assert.equal(petCountLabel(6, "Cat"), "6 cats");
   assert.equal(petCountLabel(1, "Dog"), "1 dog");
   assert.equal(petCountLabel(0), "0 pets");
