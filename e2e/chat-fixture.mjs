@@ -5,18 +5,17 @@ import { createConversationsHandler } from "../api/direct-conversations.js";
 import { createMessagesHandler } from "../api/direct-messages.js";
 import { createReportHandler } from "../api/direct-message-report.js";
 import { createVideoHandler } from "../api/direct-video.js";
+import { createCaregiversHandler } from "../api/caregivers.js";
+import { createCaregiverPetsHandler } from "../api/caregiver-pets.js";
+import { createSubmissionsHandler } from "../api/submissions.js";
 
 export const ids = {
   organization: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
   pet: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
   otherPet: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
 };
-export const users = {
-  adopter: { id: "fixture_adopter", displayName: "Alex Morgan", imageUrl: null },
-  shelter: { id: "fixture_shelter", displayName: "Robin at Willow Shelter", imageUrl: null },
-  teammate: { id: "fixture_teammate", displayName: "Sam at Willow Shelter", imageUrl: null },
-  stranger: { id: "fixture_stranger", displayName: "Outside member", imageUrl: null },
-};
+import { users } from "./fixture-users.js";
+export { users };
 
 // Test-only adapter: real PostgreSQL semantics with Neon's lazy tagged queries.
 // Neither this database nor the fixture identity resolver is imported by the app.
@@ -48,13 +47,16 @@ export async function createChatFixture() {
     authenticate: async request => {
       const key = request.headers?.authorization?.replace("Bearer fixture:", "");
       if (!users[key]) throw Object.assign(new Error("Sign in with Pawline to use this feature."), { statusCode: 401 });
-      return users[key];
+      return { ...users[key], email: `${key}@example.test` };
     },
     publish: async (_database, conversation) => { events.push({ conversationId: conversation.id }); },
     onError: error => { if (!error.statusCode) errors.push(error); },
     environment: { NODE_ENV: "test", PAWLINE_VIDEO_ENABLED: "true", PAWLINE_VIDEO_ALLOW_DIRECT: "true" },
   };
   const handlers = {
+    caregivers: createCaregiversHandler(dependencies),
+    "caregiver-pets": createCaregiverPetsHandler(dependencies),
+    submissions: createSubmissionsHandler({ ...dependencies, notifySubmission: async () => ({}) }),
     "direct-conversations": createConversationsHandler(dependencies),
     "direct-messages": createMessagesHandler(dependencies),
     "direct-message-report": createReportHandler(dependencies),
@@ -62,7 +64,7 @@ export async function createChatFixture() {
   };
   async function invoke(route, user = "adopter", { method = "GET", body, query = {} } = {}) {
     const response = { statusCode: 200, headers: {}, setHeader(key, value) { this.headers[key] = value; }, status(code) { this.statusCode = code; return this; }, json(data) { this.data = JSON.parse(JSON.stringify(data)); return this; } };
-    await handlers[route]({ method, body, query, headers: { authorization: user ? `Bearer fixture:${user}` : "" } }, response);
+    await handlers[route]({ method, body, query, headers: { "content-type": "application/json", authorization: user ? `Bearer fixture:${user}` : "" } }, response);
     if (errors.length) throw errors.shift();
     return response;
   }

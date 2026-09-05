@@ -7,7 +7,7 @@ import Dialog from "./Dialog";
 import AuthModal from "./AuthModal";
 
 export default function SubmissionWithAuth({ onClose, onAuthenticated }) {
-  const { isLoaded, isSignedIn, getToken } = useAuth();
+  const { isLoaded, isSignedIn, userId, getToken } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState("signin");
   if (!isLoaded) return <Dialog title="List a pet" onClose={onClose}><div className="community-auth-state"><h2>Opening your account…</h2></div></Dialog>;
@@ -21,5 +21,5 @@ export default function SubmissionWithAuth({ onClose, onAuthenticated }) {
     <div className="auth-safety"><ShieldCheck /><span><strong>Your information stays private</strong>Messages stay on Pawline, and contact details are never shown in the listing chat.</span></div>
     {showAuthModal ? <AuthModal initialMode={authMode} onClose={() => setShowAuthModal(false)} onSuccess={() => setShowAuthModal(false)} /> : null}
   </div></Dialog>;
-  return onAuthenticated(getToken);
+  return onAuthenticated(getToken, userId);
 }

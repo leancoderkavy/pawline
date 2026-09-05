@@ -25,7 +25,7 @@ const DirectMessages = lazy(() => import("./DirectMessages"));
 const FavoritesSyncWithAuth = lazy(() => import("./FavoritesSyncWithAuth"));
 const SubmissionWithAuth = lazy(() => import("./SubmissionWithAuth"));
 const AdopterExperienceWithAuth = lazy(() => import("./AdopterExperienceWithAuth"));
-const ShelterWorkspaceWithAuth = lazy(() => import("./ShelterWorkspaceWithAuth"));
+const CaregiverHubWithAuth = lazy(() => import("./CaregiverHubWithAuth"));
 const MapAccountActions = lazy(() => import("./MapAccountActions"));
 const MapResources = lazy(() => import("./MapResources"));
 const ClaimOrganizationClient = lazy(() => import("../app/shelter/claim/ClaimOrganizationClient"));
@@ -183,13 +183,14 @@ function MobileMenu({ onClose, onSubmit }) {
   </nav>;
 }
 
-function SubmissionForm({ onClose, getToken }) {
-  const [listingRole, setListingRole] = useState("");
+export function SubmissionForm({ onClose, getToken, caregiver, onRegister }) {
+  const submissionFormRef = useRef(null);
+  const [listingRole, setListingRole] = useState(caregiver ? "organization" : "");
   const roleChoicesRef = useRef(null);
-  const [flowStep, setFlowStep] = useState("role");
+  const [flowStep, setFlowStep] = useState(caregiver ? "details" : "role");
   const [form, setForm] = useState({
     name: "", species: "Dog", breed: "", age: "", sex: "Unknown", size: "",
-    city: "", region: "", postalCode: "", country: "United States", shelter: "",
+    city: caregiver?.city || "", region: caregiver?.region || "", postalCode: "", country: caregiver?.country || "United States", shelter: caregiver?.name || "",
     email: "", phone: "", description: "", spayedNeutered: "Unknown",
     rabiesStatus: "Unknown", vaccinationStatus: "Unknown", microchipStatus: "Unknown",
     microchipId: "", medicalNotes: "", behaviorNotes: "", biteHistory: "Unknown",
@@ -228,13 +229,13 @@ function SubmissionForm({ onClose, getToken }) {
     if (!token) throw new Error("Sign in with Pawline to register a pet.");
     return fetch(url, { ...options, headers: { ...options.headers, Authorization: `Bearer ${token}` } });
   };
-  const submit = async e => {
+  const submit = async (e, readRecords = false) => {
     e.preventDefault();
-    setState({ status: "extracting", message: "Reading uploaded records and preparing an editable draft…" });
+    setState({ status: readRecords ? "extracting" : "saving", message: readRecords ? "Reading uploaded records and preparing an editable draft…" : "Saving your listing for moderation…" });
     try {
       const attachments = await encodedFiles();
       let draft = form;
-      if (attachments.length) {
+      if (attachments.length && readRecords) {
         const extractionResponse = await authorizedFetch("/api/extract-submission", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ files: attachments }),
@@ -247,17 +248,18 @@ function SubmissionForm({ onClose, getToken }) {
         return;
       }
       setState({ status: "saving", message: "Saving your listing for moderation…" });
-      const response = await authorizedFetch("/api/submissions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...draft, files: attachments }) });
+      const response = await authorizedFetch("/api/submissions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...draft, organizationId: caregiver?.id, files: attachments }) });
       const body = await readJson(response, "Submissions require the configured Pawline API.");
       if (!response.ok) throw new Error(body.error || "Submission failed");
       setState({ status: "success", message: body.message });
     } catch (error) { setState({ status: "error", message: error.message }); }
   };
   const finalSubmit = async () => {
+    if (!submissionFormRef.current?.reportValidity()) return;
     setState({ status: "saving", message: "Saving your listing for moderation…" });
     try {
       const attachments = await encodedFiles();
-      const response = await authorizedFetch("/api/submissions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, files: attachments }) });
+      const response = await authorizedFetch("/api/submissions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, organizationId: caregiver?.id, files: attachments }) });
       const body = await readJson(response, "Submissions require the configured Pawline API.");
       if (!response.ok) throw new Error(body.error || "Submission failed");
       setState({ status: "success", message: body.message });
@@ -282,9 +284,10 @@ function SubmissionForm({ onClose, getToken }) {
   };
   const beginDetails = () => {
     if (!listingRole) return;
+    if (listingRole === "organization" && !caregiver) { onRegister?.(); return; }
     setFlowStep("details");
   };
-  const roleLabel = listingRole === "organization" ? "Shelter or rescue" : "My pet";
+  const roleLabel = caregiver?.kind === "foster" ? "Foster caregiver" : listingRole === "organization" ? "Shelter or rescue" : "My pet";
   return <Dialog title="List a pet" onClose={onClose}>{state.status === "success" ? <div className="success"><Heart fill="currentColor" /><h3>Submitted for review</h3><p>{state.message}</p><Button onClick={onClose}>Done</Button></div> : <>
     <ol className="listing-progress" aria-label="Listing progress">
       <li className={flowStep === "role" ? "active" : "complete"}><span>1</span>Your role</li>
@@ -301,15 +304,15 @@ function SubmissionForm({ onClose, getToken }) {
         </button>
         <button type="button" role="radio" data-listing-role="organization" aria-checked={listingRole === "organization"} tabIndex={listingRole === "organization" ? 0 : -1} className={listingRole === "organization" ? "selected" : ""} onClick={() => chooseRole("organization")} onKeyDown={chooseRoleByKeyboard}>
           <span className="role-icon"><Building2 /></span>
-          <span><strong>A shelter or rescue</strong><small>I’m listing on behalf of an organization</small></span>
+          <span><strong>A shelter, rescue, or foster</strong><small>Register or use my caregiver profile</small></span>
           <i>{listingRole === "organization" ? <CheckCircle2 /> : null}</i>
         </button>
       </div>
       <div className="listing-path-preview" aria-hidden="true"><span><PawPrint /></span><i /><span><PawPrint /></span><i /><strong>Next: tell us about the pet</strong></div>
       <footer className="listing-flow-actions"><p><LockKeyhole />Saved as a private draft until review</p><Button type="button" onClick={beginDetails} disabled={!listingRole}>Continue <ChevronRight /></Button></footer>
     </section> : <>
-      <div className="listing-details-intro"><button type="button" onClick={() => setFlowStep("role")}><ArrowLeft /> Change path</button><span><PawPrint />{roleLabel}</span><h3>Tell us about the pet</h3><p>Start with a photo or record, or fill in what you know. You’ll review everything before it is submitted.</p></div>
-      <form className="listing-details-form" onSubmit={submit}>
+      <div className="listing-details-intro">{!caregiver ? <button type="button" onClick={() => setFlowStep("role")}><ArrowLeft /> Change path</button> : null}<span><PawPrint />{roleLabel}</span><h3>Tell us about the pet</h3><p>Start with a photo or record, or fill in what you know. You’ll review everything before it is submitted.</p></div>
+      <form ref={submissionFormRef} className="listing-details-form" onSubmit={submit}>
     <section className="submission-section"><h3>Photos & records</h3>
       <div className={`drop-zone ${dragging ? "is-dragging" : ""}`} onDragOver={e => { e.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={e => { e.preventDefault(); setDragging(false); addFiles(e.dataTransfer.files); }}>
         <Upload /><strong>Drag and drop files here</strong><span>or choose up to 8 PDF, TXT, JPG, PNG, or WebP files within 3 MB total</span>
@@ -335,21 +338,22 @@ function SubmissionForm({ onClose, getToken }) {
     <section className="submission-section"><h3>Placement & contact</h3>
     <div className="form-row"><label>City<input required name="city" value={form.city} onChange={update} /></label><label>State / region<input required name="region" value={form.region} onChange={update} /></label></div>
     <div className="form-row"><label>Postal code<input required name="postalCode" value={form.postalCode} onChange={update} /></label><label>Country<input required name="country" value={form.country} onChange={update} /></label></div>
-    <label>{listingRole === "organization" ? "Shelter or rescue name" : "Your name or current caretaker"}<input required name="shelter" value={form.shelter} onChange={update} /></label>
+    <label>{caregiver ? "Registered caregiver profile" : listingRole === "organization" ? "Shelter or rescue name" : "Your name or current caretaker"}<input required name="shelter" readOnly={Boolean(caregiver)} value={caregiver?.name || form.shelter} onChange={update} /></label>
     <label>Contact email<input required type="email" name="email" value={form.email} onChange={update} /></label>
     <div className="form-row"><label>Phone (optional)<input name="phone" value={form.phone} onChange={update} /></label><label>Rehoming fee (optional)<input name="rehomingFee" value={form.rehomingFee} onChange={update} /></label></div>
     {listingRole === "personal" ? <label>Reason for rehoming<textarea name="rehomingReason" value={form.rehomingReason} onChange={update} maxLength={1000} /></label> : null}
     <label>Public listing description<textarea name="description" value={form.description} onChange={update} maxLength={2000} /></label>
     </section>
     <section className="submission-section attestations"><h3>Your attestations</h3>
-      <label><input required type="checkbox" name="authorityConfirmed" checked={form.authorityConfirmed} onChange={update} />{listingRole === "organization" ? "I am authorized to submit listings for this shelter or rescue." : "I own this pet or have documented authority to place them."}</label>
+      <label><input required type="checkbox" name="authorityConfirmed" checked={form.authorityConfirmed} onChange={update} />{caregiver?.kind === "foster" ? "I have permission to list and help place this foster pet." : listingRole === "organization" ? "I am authorized to submit listings for this shelter or rescue." : "I own this pet or have documented authority to place them."}</label>
       <label><input required type="checkbox" name="disclosureConfirmed" checked={form.disclosureConfirmed} onChange={update} />I disclosed all known medical, bite, aggression, and behavioral history accurately.</label>
       <label><input required type="checkbox" name="localLawConfirmed" checked={form.localLawConfirmed} onChange={update} />I will comply with licensing, transfer, health-certificate, and other rules where the pet is transferred.</label>
       <p><Info /> Requirements vary by jurisdiction and lister type. Pawline does not replace advice from animal control, a veterinarian, or a lawyer.</p>
     </section>
     <label className="honeypot" aria-hidden="true">Website<input tabIndex="-1" name="website" value={form.website} onChange={update} /></label>
     {state.message && <p className={state.status === "error" ? "form-error" : "form-status"} role={state.status === "error" ? "alert" : "status"}>{state.message}</p>}
-    {state.status === "review" ? <Button type="button" onClick={finalSubmit} disabled={busy}>Submit reviewed listing</Button> : <Button type="submit" disabled={busy}>{busy ? "Working…" : files.length ? <><Sparkles /> Read records & pre-fill</> : "Submit for review"}</Button>}
+    {files.length && state.status !== "review" ? <><Button type="button" variant="outline" onClick={event => submit(event, true)} disabled={busy}><Sparkles /> Read records & pre-fill (optional)</Button><p>Optional AI assistance reads the attached records to suggest editable fields. You can submit your photos and details without it.</p></> : null}
+    {state.status === "review" ? <Button type="button" onClick={finalSubmit} disabled={busy}>Submit reviewed listing</Button> : <Button type="submit" disabled={busy}>{busy ? "Working…" : "Submit for review"}</Button>}
   </form></>}</>}</Dialog>;
 }
 
@@ -1188,6 +1192,7 @@ export default function App({ clerkPublishableKey = "" }) {
   const [species, setSpecies] = useState("All");
   const [location, setLocation] = useState("Pasadena, California, USA");
   const [submitOpen, setSubmitOpen] = useState(false);
+  const [listingCaregiver, setListingCaregiver] = useState(null);
   const [selectedPet, setSelectedPet] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [selectedDiscovery, setSelectedDiscovery] = useState(null);
@@ -1507,7 +1512,7 @@ export default function App({ clerkPublishableKey = "" }) {
     <a className="skip-link" href="#discover">Skip to main content</a>
     {clerkConfigured && savedHydrated ? <Suspense fallback={null}><FavoritesSyncWithAuth key={favoriteSyncVersion} publishableKey={clerkPublishableKey} localFavorites={saved} onLoad={loadAccountFavorites} onSessionChange={setFavoriteSession} onError={setFavoriteError} /></Suspense> : null}
     {favoriteError ? <div className="favorites-sync-alert" role="alert"><span>{favoriteError}</span><button type="button" onClick={retryFavoriteSync}>Retry favorites</button></div> : null}
-    <MapNavigation activePanel={activePanel} savedCount={saved.length} onNavigate={openPanel} onSubmit={() => setSubmitOpen(true)}
+    <MapNavigation activePanel={activePanel} savedCount={saved.length} onNavigate={openPanel} onSubmit={() => { setListingCaregiver(null); setSubmitOpen(true); }}
       accountAction={clerkConfigured ? <Suspense fallback={null}><MapAccountActions onProfile={() => openPanel("profile")} /></Suspense> : null} />
 
   <main id="discover" tabIndex={-1} className={`map-workspace panel-${activePanel} ${railCollapsed ? "rail-collapsed" : ""} ${selectedPet ? "detail-open" : ""}`}>
@@ -1566,7 +1571,7 @@ export default function App({ clerkPublishableKey = "" }) {
           </div>
           {activePanel === "resources" ? <Suspense fallback={<p className="panel-loading" role="status">Opening guides…</p>}><MapResources hash={resourceHash} /></Suspense> : null}
           {activePanel === "shelter" ? clerkConfigured
-            ? <Suspense fallback={<p className="panel-loading" role="status">Opening shelter workspace…</p>}><ShelterWorkspaceWithAuth onReturnToAdopter={() => openPanel("explore")} /></Suspense>
+            ? <Suspense fallback={<p className="panel-loading" role="status">Opening caregiver workspace…</p>}><CaregiverHubWithAuth key={submitOpen ? "listing" : "workspace"} onListPet={caregiver => { setListingCaregiver(caregiver); setSubmitOpen(true); }} onOpenMessages={() => openPanel("messages")} /></Suspense>
             : <div className="community-auth-state"><Building2 /><h1>Shelter workspace</h1><p>Organization accounts are unavailable in this local environment.</p></div> : null}
           {activePanel === "claim" ? <Suspense fallback={<p className="panel-loading" role="status">Opening organization claim…</p>}><ClaimOrganizationClient embedded /></Suspense> : null}
           {activePanel === "moderation" ? <Suspense fallback={<p className="panel-loading" role="status">Opening review moderation…</p>}><ReviewModerationClient embedded /></Suspense> : null}
@@ -1584,7 +1589,7 @@ export default function App({ clerkPublishableKey = "" }) {
       </aside>
 
     </main>
-    {submitOpen && (clerkConfigured ? <Suspense fallback={<Dialog title="List a pet" onClose={() => setSubmitOpen(false)}><div className="community-auth-state"><h2>Opening your account…</h2></div></Dialog>}><SubmissionWithAuth onClose={() => setSubmitOpen(false)} onAuthenticated={getToken => <SubmissionForm onClose={() => setSubmitOpen(false)} getToken={getToken} />} /></Suspense> : <Dialog title="List a pet" onClose={() => setSubmitOpen(false)}><div className="community-auth-state"><span><PawPrint /></span><h2>Registration needs an account</h2><p>Pawline requires sign-in before a foster, shelter, or caretaker can create a listing and receive private messages.</p></div></Dialog>)}
+    {submitOpen && (clerkConfigured ? <Suspense fallback={<Dialog title="List a pet" onClose={() => setSubmitOpen(false)}><div className="community-auth-state"><h2>Opening your account…</h2></div></Dialog>}><SubmissionWithAuth onClose={() => setSubmitOpen(false)} onAuthenticated={(getToken, userId) => <SubmissionForm key={userId} onClose={() => setSubmitOpen(false)} getToken={getToken} caregiver={listingCaregiver?.accountId === userId ? listingCaregiver : null} onRegister={() => { setSubmitOpen(false); openPanel("shelter"); }} />} /></Suspense> : <Dialog title="List a pet" onClose={() => setSubmitOpen(false)}><div className="community-auth-state"><span><PawPrint /></span><h2>Registration needs an account</h2><p>Pawline requires sign-in before a foster, shelter, or caretaker can create a listing and receive private messages.</p></div></Dialog>)}
     {selectedPet && <PetDetail pet={selectedPet} onClose={() => setSelectedPet(null)} saved={saved.includes(selectedPet.id)} onSave={toggleSave} onMessage={pet => { setMessagePet(pet); openPanel("messages"); }} onApply={pet => { setSelectedPet(null); setApplicationPet(pet); openPanel("applications"); }} />}
     {selectedEvent && <EventDetail event={selectedEvent} onClose={() => setSelectedEvent(null)} />}
     {selectedDiscovery && <DiscoveryDetail discovery={selectedDiscovery} onClose={() => setSelectedDiscovery(null)} />}
