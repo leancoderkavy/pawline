@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 const port = Number(process.env.PAWLINE_CHAT_PORT || 4317);
 export default defineConfig({
-  testDir: "./e2e", testMatch: "chat.spec.js", fullyParallel: false, workers: 1,
+  testDir: "./e2e", testMatch: ["chat.spec.js", "caregivers.spec.js"], fullyParallel: false, workers: 1,
   timeout: 90000, expect: { timeout: 12000 }, reporter: "list",
   outputDir: join(tmpdir(), "pawline-chat-playwright"),
   use: { baseURL: `http://127.0.0.1:${port}`, viewport: { width: 1280, height: 850 }, trace: "retain-on-failure", launchOptions: { args: ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"] } },

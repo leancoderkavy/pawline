@@ -16,8 +16,8 @@ test.beforeEach(async ({ request }) => {
 });
 
 test("adopter and shelter can message, manage questions and complete a real WebRTC call", async ({ browser }) => {
-  const adopterContext = await browser.newContext({ permissions: ["camera", "microphone"], baseURL: "http://127.0.0.1:4317", viewport: { width: 1280, height: 850 } });
-  const shelterContext = await browser.newContext({ permissions: ["camera", "microphone"], baseURL: "http://127.0.0.1:4317", viewport: { width: 390, height: 844 } });
+  const adopterContext = await browser.newContext({ permissions: ["camera", "microphone"], baseURL: `http://127.0.0.1:${process.env.PAWLINE_CHAT_PORT || 4317}`, viewport: { width: 1280, height: 850 } });
+  const shelterContext = await browser.newContext({ permissions: ["camera", "microphone"], baseURL: `http://127.0.0.1:${process.env.PAWLINE_CHAT_PORT || 4317}`, viewport: { width: 390, height: 844 } });
   const adopter = await adopterContext.newPage();
   const shelter = await shelterContext.newPage();
   const errors = [];
@@ -126,7 +126,7 @@ test("narrow mobile and network failure preserve drafts and isolate rapid thread
 });
 
 test("camera permission failures, declined invitations and closing a pending preview release devices", async ({ browser }) => {
-  const context = await browser.newContext({ baseURL: "http://127.0.0.1:4317", viewport: { width: 390, height: 844 }, permissions: ["camera", "microphone"] });
+  const context = await browser.newContext({ baseURL: `http://127.0.0.1:${process.env.PAWLINE_CHAT_PORT || 4317}`, viewport: { width: 390, height: 844 }, permissions: ["camera", "microphone"] });
   const page = await context.newPage();
   try {
     await page.addInitScript(() => {
