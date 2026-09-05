@@ -17,7 +17,7 @@
     "test": "node --test && python -m unittest discover -s test -p \"test_*.py\""
   },
   "dependencies": {
-    "@clerk/backend": "^3.16.9",
+    "@clerk/backend": "^3.17.0",
     "@clerk/nextjs": "^7.7.9",
     "@clerk/react": "^6.12.9",
     "@neondatabase/serverless": "^1.0.1",
