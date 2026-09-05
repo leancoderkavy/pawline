@@ -1,6 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { MAP_PANELS, panelFromHash, panelHash, claimTokenFromHash, claimMapLocation } from "../src/mapPanels.js";
+import { MAP_PANELS, panelFromHash, panelHash, claimTokenFromHash, claimMapLocation, landingPanel } from "../src/mapPanels.js";
+
+test("signed-out arrivals see onboarding while accounts and deep links keep their destination", () => {
+  for (const hash of ["", "#map", "#discover"]) {
+    assert.equal(landingPanel(hash, "", false), "onboarding");
+    assert.equal(landingPanel(hash, "", true), "explore");
+  }
+  for (const hash of ["#shelter?kind=foster", "#claim?token=invite", "#messages", "#guides"]) {
+    assert.equal(landingPanel(hash, "", false), panelFromHash(hash));
+  }
+  assert.equal(landingPanel("", "?pet=123", false), "explore");
+});
 
 test("map panel links round-trip, including nested guides and legacy discovery links", () => {
   for (const panel of MAP_PANELS) assert.equal(panelFromHash(panelHash(panel)), panel);

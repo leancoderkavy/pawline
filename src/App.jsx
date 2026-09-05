@@ -19,7 +19,7 @@ import AdopterExperience from "./AdopterExperience";
 import { discoveryDisplayLocation } from "./discoveryLocation";
 import Onboarding from "./Onboarding";
 import MapNavigation from "./MapNavigation";
-import { JOURNEY_PANELS, panelFromHash, panelHash } from "./mapPanels";
+import { JOURNEY_PANELS, panelFromHash, panelHash, landingPanel } from "./mapPanels";
 
 const CommunityWithAuth = lazy(() => import("./CommunityWithAuth"));
 const DirectMessages = lazy(() => import("./DirectMessages"));
@@ -1183,7 +1183,7 @@ function Matchmaker({ pets, feed, location, onLocationChange, onSpeciesChange, o
   </section>;
 }
 
-export default function App({ clerkPublishableKey = "" }) {
+export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
   const clerkConfigured = Boolean(clerkPublishableKey);
   const [saved, setSaved] = useState([]);
   const savedRef = useRef([]);
@@ -1218,7 +1218,7 @@ export default function App({ clerkPublishableKey = "" }) {
   const [feedRefresh, setFeedRefresh] = useState({ loading: true, updatedAt: null, error: "" });
   const [feed, setFeed] = useState({ mode: "loading", message: "Checking trusted adoption sources…" });
   const [integrations, setIntegrations] = useState({ mapboxConfigured: null });
-  const [activePanel, setActivePanel] = useState("explore");
+  const [activePanel, setActivePanel] = useState(isSignedIn ? "explore" : "onboarding");
   const [resourceHash, setResourceHash] = useState("#guides");
   const [railCollapsed, setRailCollapsed] = useState(false);
   const [mapPetType, setMapPetType] = useState("All");
@@ -1493,8 +1493,10 @@ export default function App({ clerkPublishableKey = "" }) {
     setMapSearchMoved(true);
   };
   useEffect(() => {
-    const syncPanel = () => {
-      const panel = panelFromHash(window.location.hash);
+    const syncPanel = (initial = false) => {
+      const panel = initial === true
+        ? landingPanel(window.location.hash, window.location.search, isSignedIn)
+        : panelFromHash(window.location.hash);
       setResourceHash(window.location.hash);
       setActivePanel(panel);
       setShowSavedOnly(panel === "favorites");
@@ -1502,11 +1504,11 @@ export default function App({ clerkPublishableKey = "" }) {
       if (JOURNEY_PANELS.includes(panel)) { setJourneyStarted(true); setJourneyView(panel === "application-messages" ? "messages" : panel); }
       railContentRef.current?.scrollTo({ top: 0 });
     };
-    syncPanel();
+    syncPanel(true);
     window.addEventListener("hashchange", syncPanel);
     window.addEventListener("popstate", syncPanel);
     return () => { window.removeEventListener("hashchange", syncPanel); window.removeEventListener("popstate", syncPanel); };
-  }, []);
+  }, [isSignedIn]);
   const journeyProps = { pets: remotePets, feed, saved, onSave: toggleSave, view: journeyView, active: JOURNEY_PANELS.includes(activePanel), onNavigate: openPanel,
     applicationPet, onApplicationHandled: () => setApplicationPet(null), onOpenMap: () => openPanel("explore") };
   return <div className="app map-app">

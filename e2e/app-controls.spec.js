@@ -21,6 +21,8 @@ async function fixture(page, { map = false } = {}) {
 }
 async function open(page) {
   await page.goto("/");
+  await expect(page.getByRole("heading", { name: "What brings you here?" })).toBeVisible();
+  await page.getByRole("button", { name: "Just browsing? Explore pets" }).click();
   await expect(page.getByRole("heading", { name: "Pets near you", exact: true })).toBeVisible();
 }
 async function more(page, name) {
@@ -63,6 +65,7 @@ for (const width of [320, 390, 768, 1440]) {
     await page.locator(".more-filters summary").click();
     await page.getByLabel("Add QA Miso to favorites").click();
     await page.reload();
+    await page.getByRole("button", { name: "Just browsing? Explore pets" }).click();
     await expect(page.getByLabel("Remove QA Miso from favorites")).toHaveAttribute("aria-pressed", "true");
     await page.locator(".favorites-filter").click();
     await expect(page.locator(".map-result-open")).toHaveCount(1);
