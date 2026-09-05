@@ -54,8 +54,8 @@ test("the map uses a lightweight preview before loading Mapbox", async () => {
   assert.match(app, /configured === null \? "status"/);
   assert.match(app, /mapboxConfigured: null/);
   assert.match(app, /variant=mobile/);
-  assert.match(mapApi, /"450x760" : "900x620"/);
-  assert.doesNotMatch(mapApi, /@2x/);
+  assert.match(mapApi, /"450x760" : "1280x900"/);
+  assert.match(mapApi, /@2x/);
   assert.match(app, /lazy\(\(\) => import\("\.\/CommunityWithAuth"\)\)/);
   assert.match(app, /clerkConfigured && savedHydrated/);
 });

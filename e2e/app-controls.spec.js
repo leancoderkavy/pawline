@@ -127,9 +127,9 @@ test("location input, autocomplete keyboard controls and map failure recovery", 
   await expect(input).toHaveValue("Pasadena, California, USA");
   await expect(input).toHaveAttribute("aria-expanded", "false");
   await page.getByRole("button", { name: "Hide discovery tools", exact: true }).click();
-  await page.getByRole("button", { name: "Explore the interactive map" }).click();
+  await page.getByRole("button", { name: /(?:Explore|Open) the interactive map/ }).click();
   await page.getByRole("button", { name: "Back to map preview" }).click();
-  await expect(page.getByRole("button", { name: "Explore the interactive map" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /(?:Explore|Open) the interactive map/ })).toBeVisible();
 });
 
 test("application fields and optional AI enforce guest and consent boundaries", async ({ page }) => {

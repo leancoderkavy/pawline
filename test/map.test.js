@@ -27,11 +27,12 @@ test("static map still renders when durable limits are unavailable", async () =>
   const previousToken = process.env.MAPBOX_ACCESS_TOKEN;
   const previousFetch = global.fetch;
   process.env.MAPBOX_ACCESS_TOKEN = "pk.test-public-token";
-  global.fetch = async () => ({
+  const requestedUrls = [];
+  global.fetch = async url => { requestedUrls.push(new URL(url)); return ({
     ok: true,
     headers: new Headers({ "content-type": "image/png" }),
     arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
-  });
+  }); };
 
   try {
     const response = responseRecorder();
@@ -39,6 +40,10 @@ test("static map still renders when durable limits are unavailable", async () =>
     assert.equal(response.statusCode, 200);
     assert.equal(response.headers["Content-Type"], "image/png");
     assert.deepEqual([...response.body], [1, 2, 3]);
+    assert.ok(requestedUrls[0].pathname.endsWith("/1280x900@2x"));
+    await handler({ method: "GET", query: { variant: "mobile" }, headers: {}, socket: {} }, responseRecorder());
+    assert.ok(requestedUrls[1].pathname.endsWith("/450x760@2x"));
+    assert.equal(requestedUrls[1].searchParams.get("attribution"), "true");
   } finally {
     global.fetch = previousFetch;
     if (previousToken === undefined) delete process.env.MAPBOX_ACCESS_TOKEN;

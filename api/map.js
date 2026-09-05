@@ -72,9 +72,9 @@ export default async function handler(request, response) {
     ),
   ];
   const camera = points.length ? "auto" : `${center[0]},${center[1]},10,0`;
-  const imageSize = request.query.variant === "mobile" ? "450x760" : "900x620";
+  const imageSize = request.query.variant === "mobile" ? "450x760" : "1280x900";
   const url = new URL(
-    `https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/${overlays.join(",")}/${camera}/${imageSize}`,
+    `https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/${overlays.join(",")}/${camera}/${imageSize}@2x`,
   );
   url.searchParams.set("access_token", process.env.MAPBOX_ACCESS_TOKEN);
   url.searchParams.set("logo", "true");

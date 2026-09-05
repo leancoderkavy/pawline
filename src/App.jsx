@@ -534,7 +534,7 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
     `${point.longitude},${point.latitude},${point.type === "event" ? "e" : "p"}`,
   ).join("|");
   if (previewPoints) previewParams.set("points", previewPoints);
-  const previewUrl = `/api/map?${previewParams}`;
+  const previewUrl = `/api/map?${previewParams}&quality=2`;
   const mobilePreviewUrl = `${previewUrl}&variant=mobile`;
   const [previewUnavailable, setPreviewUnavailable] = useState(false);
 
@@ -811,8 +811,8 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
             <source media="(max-width: 700px)" srcSet={mobilePreviewUrl} width="450" height="760" />
             <img
               src={previewUrl}
-              width="900"
-              height="620"
+              width="1280"
+              height="900"
               alt={`Map preview centered on ${location}`}
               className={previewUnavailable ? "is-unavailable" : undefined}
               onError={() => setPreviewUnavailable(true)}
@@ -822,7 +822,7 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
           </picture>
           <button type="button" className="map-activate" onClick={() => setInteractive(true)}>
             <LocateFixed />
-            <span><strong>Explore the interactive map</strong><small>Drag, zoom, and open current listings</small></span>
+            <span><strong>{previewUnavailable ? "Open the interactive map" : "Explore the interactive map"}</strong><small>{previewUnavailable ? "Map preview unavailable. Try the interactive view." : "Drag, zoom, and open current listings"}</small></span>
           </button>
         </div>}
     {mapState.status === "loading" ? <div className="map-loading" role="status">Loading interactive map…</div> : null}
