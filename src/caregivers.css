@@ -1,0 +1,27 @@
+.caregiver-hub { padding:20px 16px 32px; color:#173b2a; min-width:0; }
+.caregiver-hub h1 { font-size:clamp(1.55rem,4vw,2.2rem); line-height:1.15; margin:8px 0 12px; }
+.caregiver-hub h2 { font-size:1.25rem; margin:8px 0 16px; }
+.caregiver-hub p { line-height:1.55; }
+.caregiver-form { display:grid; gap:14px; margin:24px 0; }
+.caregiver-form label,.caregiver-select { display:grid; gap:6px; font-weight:600; }
+.caregiver-hub input:not([type=checkbox]),.caregiver-hub select { width:100%; min-width:0; min-height:44px; padding:10px; border:1px solid #82988a; border-radius:8px; background:#fff; color:#173b2a; font:inherit; box-sizing:border-box; }
+.caregiver-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.caregiver-note { color:#526b5d; font-size:.9rem; margin:4px 0 12px; }
+.caregiver-form .caregiver-confirm { display:flex; align-items:flex-start; gap:10px; font-weight:400; line-height:1.5; }
+.caregiver-confirm input { flex:none; width:20px; height:20px; margin-top:3px; }
+.caregiver-actions { display:flex; gap:10px; flex-wrap:wrap; margin:20px 0; }
+.caregiver-actions .button { min-height:44px; white-space:normal; }
+.caregiver-benefits { padding:0; list-style:none; display:grid; gap:16px; margin:24px 0; }
+.caregiver-benefits li { display:flex; align-items:center; gap:12px; line-height:1.45; }
+.caregiver-benefits svg { flex:none; width:24px; }
+.caregiver-pets { margin:28px 0; border-top:1px solid #d9dfd5; padding-top:20px; }
+.caregiver-pets ul { padding:0; list-style:none; display:grid; gap:12px; }
+.caregiver-pets li { display:grid; gap:12px; padding:14px; border:1px solid #d9dfd5; border-radius:12px; background:#fffdf8; }
+.caregiver-pets li strong,.caregiver-pets li span { display:block; overflow-wrap:anywhere; }
+.caregiver-pets li span { font-size:.9rem; margin-top:6px; }
+.caregiver-pet-actions { display:flex; gap:8px; flex-wrap:wrap; }
+.caregiver-pet-actions button { min-height:44px; padding:8px 12px; border:1px solid #82988a; border-radius:8px; background:#fff; color:#173b2a; font:inherit; cursor:pointer; }
+.caregiver-hub summary { min-height:44px; cursor:pointer; padding:12px 0; }
+.caregiver-hub button:disabled { opacity:.55; cursor:wait; }
+.caregiver-hub :focus-visible { outline:3px solid #a8522d; outline-offset:3px; }
+@media(max-width:430px) { .caregiver-fields { grid-template-columns:1fr; } .caregiver-actions .button { width:100%; } }

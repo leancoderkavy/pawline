@@ -400,6 +400,16 @@ CREATE TABLE IF NOT EXISTS organizations (
 );
 CREATE INDEX IF NOT EXISTS organizations_verification_fresh
   ON organizations (verification_state, updated_at DESC);
+
+-- Self-registration does not verify or claim imported organizations.
+ALTER TABLE organizations DROP CONSTRAINT IF EXISTS organizations_kind_check;
+ALTER TABLE organizations ADD CONSTRAINT organizations_kind_check
+  CHECK (kind IN ('municipal_shelter', 'shelter', 'rescue', 'foster'));
+CREATE TABLE IF NOT EXISTS caregiver_registrations (
+  clerk_user_id text PRIMARY KEY,
+  organization_id uuid NOT NULL UNIQUE REFERENCES organizations(id) ON DELETE CASCADE,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
 CREATE INDEX IF NOT EXISTS organizations_contact_email
   ON organizations (lower(public_contact_email)) WHERE public_contact_email IS NOT NULL;
 

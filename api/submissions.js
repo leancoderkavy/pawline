@@ -3,6 +3,7 @@ import { getDatabase } from "./_db.js";
 import { notificationStatus, notifySubmission } from "./_email.js";
 import { requireUser } from "./_auth.js";
 import { consumeUsageChain } from "./_usage-limit.js";
+import { isUuid, organizationMembership } from "./_adoption-platform.js";
 
 const clean = (value, max = 240) =>
   typeof value === "string" ? value.trim().slice(0, max) : "";
@@ -70,7 +71,11 @@ async function ensureSubmissionStorage(database) {
   throw new Error("Submission storage migration is missing.");
 }
 
-export default async function handler(request, response) {
+export function createSubmissionsHandler(dependencies = {}) {
+  return (request, response) => handleSubmission(request, response, dependencies);
+}
+
+async function handleSubmission(request, response, dependencies) {
   response.setHeader("Cache-Control", "no-store");
   if (request.method !== "POST") {
     response.setHeader("Allow", "POST");
@@ -81,7 +86,7 @@ export default async function handler(request, response) {
     return response.status(415).json({ error: "Send the submission as JSON." });
   }
 
-  const database = getDatabase();
+  const database = (dependencies.getDatabase || getDatabase)();
   if (!database) {
     return response.status(503).json({
       error: "Submissions are temporarily unavailable while the community database is being connected.",
@@ -90,12 +95,23 @@ export default async function handler(request, response) {
 
   let user;
   try {
-    user = await requireUser(request);
+    user = await (dependencies.authenticate || requireUser)(request);
   } catch (error) {
     return response.status(error.statusCode || 401).json({ error: error.message });
   }
 
   const body = request.body || {};
+  const organizationId = body.organizationId || null;
+  let organization = null;
+  if (organizationId) {
+    try {
+      if (!isUuid(organizationId)) return response.status(422).json({ error: "Choose a registered shelter, rescue, or foster profile." });
+      await organizationMembership(database, organizationId, user.id, "administrator");
+      [organization] = await database`SELECT name FROM organizations WHERE id = ${organizationId}`;
+    } catch (error) {
+      return response.status(error.statusCode || 503).json({ error: error.statusCode ? error.message : "Your caregiver profile could not be checked." });
+    }
+  }
   if (body.website) {
     return response.status(202).json({ message: "Submission received for review." });
   }
@@ -111,7 +127,7 @@ export default async function handler(request, response) {
     region: clean(body.region, 120),
     postalCode: clean(body.postalCode, 24),
     country: clean(body.country, 120),
-    shelter: clean(body.shelter, 160),
+    shelter: organization?.name || clean(body.shelter, 160),
     email: clean(body.email, 254).toLowerCase(),
     phone: clean(body.phone, 50),
     description: clean(body.description, 2000),
@@ -148,13 +164,14 @@ export default async function handler(request, response) {
   if (!validHttpUrl(pet.imageUrl) || !validHttpUrl(pet.sourceUrl)) {
     return response.status(400).json({ error: "Links must use http or https." });
   }
-  if (!body.authorityConfirmed || !body.disclosureConfirmed || !body.localLawConfirmed) {
+  if (body.authorityConfirmed !== true || body.disclosureConfirmed !== true || body.localLawConfirmed !== true) {
     return response.status(400).json({ error: "Confirm all required attestations." });
   }
   try {
     const reservation = await consumeUsageChain(database, [
-      { scope: "pet_submission_user", subject: user.id, limit: 3, windowMs: 60 * 60 * 1000 },
-      { scope: "pet_submission_recipient", subject: pet.email, limit: 3, windowMs: 24 * 60 * 60 * 1000 },
+      { scope: "pet_submission_user", subject: user.id, limit: organization ? 20 : 3, windowMs: 60 * 60 * 1000 },
+      ...(organization ? [{ scope: "pet_submission_organization", subject: organizationId, limit: 50, windowMs: 24 * 60 * 60 * 1000 }] : []),
+      { scope: "pet_submission_recipient", subject: pet.email, limit: organization ? 50 : 3, windowMs: 24 * 60 * 60 * 1000 },
     ]);
     if (!reservation.allowed) {
       return response.status(429).json({ error: "Submission limit reached. Try again later or contact Pawline support." });
@@ -190,13 +207,13 @@ export default async function handler(request, response) {
       INSERT INTO pets (
         fingerprint, name, species, breed, age, sex, size, description, city, country,
         postal_code, shelter, contact_email, contact_phone, image_url, source_url,
-        submitted_by_email, claimed_by_clerk_user_id, claimed_by_display_name, claimed_at, status, raw_payload
-      ) VALUES (
+        submitted_by_email, organization_id, claimed_by_clerk_user_id, claimed_by_display_name, claimed_at, status, raw_payload
+      ) SELECT
         ${fingerprint}, ${pet.name}, ${pet.species}, ${pet.breed}, ${pet.age || null},
         ${pet.sex || null}, ${pet.size || null}, ${pet.description || null}, ${pet.city}, ${pet.country},
         ${pet.postalCode}, ${pet.shelter},
         ${pet.email}, ${pet.phone || null}, ${pet.imageUrl || null},
-        ${pet.sourceUrl || null}, ${pet.email}, ${user.id}, ${user.displayName}, now(), 'pending', ${JSON.stringify({
+        ${pet.sourceUrl || null}, ${pet.email}, ${organizationId}, ${user.id}, ${user.displayName}, now(), 'pending', ${JSON.stringify({
           region: pet.region,
           disclosures: {
             spayedNeutered: pet.spayedNeutered, rabiesStatus: pet.rabiesStatus,
@@ -210,7 +227,10 @@ export default async function handler(request, response) {
           attestations: { authority: true, disclosure: true, localLaw: true },
           extraction: normalizeExtractionMeta(body.extractionMeta),
         })}
-      )
+      WHERE (${organizationId}::uuid IS NULL OR EXISTS (
+        SELECT 1 FROM organization_memberships WHERE organization_id = ${organizationId}::uuid
+          AND clerk_user_id = ${user.id} AND role = 'administrator'
+      ))
       ON CONFLICT (fingerprint) DO UPDATE SET
         breed = EXCLUDED.breed,
         age = EXCLUDED.age,
@@ -219,12 +239,15 @@ export default async function handler(request, response) {
         contact_phone = EXCLUDED.contact_phone,
         image_url = EXCLUDED.image_url,
         source_url = EXCLUDED.source_url,
+        status = 'pending',
+        verified_at = NULL,
         claimed_by_clerk_user_id = EXCLUDED.claimed_by_clerk_user_id,
         claimed_by_display_name = EXCLUDED.claimed_by_display_name,
         claimed_at = EXCLUDED.claimed_at,
         updated_at = now()
-      WHERE pets.claimed_by_clerk_user_id IS NULL
-        OR pets.claimed_by_clerk_user_id = EXCLUDED.claimed_by_clerk_user_id
+      WHERE pets.claimed_by_clerk_user_id = EXCLUDED.claimed_by_clerk_user_id
+        AND pets.organization_id IS NOT DISTINCT FROM EXCLUDED.organization_id
+        AND pets.source_id IS NULL
       RETURNING id
     `;
     if (!rows[0]) {
@@ -270,7 +293,7 @@ export default async function handler(request, response) {
         qaCleanup: true,
       });
     }
-    const notification = await notifySubmission({ id: rows[0].id, pet, acknowledgementEmail: user.email });
+    const notification = await (dependencies.notifySubmission || notifySubmission)({ id: rows[0].id, pet, acknowledgementEmail: user.email });
     return response.status(202).json({
       id: rows[0].id,
       message: "Thank you — your pet was submitted for review. After approval, you can answer adoption questions in Messages.",
@@ -281,3 +304,4 @@ export default async function handler(request, response) {
     return response.status(500).json({ error: "We could not save the submission. Please try again." });
   }
 }
+export default createSubmissionsHandler();

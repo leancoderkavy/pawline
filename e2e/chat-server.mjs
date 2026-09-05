@@ -13,6 +13,7 @@ const built = await build({
     contents: `import React from "react";
       import { createRoot } from "react-dom/client";
       import Workspace from "./src/DirectMessagesWorkspace.jsx";
+      import CaregiverFixture from "./e2e/CaregiverFixture.jsx";
       const user = new URL(location.href).searchParams.get("user") || "adopter";
       const request = async (url, options = {}) => {
         const response = await fetch(url, { ...options, headers: { "Content-Type": "application/json", Authorization: "Bearer fixture:" + user }, signal: AbortSignal.timeout(15000) });
@@ -23,14 +24,16 @@ const built = await build({
       const userIds = ${JSON.stringify(Object.fromEntries(Object.entries(users).map(([key, value]) => [key, value.id])))};
       const workspace = <Workspace request={request} userId={userIds[user]} onBrowse={() => location.assign("/?user=" + user)} />;
       const embedded = new URL(location.href).searchParams.has("embedded");
-      createRoot(document.getElementById("root")).render(embedded ? <div className="app map-app"><main className="map-workspace panel-messages"><aside className="map-rail"><div className="rail-content"><div className="map-message-tabs"><button>Listing chats</button><button>Application updates</button></div>{workspace}</div></aside></main></div> : workspace);`,
+      createRoot(document.getElementById("root")).render(new URL(location.href).searchParams.has("caregiver") ? <CaregiverFixture /> : embedded ? <div className="app map-app"><main className="map-workspace panel-messages"><aside className="map-rail"><div className="rail-content"><div className="map-message-tabs"><button>Listing chats</button><button>Application updates</button></div>{workspace}</div></aside></main></div> : workspace);`,
     resolveDir: process.cwd(), loader: "jsx", sourcefile: "chat-fixture-entry.jsx",
   },
-  bundle: true, write: false, outdir: "chat-memory-bundle", format: "esm", splitting: true,
+  bundle: true, write: false, outdir: "chat-memory-bundle", entryNames: "fixture-entry", format: "esm", splitting: true,
+  // The fixture renders client-only components outside Next's server bundler.
+  jsx: "automatic", minify: true, alias: { "@clerk/nextjs": "@clerk/react" },
   define: { "process.env.NODE_ENV": '"production"' }, loader: { ".js": "jsx" }, logLevel: "silent",
 });
 const assets = new Map(built.outputFiles.map(file => [file.path.split(/[\\/]/).at(-1), file.contents]));
-const entry = [...assets.keys()].find(name => name.endsWith(".js") && !name.startsWith("chunk-") && !name.startsWith("VideoCall-"));
+const entry = "fixture-entry.js";
 const css = [...assets.keys()].filter(name => name.endsWith(".css"));
 const styles = await readFile(new URL("../src/styles.css", import.meta.url), "utf8");
 const config = (await import("../next.config.mjs")).default;
@@ -57,6 +60,7 @@ const server = createServer(async (request, response) => {
     response.end(`<!doctype html><html><head><title>Pawline — Chat QA</title><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="/base.css">${css.map(name => `<link rel="stylesheet" href="/${name}">`).join("")}<style>html,body,#root{height:100%;margin:0}#root{height:100dvh;max-width:1400px;margin:auto}</style></head><body><div id="root"></div><script type="module" src="/${entry}"></script></body></html>`);
   } catch (error) { console.error(error.message); response.writeHead(500).end("Fixture error"); }
 });
+
 server.listen(port, "127.0.0.1", () => console.log(`Chat fixture ready at http://127.0.0.1:${port}`));
 const stop = () => server.close(() => fixture.close().then(() => process.exit(0)));
 process.on("SIGTERM", stop);

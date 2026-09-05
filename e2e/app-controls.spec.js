@@ -195,7 +195,7 @@ test("quiz back, restart, AI consent and unavailable provider controls", async (
 
 test("all guest navigation destinations, submit gate, drawer and footer links", async ({ page }) => {
   await fixture(page); await open(page);
-  for (const [name, text] of [["Adoption plan", "Profile"], ["Adoption events", "events"], ["Community", "Community needs Clerk"], ["Shelter workspace", "unavailable"]]) {
+  for (const [name, text] of [["Adoption plan", "Profile"], ["Adoption events", "events"], ["Community", "Community needs Clerk"], ["Shelters & fosters", "unavailable"]]) {
     await more(page, name);
     await expect(page.locator(".rail-content")).toContainText(text, { ignoreCase: true });
   }
