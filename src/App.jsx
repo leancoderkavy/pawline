@@ -11,7 +11,7 @@ import {
 import heroImage from "./heroData";
 import { rankPets } from "./matching";
 import { buildMapView, mapResultBounds, petCountLabel, petResultDetail } from "./mapView";
-import { restoreFavoriteAfterFailure } from "./favoritesState";
+import { parseStoredFavorites, restoreFavoriteAfterFailure } from "./favoritesState";
 import Dialog from "./Dialog";
 import { startFeedRefresh } from "./feedRefresh";
 import { createMapSearchInteraction } from "./mapSearchInteraction";
@@ -1258,7 +1258,7 @@ export default function App({ clerkPublishableKey = "" }) {
   const routePets = useMemo(() => mapView.pets.filter(pet => saved.includes(pet.id)).slice(0, 8), [mapView.pets, saved]);
 
   useEffect(() => {
-    try { setSaved(JSON.parse(localStorage.getItem("pawline-saved") || "[]")); } catch { setSaved([]); setFavoriteError("Favorites could not be read from this browser."); }
+    try { setSaved(parseStoredFavorites(localStorage.getItem("pawline-saved"))); } catch { setSaved([]); setFavoriteError("Favorites could not be read from this browser."); }
     setSavedHydrated(true);
   }, []);
   useEffect(() => {
@@ -1464,6 +1464,7 @@ export default function App({ clerkPublishableKey = "" }) {
     openPanel(showSavedOnly ? "explore" : "favorites");
   };
   const resetMapFilters = () => {
+    setSpecies("All");
     setMapPetType("All");
     setMapDistance("150");
     setShowMapEvents(true);
@@ -1525,7 +1526,7 @@ export default function App({ clerkPublishableKey = "" }) {
             <div className="explore-heading"><div><h1>{showSavedOnly ? "Saved pets" : "Pets near you"}</h1><span className={`live-state feed-${feed.mode}`}><i />{feed.mode === "live" ? "Current pet listings" : feed.mode === "loading" ? "Checking listings" : "Listings unavailable"}</span></div><button type="button" className="mobile-view-map" onClick={() => setRailCollapsed(true)}><Compass /> View map</button></div>
             <p>{feed.mode === "live" ? `${petCountLabel(showSavedOnly ? mapView.pets.filter(pet => saved.includes(pet.id)).length : mapView.pets.length, mapPetType)}${showSavedOnly ? " saved" : ""} within ${mapDistance} miles.` : feed.message || "Current shelter listings are unavailable. Pawline does not show made-up pets."}</p>
             <div className="feed-refresh"><span role="status">{feedRefresh.loading ? "Checking for updates…" : feedRefresh.error || (feedRefresh.updatedAt ? `Checked ${feedRefresh.updatedAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} · checks every minute` : "Waiting for connection")}</span><button type="button" disabled={feedRefresh.loading} onClick={() => refreshFeedRef.current?.()} aria-label="Refresh listings"><RotateCcw size={16} /> Refresh</button></div>
-            <MapFilters petType={mapPetType} distance={mapDistance} showEvents={showMapEvents} densityMode={densityMode} hoursFilter={hoursFilter} onPetTypeChange={setMapPetType} onDistanceChange={setMapDistance} onShowEventsChange={setShowMapEvents} onDensityChange={setDensityMode} onHoursFilterChange={setHoursFilter} onReset={resetMapFilters} />
+            <MapFilters petType={mapPetType} distance={mapDistance} showEvents={showMapEvents} densityMode={densityMode} hoursFilter={hoursFilter} onPetTypeChange={setMatchSpecies} onDistanceChange={setMapDistance} onShowEventsChange={setShowMapEvents} onDensityChange={setDensityMode} onHoursFilterChange={setHoursFilter} onReset={resetMapFilters} />
             {mapSearchMoved ? <p className="map-area-status" role="status">Showing results around the map center.</p> : null}
             <MapResults view={mapView} saved={saved} showSavedOnly={showSavedOnly} onToggleSavedOnly={toggleSavedOnly} onSave={toggleSave} onOpenPet={openPetDetail} onOpenEvent={setSelectedEvent} onOpenDiscovery={setSelectedDiscovery} />
             <NearbyShelters shelters={mapView.shelters} state={shelterState} onOpen={setSelectedShelter} />

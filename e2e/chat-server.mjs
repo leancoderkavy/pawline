@@ -1,3 +1,4 @@
+const port = Number(process.env.PAWLINE_CHAT_PORT || 4317);
 import { createServer } from "node:http";
 import { build } from "esbuild";
 import { readFile } from "node:fs/promises";
@@ -36,7 +37,7 @@ const config = (await import("../next.config.mjs")).default;
 const headers = (await config.headers())[0].headers;
 const server = createServer(async (request, response) => {
   try {
-    const url = new URL(request.url, "http://127.0.0.1:4317");
+    const url = new URL(request.url, `http://127.0.0.1:${port}`);
     for (const header of headers) response.setHeader(header.key, header.value);
     if (url.pathname.startsWith("/api/")) {
       const handler = fixture.handlers[url.pathname.slice(5)];
@@ -56,7 +57,7 @@ const server = createServer(async (request, response) => {
     response.end(`<!doctype html><html><head><title>Pawline — Chat QA</title><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="/base.css">${css.map(name => `<link rel="stylesheet" href="/${name}">`).join("")}<style>html,body,#root{height:100%;margin:0}#root{height:100dvh;max-width:1400px;margin:auto}</style></head><body><div id="root"></div><script type="module" src="/${entry}"></script></body></html>`);
   } catch (error) { console.error(error.message); response.writeHead(500).end("Fixture error"); }
 });
-server.listen(4317, "127.0.0.1", () => console.log("Chat fixture ready at http://127.0.0.1:4317"));
+server.listen(port, "127.0.0.1", () => console.log(`Chat fixture ready at http://127.0.0.1:${port}`));
 const stop = () => server.close(() => fixture.close().then(() => process.exit(0)));
 process.on("SIGTERM", stop);
 process.on("SIGINT", stop);

@@ -449,3 +449,22 @@ Validation:
   imports neither that resolver nor its database. No auth bypass is enabled by
   an environment flag. Live Clerk, Ably, and cross-network TURN checks remain
   separate deployment checks.
+# Browser control regression tests
+
+Run `npm run build` followed by `npm run test:app` to test the built application
+at 320, 390, 768, and 1440 pixels. Install Chromium once with
+`npx playwright install chromium`. The suite starts an isolated local server
+on port 3112 and intercepts API requests with explicitly named QA fixtures.
+It does not send messages, submit applications, or call paid AI providers.
+
+Coverage includes map species/radius/hours filters, saved-pet persistence and
+corrupt storage recovery, listing/event/lead/shelter details and source links,
+visit checklist mouse and keyboard controls, location validation/autocomplete,
+provider failure recovery, quiz navigation and consent gates, profile fields,
+private guest application drafts, menu navigation, and legal links.
+
+Run `npm run test:chat` separately for the authenticated fixture messaging and
+WebRTC workflows. CI runs both browser suites after the production build.
+Screenshots and failure traces are written to the system temporary directory.
+These tests do not establish live Clerk login, live shelter form submission,
+Mapbox tile delivery, or cross-network TURN/provider readiness.
