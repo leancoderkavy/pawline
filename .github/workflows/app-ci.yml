@@ -25,4 +25,7 @@ jobs:
       - run: npm test
       - run: npm --workspace mcp test
       - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:app
+      - run: npm run test:chat
       - run: npm audit --audit-level=high
