@@ -1,5 +1,5 @@
 export const JOURNEY_PANELS = ["home", "profile", "applications", "application-messages"];
-export const MAP_PANELS = ["explore", "favorites", "match", "messages", "events", "community", "resources", "shelter", "claim", "moderation", ...JOURNEY_PANELS];
+export const MAP_PANELS = ["onboarding", "explore", "favorites", "match", "messages", "events", "community", "resources", "shelter", "claim", "moderation", ...JOURNEY_PANELS];
 
 export function panelFromHash(hash = "") {
   const value = hash.replace(/^#/, "").split(/[/?]/)[0];
