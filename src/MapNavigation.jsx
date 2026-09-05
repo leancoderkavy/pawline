@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Building2, CalendarDays, ChevronDown, ClipboardList, FileText, Heart, House, Map, MessageCircle, PawPrint, UserRound, UsersRound } from "lucide-react";
 
 const primary = [["explore", Map, "Find pets"], ["favorites", Heart, "Saved"], ["applications", ClipboardList, "Applications"], ["messages", MessageCircle, "Messages"]];
-const more = [["profile", UserRound, "My profile"], ["home", House, "Adoption plan"], ["match", PawPrint, "Match quiz"], ["events", CalendarDays, "Adoption events"], ["community", UsersRound, "Community"], ["resources", FileText, "Adoption guides"], ["shelter", Building2, "Shelters & fosters"]];
+const more = [["onboarding", PawPrint, "Get started"], ["profile", UserRound, "My profile"], ["home", House, "Adoption plan"], ["match", PawPrint, "Match quiz"], ["events", CalendarDays, "Adoption events"], ["community", UsersRound, "Community"], ["resources", FileText, "Adoption guides"], ["shelter", Building2, "Shelters & fosters"]];
 
 export default function MapNavigation({ activePanel, savedCount, onNavigate, onSubmit, accountAction }) {
   const [open, setOpen] = useState(false);

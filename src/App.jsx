@@ -17,6 +17,7 @@ import { startFeedRefresh } from "./feedRefresh";
 import { createMapSearchInteraction } from "./mapSearchInteraction";
 import AdopterExperience from "./AdopterExperience";
 import { discoveryDisplayLocation } from "./discoveryLocation";
+import Onboarding from "./Onboarding";
 import MapNavigation from "./MapNavigation";
 import { JOURNEY_PANELS, panelFromHash, panelHash } from "./mapPanels";
 
@@ -1530,6 +1531,7 @@ export default function App({ clerkPublishableKey = "" }) {
           {["explore", "favorites"].includes(activePanel) ? <div className="explore-intro">
             <div className="explore-heading"><div><h1>{showSavedOnly ? "Saved pets" : "Pets near you"}</h1><span className={`live-state feed-${feed.mode}`}><i />{feed.mode === "live" ? "Current pet listings" : feed.mode === "loading" ? "Checking listings" : "Listings unavailable"}</span></div><button type="button" className="mobile-view-map" onClick={() => setRailCollapsed(true)}><Compass /> View map</button></div>
             <p>{feed.mode === "live" ? `${petCountLabel(showSavedOnly ? mapView.pets.filter(pet => saved.includes(pet.id)).length : mapView.pets.length, mapPetType)}${showSavedOnly ? " saved" : ""} within ${mapDistance} miles.` : feed.message || "Current shelter listings are unavailable. Pawline does not show made-up pets."}</p>
+            <button className="onboarding-back" onClick={() => openPanel("onboarding")}>New here? Get started <ChevronRight /></button>
             <div className="feed-refresh"><span role="status">{feedRefresh.loading ? "Checking for updates…" : feedRefresh.error || (feedRefresh.updatedAt ? `Checked ${feedRefresh.updatedAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} · checks every minute` : "Waiting for connection")}</span><button type="button" disabled={feedRefresh.loading} onClick={() => refreshFeedRef.current?.()} aria-label="Refresh listings"><RotateCcw size={16} /> Refresh</button></div>
             <MapFilters petType={mapPetType} distance={mapDistance} showEvents={showMapEvents} densityMode={densityMode} hoursFilter={hoursFilter} onPetTypeChange={setMatchSpecies} onDistanceChange={setMapDistance} onShowEventsChange={setShowMapEvents} onDensityChange={setDensityMode} onHoursFilterChange={setHoursFilter} onReset={resetMapFilters} />
             {mapSearchMoved ? <p className="map-area-status" role="status">Showing results around the map center.</p> : null}
@@ -1569,6 +1571,7 @@ export default function App({ clerkPublishableKey = "" }) {
               ? <Suspense fallback={<p className="panel-loading" role="status">Opening adoption tools…</p>}><AdopterExperienceWithAuth {...journeyProps} /></Suspense>
               : <AdopterExperience {...journeyProps} /> : null}
           </div>
+          {activePanel === "onboarding" ? <Onboarding onNavigate={openPanel} /> : null}
           {activePanel === "resources" ? <Suspense fallback={<p className="panel-loading" role="status">Opening guides…</p>}><MapResources hash={resourceHash} /></Suspense> : null}
           {activePanel === "shelter" ? clerkConfigured
             ? <Suspense fallback={<p className="panel-loading" role="status">Opening caregiver workspace…</p>}><CaregiverHubWithAuth key={submitOpen ? "listing" : "workspace"} onListPet={caregiver => { setListingCaregiver(caregiver); setSubmitOpen(true); }} onOpenMessages={() => openPanel("messages")} /></Suspense>

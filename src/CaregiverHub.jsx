@@ -5,7 +5,7 @@ import { Building2, Heart, MessageCircle, PawPrint } from "lucide-react";
 import "./caregivers.css";
 
 export function CaregiverRegistrationForm({ onRegister, busy, error }) {
-  const [form, setForm] = useState({ kind: "foster", name: "", city: "", region: "", country: "United States", authorityConfirmed: false });
+  const [form, setForm] = useState({ kind: (typeof window !== "undefined" && new URLSearchParams(window.location.hash.split("?")[1]).get("kind") === "shelter") ? "shelter" : "foster", name: "", city: "", region: "", country: "United States", authorityConfirmed: false });
   const update = event => setForm(current => ({ ...current, [event.target.name]: event.target.type === "checkbox" ? event.target.checked : event.target.value }));
   return <form className="caregiver-form" onSubmit={event => { event.preventDefault(); onRegister(form); }}>
     <h2>Register your caregiver profile</h2>
