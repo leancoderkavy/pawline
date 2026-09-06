@@ -8,6 +8,8 @@ The guide routes previously redirected to homepage fragments and the sitemap con
 
 Google's [AI search guidance](https://developers.google.com/search/docs/fundamentals/ai-optimization-guide) prioritizes useful content and ordinary SEO. It says llms.txt does not affect Google ranking. These files serve other consumers as source references, not as ranking promises. No generated drafts are published automatically. No geographic doorway pages or invented local inventory are added.
 
+Production verification also found that configured authentication reduced homepage prerendering to a loading sentence. The authentication loading state now supplies a public adoption heading, source-confirmation summary, and guide links while keeping the existing authenticated landing decision. A build with a syntactically valid test publishable key confirms this content exists in the prerendered HTML.
+
 ## Keyword map
 
 These are intent targets, not measured ranks or search-volume estimates.
@@ -24,7 +26,7 @@ Prioritize these existing pages before creating more topics. Use actual GSC impr
 
 ## Search Console operation
 
-The signed-in Search Console account did not list Pawline at audit time. A canonical URL-prefix property was initiated and its Google-issued ownership file is included in this release. Complete verification after deployment, then submit `https://www.pawlineadopt.com/sitemap.xml`. Keep the verification file deployed.
+The signed-in Search Console account did not list Pawline at audit time. A canonical URL-prefix property was initiated and its Google-issued ownership file is included in this release. Ownership was verified on 2026-09-06 after deployment and `https://www.pawlineadopt.com/sitemap.xml` was submitted. Keep the verification file deployed. Search Console is initially processing property performance data; no measured ranking baseline is available yet. Sitemap submission is not proof of successful processing or indexing; inspect its current status in GSC.
 
 After Google has processed data, export the Performance report's Queries CSV in English. Compare equal completed date ranges with identical search type, country, device, and page filters. Store exports under ignored `output/search-console/` and run:
 
