@@ -7,7 +7,7 @@ const recordTypes = [
   ["Approximate web leads", "Search-discovered leads that may help someone locate a shelter or adoption resource. They are clearly labeled and are never presented as shelter-verified animals."],
 ];
 
-export default function HowPawlineWorksPage() {
+export default function HowPawlineWorksPage({ standalone = false }) {
   return <section className="methodology-page">
 <article className="methodology-content">
       <p className="methodology-kicker">Our listing and matching approach</p>
@@ -42,7 +42,7 @@ export default function HowPawlineWorksPage() {
       <section className="methodology-next" aria-labelledby="next-heading">
         <h2 id="next-heading">Ready to start?</h2>
         <p>Explore current listings on the Pawline map, then use the original shelter or rescue link to take the next step.</p>
-        <a href="#map">Explore adoptable pets <span aria-hidden="true">→</span></a>
+        <a href={standalone ? "/#map" : "#map"}>Explore adoptable pets <span aria-hidden="true">→</span></a>
       </section>
 
       <p className="methodology-related"><a href="#guides/matching">Read: How to find a pet that fits your home and routine <span aria-hidden="true">→</span></a></p>

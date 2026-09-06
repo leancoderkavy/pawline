@@ -1,9 +1,9 @@
 
 
-export default function FindAPetThatFitsGuidePage() {
+export default function FindAPetThatFitsGuidePage({ standalone = false }) {
   return <section className="methodology-page guide-page">
 <article className="methodology-content">
-      <nav className="guide-crumbs" aria-label="Breadcrumb"><a href="#guides">Adoption guides</a><span aria-hidden="true">/</span><span>Find a pet that fits your home and routine</span></nav>
+      <nav className="guide-crumbs" aria-label="Breadcrumb"><a href={standalone ? "/guides" : "#guides"}>Adoption guides</a><span aria-hidden="true">/</span><span>Find a pet that fits your home and routine</span></nav>
       <p className="methodology-kicker">Pet adoption matching guide</p>
       <h1>How to find a pet that fits your home and routine</h1>
       <p className="methodology-lede">A useful match starts with an honest picture of everyday life. Pawline helps you compare the details you share with the facts available in current shelter listings, then sends you to the shelter or rescue for the final conversation.</p>

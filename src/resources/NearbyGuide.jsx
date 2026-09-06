@@ -1,9 +1,9 @@
 
 
-export default function FindAdoptablePetsGuidePage() {
+export default function FindAdoptablePetsGuidePage({ standalone = false }) {
   return <section className="methodology-page guide-page">
 <article className="methodology-content">
-      <nav className="guide-crumbs" aria-label="Breadcrumb"><a href="#guides">Adoption guides</a><span aria-hidden="true">/</span><span>Find adoptable pets near you</span></nav>
+      <nav className="guide-crumbs" aria-label="Breadcrumb"><a href={standalone ? "/guides" : "#guides"}>Adoption guides</a><span aria-hidden="true">/</span><span>Find adoptable pets near you</span></nav>
       <p className="methodology-kicker">Adoption search guide</p>
       <h1>How to find adoptable dogs and cats near you</h1>
       <p className="methodology-lede">A good adoption search starts with a real location and ends with the shelter or rescue. Pawline helps you compare current records in between, while keeping the source and the unknowns visible.</p>
@@ -36,7 +36,7 @@ export default function FindAdoptablePetsGuidePage() {
       <section className="methodology-next" aria-labelledby="guide-next-heading">
         <h2 id="guide-next-heading">Ready to look nearby?</h2>
         <p>Explore the map, save the records you want to compare, and follow the source link before you visit or apply.</p>
-        <a href="#map">Find adoptable pets <span aria-hidden="true">→</span></a>
+        <a href={standalone ? "/#map" : "#map"}>Find adoptable pets <span aria-hidden="true">→</span></a>
       </section>
     </article>
 
