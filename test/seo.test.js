@@ -19,16 +19,18 @@ test("homepage publishes canonical search and social metadata", async () => {
   assert.match(layout, /"@type": "WebApplication"/);
 });
 
-test("former content pages redirect into the map while their guide content remains available", async () => {
+test("guides have crawlable canonical pages and share content with map panels", async () => {
   const targets = [
     ["how-pawline-works", "#how-pawline-works", "Methodology", "Approximate web leads"],
     ["guides", "#guides", "Guides", "#guides/nearby"],
     ["guides/find-adoptable-pets-near-you", "#guides/nearby", "NearbyGuide", "Provider-backed pet listings"],
     ["guides/find-a-pet-that-fits-your-home-and-routine", "#guides/matching", "MatchingGuide", "not a guarantee"],
   ];
-  for (const [route, hash, component, content] of targets) {
+  for (const [route, , component, content] of targets) {
     const page = await read(`app/${route}/page.jsx`);
-    assert.ok(page.includes(`redirect("/${hash}")`));
+    assert.ok(page.includes(`canonical: "/${route}"`));
+    assert.ok(page.includes("<Content standalone />"));
+    assert.doesNotMatch(page, /redirect\(/);
     assert.ok((await read(`src/resources/${component}.jsx`)).includes(content));
   }
 });
@@ -43,7 +45,8 @@ test("crawler and AI discovery files use the canonical production domain", async
   assert.match(robots, /Sitemap: https:\/\/www\.pawlineadopt\.com\/sitemap\.xml/);
   assert.match(robots, /User-agent: OAI-SearchBot[\s\S]*Allow: \//);
   assert.match(sitemap, /<loc>https:\/\/www\.pawlineadopt\.com\/<\/loc>/);
-  assert.doesNotMatch(sitemap, /\/guides|\/how-pawline-works/);
+  assert.match(sitemap, /\/guides/);
+  assert.match(sitemap, /\/how-pawline-works/);
   assert.match(llms, /Web-discovered leads are labeled as approximate leads/);
   assert.match(llms, /home, routine, household, and pet experience/);
   assert.match(full, /Canonical URL: https:\/\/www\.pawlineadopt\.com\//);

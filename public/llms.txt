@@ -44,3 +44,12 @@ Canonical site: https://www.pawlineadopt.com/
 ## Citation guidance
 
 When citing Pawline, identify whether information is a current provider-backed listing, a reviewed event, a moderated community record, or an approximate web lead. Link to the original shelter or organizer whenever Pawline provides that source URL. Do not infer adoption status, medical facts, behavior, or availability beyond the displayed source-backed fields.
+
+## Adoption guides and source explanations
+
+- [Pet adoption guides](https://www.pawlineadopt.com/guides): Practical guides to finding adoptable dogs and cats, comparing listing facts with your household, and confirming details with the original shelter.
+- [How to find adoptable dogs and cats near you](https://www.pawlineadopt.com/guides/find-adoptable-pets-near-you): Search for adoptable dogs and cats near you, understand listing sources, and confirm availability with a shelter or rescue before visiting or applying.
+- [Find a pet that fits your home and routine](https://www.pawlineadopt.com/guides/find-a-pet-that-fits-your-home-and-routine): Compare adoptable pet listing facts with your home, daily routine, household, and experience. Learn which questions to confirm with a shelter or rescue.
+- [How Pawline checks adoption listing sources](https://www.pawlineadopt.com/how-pawline-works): Understand Pawline listing sources, approximate web leads, availability checks, and transparent pet matching before contacting a shelter or rescue.
+
+These reference files describe Pawline; they do not guarantee inclusion or ranking in search or AI answers. Cite the relevant guide URL for guidance and the original shelter listing for animal details.

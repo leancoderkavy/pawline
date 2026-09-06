@@ -752,3 +752,7 @@ html:has(.adopter-experience),body:has(.adopter-experience) { min-width:0; }
 .map-fit-results { position:absolute;z-index:2;top:16px;right:76px;display:inline-flex;align-items:center;gap:7px;min-height:44px;padding:0 12px;border:1px solid #d8d2c8;border-radius:12px;background:#fffaf1;color:var(--green);box-shadow:0 7px 22px #17382f20;cursor:pointer;font-weight:600; }
 .map-fit-results:disabled { opacity:.55;cursor:default; }
 .map-fit-results:focus-visible { outline:3px solid var(--rust);outline-offset:3px; }
+
+.legal-footer { flex-wrap:wrap; }
+.search-page-nav { display:flex;flex-wrap:wrap;gap:24px;padding:20px 24px;background:#faf5eb; }
+.search-page-nav a { color:var(--green);min-height:44px;display:inline-flex;align-items:center;font-weight:700; }
