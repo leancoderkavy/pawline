@@ -138,6 +138,16 @@ if (!dryRun) {
 let verification = null;
 if (!dryRun) [verification] = await sql`
   SELECT
+    to_regclass('public.adoption_appointments') AS adoption_appointments,
+    to_regclass('public.appointment_email_preferences') AS appointment_email_preferences,
+    to_regclass('public.appointment_notifications') AS appointment_notifications,
+    to_regclass('public.appointment_attendance') AS appointment_attendance,
+    to_regclass('public.appointment_webhook_events') AS appointment_webhook_events,
+    to_regclass('public.appointment_video_budget') AS appointment_video_budget,
+    to_regclass('public.appointment_video_reservations') AS appointment_video_reservations,
+    to_regclass('public.adoption_appointments_conversation') AS adoption_appointments_conversation,
+    to_regclass('public.adoption_appointments_one_upcoming') AS adoption_appointments_one_upcoming,
+    to_regclass('public.appointment_notifications_due') AS appointment_notifications_due,
     to_regclass('public.sources') AS sources,
     to_regclass('public.pets') AS pets,
     to_regclass('public.pet_submission_files') AS pet_submission_files,
@@ -245,6 +255,7 @@ if (!dryRun) [verification] = await sql`
 `;
 
 const requiredTables = [
+  "adoption_appointments", "appointment_email_preferences", "appointment_notifications", "appointment_attendance", "appointment_webhook_events", "appointment_video_budget", "appointment_video_reservations",
   "sources", "pets", "pet_submission_files", "pet_submission_log", "ingestion_runs",
   "ratings", "adoption_events", "web_discoveries",
   "community_messages", "community_reports", "community_leads", "usage_limits",
@@ -264,6 +275,7 @@ const requiredTables = [
   "ai_evaluation_results",
 ];
 const requiredIndexes = [
+  "adoption_appointments_conversation", "adoption_appointments_one_upcoming", "appointment_notifications_due",
   "direct_messages_idempotency", "direct_messages_page", "direct_video_one_active", "direct_video_recent", "direct_video_signals_call",
   "pets_source_external_unique", "pets_public_search", "pets_source_id",
   "pet_submission_files_pet_id", "pet_submission_log_pet_id",

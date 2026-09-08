@@ -114,22 +114,6 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-.meeting-planner {
-  padding: 12px;
-  border-bottom: 1px solid #dce2da;
-}
-.meeting-planner input {
-  max-width: 100%;
-  min-height: 44px;
-}
-.meeting-planner button {
-  min-height: 44px;
-  margin: 4px;
-}
-.meeting-planner ul {
-  padding-left: 20px;
-}
-
 .network-pagination {
   display: flex;
   align-items: center;

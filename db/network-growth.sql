@@ -44,15 +44,3 @@ CREATE TABLE IF NOT EXISTS lost_pet_report_flags (
   created_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (report_id, clerk_user_id)
 );
-
-CREATE TABLE IF NOT EXISTS direct_meetings (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  conversation_id uuid NOT NULL REFERENCES direct_conversations(id) ON DELETE CASCADE,
-  proposed_by text NOT NULL,
-  starts_at timestamptz NOT NULL,
-  timezone text NOT NULL,
-  state text NOT NULL DEFAULT 'proposed' CHECK (state IN ('proposed','confirmed','cancelled')),
-  created_at timestamptz NOT NULL DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS direct_meetings_conversation ON direct_meetings (conversation_id, starts_at);
-CREATE UNIQUE INDEX IF NOT EXISTS direct_meetings_slot ON direct_meetings (conversation_id, starts_at) WHERE state <> 'cancelled';

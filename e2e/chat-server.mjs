@@ -10,7 +10,11 @@ import { runLegacyHandler } from "../app/api/_adapter.js";
 
 // Isolated test host. Real components and API handlers, disposable PostgreSQL,
 // fixture identities, and no production credentials or external services.
-const fixture = await createChatFixture();
+const appointmentMode = process.env.PAWLINE_APPOINTMENT_FIXTURE === 'true';
+const fixture = await createChatFixture(appointmentMode ? {
+  environment: { PAWLINE_DAILY_ENABLED: 'true', DAILY_API_KEY: 'fixture-only', DAILY_DOMAIN: 'https://pawline-test.daily.co' },
+  provider: { room: async row => `https://pawline-test.daily.co/${row.room_name}`, token: async () => 'fixture-token', close: async () => {} },
+} : {});
 const built = await build({
   stdin: {
     contents: `import React from "react";
@@ -34,7 +38,7 @@ const built = await build({
   },
   bundle: true, write: false, outdir: "chat-memory-bundle", entryNames: "fixture-entry", format: "esm", splitting: true,
   // The fixture renders client-only components outside Next's server bundler.
-  jsx: "automatic", minify: true, alias: { "@clerk/nextjs": "@clerk/react" },
+  jsx: "automatic", minify: true, alias: { "@clerk/nextjs": "@clerk/react", ...(appointmentMode ? { '@daily-co/daily-js': fileURLToPath(new URL('./daily-fixture.js', import.meta.url)) } : {}) },
   define: { "process.env.NODE_ENV": '"production"' }, loader: { ".js": "jsx" }, logLevel: "silent",
 });
 const assets = new Map(built.outputFiles.map(file => [file.path.split(/[\\/]/).at(-1), file.contents]));

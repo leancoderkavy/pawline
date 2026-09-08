@@ -5,7 +5,6 @@ import { createChatFixture, ids, users } from "../e2e/chat-fixture.mjs";
 import { catalogQuery, searchCatalog } from "../api/catalog.js";
 import { parsePetCsv } from "../api/shelter-import.js";
 import { validateLostReport } from "../api/lost-pets.js";
-import { meetingTime } from "../api/direct-meetings.js";
 import { observedSource } from "../api/sources.js";
 import { rescueSearchBody } from "../api/pets.js";
 
@@ -58,10 +57,6 @@ test("public lost reports reject contact disclosures and impossible dates", () =
     () => validateLostReport({ ...body, eventDate: "2026-02-30" }),
     /date/,
   );
-  assert.throws(
-    () => meetingTime({ startsAt: "invalid", timezone: "UTC" }),
-    /meeting/,
-  );
   assert.equal(
     observedSource(
       { enabled: true, last_success_at: "2026-01-01" },
@@ -71,7 +66,7 @@ test("public lost reports reject contact disclosures and impossible dates", () =
   );
 });
 
-test("network migration, complete cursor search, imports, private reports and meeting access use real PostgreSQL", async () => {
+test("network migration, complete cursor search, imports, private reports use real PostgreSQL", async () => {
   const f = await createChatFixture();
   try {
     const { pg, database, invoke } = f;
@@ -113,12 +108,7 @@ test("network migration, complete cursor search, imports, private reports and me
       catalogQuery({ latitude: 34, longitude: -118, radius: 25 }),
     );
     assert.equal(nearby.pets.length, 0);
-    for (const route of [
-      "saved-searches",
-      "lost-pets",
-      "direct-meetings",
-      "shelter-import",
-    ])
+    for (const route of ["saved-searches", "lost-pets", "shelter-import"])
       assert.equal(
         (await invoke(route, null, { method: "POST" })).statusCode,
         401,
@@ -212,60 +202,6 @@ test("network migration, complete cursor search, imports, private reports and me
     );
     assert.equal((await invoke("lost-pets", "adopter")).data.tips.length, 1);
     assert.equal((await invoke("lost-pets", "teammate")).data.tips.length, 0);
-    const opened = await invoke("direct-conversations", "adopter", {
-      method: "POST",
-      body: { listingId: ids.pet },
-    });
-    const conversationId = opened.data.conversation.id;
-    const proposed = await invoke("direct-meetings", "adopter", {
-      method: "POST",
-      body: {
-        conversationId,
-        startsAt: new Date(Date.now() + 86400000).toISOString(),
-        timezone: "America/Los_Angeles",
-      },
-    });
-    assert.equal(proposed.statusCode, 200);
-    const meetingId = proposed.data.meeting.id;
-    assert.equal(
-      (
-        await invoke("direct-meetings", "stranger", {
-          query: { conversationId },
-        })
-      ).statusCode,
-      404,
-    );
-    assert.equal(
-      (
-        await invoke("direct-meetings", "adopter", {
-          method: "PATCH",
-          body: { conversationId, id: meetingId, state: "confirmed" },
-        })
-      ).statusCode,
-      409,
-    );
-    assert.equal(
-      (
-        await invoke("direct-meetings", "shelter", {
-          method: "PATCH",
-          body: { conversationId, id: meetingId, state: "confirmed" },
-        })
-      ).statusCode,
-      200,
-    );
-    await invoke("direct-conversations", "adopter", {
-      method: "PATCH",
-      body: { conversationId, action: "block" },
-    });
-    assert.equal(
-      (
-        await invoke("direct-meetings", "shelter", {
-          method: "PATCH",
-          body: { conversationId, id: meetingId, state: "cancelled" },
-        })
-      ).statusCode,
-      409,
-    );
   } finally {
     await f.close();
   }

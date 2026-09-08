@@ -3,7 +3,7 @@
 export default function FindAPetThatFitsGuidePage({ standalone = false }) {
   return <section className="methodology-page guide-page">
 <article className="methodology-content">
-      <nav className="guide-crumbs" aria-label="Breadcrumb"><a href={standalone ? "/guides" : "#guides"}>Adoption guides</a><span aria-hidden="true">/</span><span>Find a pet that fits your home and routine</span></nav>
+      {!standalone && <nav className="guide-crumbs" aria-label="Breadcrumb"><a href={standalone ? "/guides" : "#guides"}>Adoption guides</a><span aria-hidden="true">/</span><span>Find a pet that fits your home and routine</span></nav>}
       <p className="methodology-kicker">Pet adoption matching guide</p>
       <h1>How to find a pet that fits your home and routine</h1>
       <p className="methodology-lede">A useful match starts with an honest picture of everyday life. Pawline helps you compare the details you share with the facts available in current shelter listings, then sends you to the shelter or rescue for the final conversation.</p>
@@ -41,7 +41,7 @@ export default function FindAPetThatFitsGuidePage({ standalone = false }) {
       <section className="methodology-next" aria-labelledby="guide-next-heading">
         <h2 id="guide-next-heading">Ready to compare current listings?</h2>
         <p>Open the match quiz, share your everyday situation, and use the original shelter or rescue link for the next step.</p>
-        <a href="#match">Start the match quiz <span aria-hidden="true">→</span></a>
+        <a href={standalone ? "/#match" : "#match"}>Start the match quiz <span aria-hidden="true">→</span></a>
       </section>
     </article>
 

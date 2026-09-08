@@ -9,11 +9,11 @@ import { createCaregiversHandler } from "../api/caregivers.js";
 import { createCaregiverPetsHandler } from "../api/caregiver-pets.js";
 import { createSubmissionsHandler } from "../api/submissions.js";
 import { privateHandler } from "../api/_network.js";
-import { meetingAction } from "../api/direct-meetings.js";
 import { savedSearchAction } from "../api/saved-searches.js";
 import { lostReportAction, createLostPetsHandler } from "../api/lost-pets.js";
 import { searchCatalog, catalogQuery } from "../api/catalog.js";
 import { shelterImportAction } from "../api/shelter-import.js";
+import { createAppointmentsHandler } from '../api/appointments.js';
 
 export const ids = {
   organization: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
@@ -25,7 +25,7 @@ export { users };
 
 // Test-only adapter: real PostgreSQL semantics with Neon's lazy tagged queries.
 // Neither this database nor the fixture identity resolver is imported by the app.
-export async function createChatFixture() {
+export async function createChatFixture(options = {}) {
   const pg = new PGlite({ extensions: { pgcrypto } });
   const schema = await readFile(new URL("../db/schema.sql", import.meta.url), "utf8");
   await pg.exec(schema);
@@ -58,16 +58,17 @@ export async function createChatFixture() {
     },
     publish: async (_database, conversation) => { events.push({ conversationId: conversation.id }); },
     onError: error => { if (!error.statusCode) errors.push(error); },
-    environment: { NODE_ENV: "test", PAWLINE_VIDEO_ENABLED: "true", PAWLINE_VIDEO_ALLOW_DIRECT: "true" },
+    environment: { NODE_ENV: "test", PAWLINE_VIDEO_ENABLED: "true", PAWLINE_VIDEO_ALLOW_DIRECT: "true", ...options.environment },
+    ...(options.provider ? { provider: options.provider } : {}),
   };
   const handlers = {
     catalog: async (request,response) => response.status(200).json(await searchCatalog(database,catalogQuery(request.query))),
     sources: async (_request,response) => response.status(200).json({inventory:null,observed:[]}),
     "lost-pets-public": createLostPetsHandler({...dependencies, requireUser:dependencies.authenticate}),
-    "direct-meetings": privateHandler(["GET","POST","PATCH"], meetingAction, {...dependencies, requireUser:dependencies.authenticate}),
     "saved-searches": privateHandler(["GET","POST","DELETE"], savedSearchAction, {...dependencies, requireUser:dependencies.authenticate}),
     "lost-pets": privateHandler(["GET","POST","PATCH"], lostReportAction, {...dependencies, requireUser:dependencies.authenticate}),
     "shelter-import": privateHandler(["POST"], shelterImportAction, {...dependencies, requireUser:dependencies.authenticate}),
+    appointments: createAppointmentsHandler(dependencies),
     caregivers: createCaregiversHandler(dependencies),
     "caregiver-pets": createCaregiverPetsHandler(dependencies),
     submissions: createSubmissionsHandler({ ...dependencies, notifySubmission: async () => ({}) }),

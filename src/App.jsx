@@ -1260,6 +1260,12 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
   const [journeyView, setJourneyView] = useState("home");
   const [applicationPet, setApplicationPet] = useState(null);
   const railContentRef = useRef(null);
+  const railToggleRef = useRef(null);
+  useEffect(() => {
+    if (railCollapsed && document.activeElement?.closest(".rail-content, .rail-search")) {
+      railToggleRef.current?.focus({ preventScroll: true });
+    }
+  }, [railCollapsed]);
   const favoriteSyncRef = useRef(null);
   savedRef.current = saved;
   const loadAccountFavorites = useCallback(items => { savedRef.current = items; setSaved(items); setFavoriteError(""); }, []);
@@ -1555,10 +1561,10 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
       <MapPanel location={location} coordinates={coordinates} userCoordinates={userCoordinates} locationPrompt={locationPrompt} configured={integrations.mapboxConfigured} view={mapView} petType={mapPetType} showEvents={showMapEvents} densityMode={densityMode} routePets={routePets} onOpenPet={openPetDetail} onOpenEvent={setSelectedEvent} onOpenDiscovery={setSelectedDiscovery} onOpenShelter={setSelectedShelter} onMapMove={searchThisMapArea} onRequestLocation={requestUserLocation} onDismissLocation={dismissLocationPrompt} onRevealMap={() => setRailCollapsed(true)} />
 
       <aside className={`map-rail ${railCollapsed ? "is-collapsed" : ""}`} aria-label="Map discovery tools">
-        <button className="rail-toggle" type="button" onClick={() => setRailCollapsed(value => !value)} aria-expanded={!railCollapsed} aria-controls="map-rail-content" title={railCollapsed ? "Show discovery tools" : "Hide discovery tools"}>
+        <button ref={railToggleRef} className="rail-toggle" type="button" onClick={() => setRailCollapsed(value => !value)} aria-expanded={!railCollapsed} aria-controls="map-rail-content" title={railCollapsed ? "Show discovery tools" : "Hide discovery tools"}>
           <span className="rail-toggle-desktop" aria-hidden="true">{railCollapsed ? <PanelLeftOpen /> : <PanelLeftClose />}</span>
           <span className="rail-toggle-mobile" aria-hidden="true">{railCollapsed ? <PanelBottomOpen /> : <PanelBottomClose />}</span>
-          {railCollapsed ? <span className="rail-toggle-label" aria-hidden="true">Show panel</span> : null}
+          {railCollapsed ? <span className="rail-toggle-label" aria-hidden="true">Show panel</span> : <span className="rail-toggle-hint" aria-hidden="true">Hide panel</span>}
           <span className="sr-only">{railCollapsed ? "Show discovery tools" : "Hide discovery tools"}</span>
         </button>
         <div className="rail-search">
