@@ -1,6 +1,9 @@
 "use client";
 
 import PetImage from "./PetImage";
+import { PET_SPECIES } from "../config/species.js";
+import NetworkTools from "./NetworkTools.jsx";
+const NetworkToolsWithAuth = React.lazy(() => import("./NetworkToolsWithAuth.jsx"));
 
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -323,7 +326,7 @@ export function SubmissionForm({ onClose, getToken, caregiver, onRegister }) {
     </section>
     <section className="submission-section"><h3>Pet details</h3>
     <label>Pet name<input required name="name" value={form.name} onChange={update} placeholder="e.g. Poppy" /></label>
-    <div className="form-row"><label>Species<select name="species" value={form.species} onChange={update}><option>Dog</option><option>Cat</option></select></label><label>Breed<input required name="breed" value={form.breed} onChange={update} /></label></div>
+    <div className="form-row"><label>Species<select name="species" value={form.species} onChange={update}>{PET_SPECIES.map(item => <option key={item}>{item}</option>)}</select></label><label>Breed<input required name="breed" value={form.breed} onChange={update} /></label></div>
     <div className="form-row"><label>Age or date of birth<input name="age" value={form.age} onChange={update} /></label>{choice("sex", "Sex", ["Unknown", "Female", "Male"])}</div>
     <div className="form-row">{choice("spayedNeutered", "Spayed or neutered")}{choice("microchipStatus", "Microchipped")}</div>
     <label>Microchip ID (do not enter registration passwords)<input name="microchipId" value={form.microchipId} onChange={update} /></label>
@@ -381,7 +384,7 @@ function PetDetail({ pet, onClose, saved, onSave, onMessage, onApply }) {
   const detailTags = [...new Set([pet.species, pet.age, pet.size, pet.sex])]
     .filter(value => value && !unavailableDetails.has(value));
   const hasSpecificBreed = pet.breed && !unavailableDetails.has(pet.breed);
-  const directionsUrl = Number.isFinite(Number(pet.latitude)) && Number.isFinite(Number(pet.longitude))
+  const directionsUrl = pet.latitude != null && pet.longitude != null && Number.isFinite(Number(pet.latitude)) && Number.isFinite(Number(pet.longitude))
     ? `https://www.google.com/maps/dir/?api=1&destination=${pet.latitude},${pet.longitude}`
     : null;
   return <Dialog title={pet.name} onClose={onClose}>
@@ -404,6 +407,7 @@ function PetDetail({ pet, onClose, saved, onSave, onMessage, onApply }) {
       <aside className="pet-visit-questions"><ListChecks /><div><strong>Good questions for {pet.name}</strong><span>Ask about daily routine, medical history, behavior observations, adoption fees, and the best first week at home.</span></div></aside>
       <div className="detail-actions">
         <Button onClick={() => onApply(pet)}><FileText />Start application</Button>
+        {pet.id?.startsWith("pawline-") ? <a className="button button-outline" href={`/pets/${pet.id.slice(8)}`}>Shareable pet page</a> : null}
         <Button variant="outline" onClick={() => onSave(pet.id)}><Heart fill={saved ? "currentColor" : "none"} />{saved ? "Saved" : "Save"}</Button>
         {pet.messageAvailable ? <Button className="pet-message" onClick={() => { onMessage(pet); onClose(); }}><MessageCircle />Message {pet.shelter || "caretaker"}</Button> : null}
         {pet.sourceUrl ? <a className="button" href={pet.sourceUrl} target="_blank" rel="noreferrer">View adoption listing <ChevronRight /></a> : <span className="button button-disabled" aria-disabled="true">Contact the listed rescue</span>}
@@ -875,6 +879,7 @@ function MapFilters({ petType, distance, showEvents, densityMode, hoursFilter, o
     <details className="more-filters">
       <summary><SlidersHorizontal /><span>Filters</span>{activeFilterCount ? <span className="filter-count" aria-label={activeFilterLabel}>{activeFilterCount}</span> : null}</summary>
       <div>
+        <label className="map-select">All species<select aria-label="All pet species" value={petType} onChange={event => onPetTypeChange(event.target.value)}><option>All</option>{PET_SPECIES.map(item => <option key={item}>{item}</option>)}</select></label>
         <label className="map-select"><LocateFixed /><span>Search radius</span><select value={distance} onChange={event => onDistanceChange(event.target.value)} aria-label="Map search radius"><option value="25">25 mi</option><option value="50">50 mi</option><option value="100">100 mi</option><option value="150">150 mi</option></select></label>
         <label className="map-select"><CalendarClock /><span>Shelter hours</span><select value={hoursFilter} onChange={event => onHoursFilterChange(event.target.value)} aria-label="Filter by supplied shelter hours"><option value="all">All listings</option><option value="known">Hours supplied</option></select></label>
         <button type="button" className={`map-toggle ${showEvents ? "is-active" : ""}`} onClick={() => onShowEventsChange(value => !value)} aria-pressed={showEvents}><CalendarDays /> Show events</button>
@@ -1212,10 +1217,12 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
   const [favoriteError, setFavoriteError] = useState("");
   const [favoriteSyncVersion, setFavoriteSyncVersion] = useState(0);
   const [species, setSpecies] = useState("All");
+  const [livePage, setLivePage] = useState(1);
   const [location, setLocation] = useState("Pasadena, California, USA");
   const [submitOpen, setSubmitOpen] = useState(false);
   const [listingCaregiver, setListingCaregiver] = useState(null);
   const [selectedPet, setSelectedPet] = useState(null);
+  useEffect(() => { const id = new URLSearchParams(window.location.search).get("pet"); if (!id?.startsWith("pawline-")) return; const controller = new AbortController(); fetch(`/api/catalog?id=${encodeURIComponent(id.slice(8))}`, { signal: controller.signal }).then(r => r.ok ? r.json() : null).then(body => { if (!controller.signal.aborted && body?.pets?.[0]) setSelectedPet(body.pets[0]); }).catch(() => {}); return () => controller.abort(); }, []);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [selectedDiscovery, setSelectedDiscovery] = useState(null);
   const [selectedShelter, setSelectedShelter] = useState(null);
@@ -1301,6 +1308,10 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
     }
     const params = new URLSearchParams();
     if (species !== "All") params.set("species", species);
+    params.set("page", String(livePage));
+    params.set("latitude", String(coordinates.latitude));
+    params.set("longitude", String(coordinates.longitude));
+    params.set("radius", String(mapDistance));
     const subscription = startFeedRefresh({
       load: async signal => {
         const response = await fetch(`/api/pets?${params}`, { signal: AbortSignal.any([signal, AbortSignal.timeout(15000)]), cache: "no-cache" });
@@ -1321,7 +1332,8 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
     });
     refreshFeedRef.current = subscription.refresh;
     return () => { subscription.stop(); refreshFeedRef.current = null; };
-  }, [species]);
+  }, [species, livePage, coordinates?.latitude, coordinates?.longitude, mapDistance]);
+  useEffect(() => setLivePage(1), [species, coordinates?.latitude, coordinates?.longitude, mapDistance]);
   useEffect(() => {
     fetch("/api/events")
       .then(async response => {
@@ -1559,8 +1571,10 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
             <button className="onboarding-back" onClick={() => openPanel("onboarding")}>New here? Get started <ChevronRight /></button>
             <div className="feed-refresh"><span role="status">{feedRefresh.loading ? "Checking for updates…" : feedRefresh.error || (feedRefresh.updatedAt ? `Checked ${feedRefresh.updatedAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} · checks every minute` : "Waiting for connection")}</span><button type="button" disabled={feedRefresh.loading} onClick={() => refreshFeedRef.current?.()} aria-label="Refresh listings"><RotateCcw size={16} /> Refresh</button></div>
             <MapFilters petType={mapPetType} distance={mapDistance} showEvents={showMapEvents} densityMode={densityMode} hoursFilter={hoursFilter} onPetTypeChange={setMatchSpecies} onDistanceChange={setMapDistance} onShowEventsChange={setShowMapEvents} onDensityChange={setDensityMode} onHoursFilterChange={setHoursFilter} onReset={resetMapFilters} />
+            <button className="button button-outline" onClick={() => openPanel("network")}>Search all stored pets, save searches, or find lost pets</button>
             {mapSearchMoved ? <p className="map-area-status" role="status">Showing results around the map center.</p> : null}
             <MapResults view={mapView} saved={saved} showSavedOnly={showSavedOnly} onToggleSavedOnly={toggleSavedOnly} onSave={toggleSave} onOpenPet={openPetDetail} onOpenEvent={setSelectedEvent} onOpenDiscovery={setSelectedDiscovery} />
+            <div className="network-pagination" aria-label="Live provider pages"><button type="button" disabled={livePage === 1 || feedRefresh.loading} onClick={() => setLivePage(value => value - 1)}>Previous pets</button><span>Page {livePage}</span><button type="button" disabled={!feed.hasMore || feedRefresh.loading} onClick={() => setLivePage(value => value + 1)}>Next pets</button></div>
             <NearbyShelters shelters={mapView.shelters} state={shelterState} onOpen={setSelectedShelter} />
             {routePets.length ? <VisitPlanner pets={routePets} location={location} /> : null}
             <button className="quiz-teaser" onClick={() => openPanel("match")}><PawPrint /><span><small>Not sure where to start?</small><strong>Get pet matches</strong><em>Match by home, routine, and experience</em></span><ChevronRight /></button>
@@ -1596,6 +1610,7 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
               ? <Suspense fallback={<p className="panel-loading" role="status">Opening adoption tools…</p>}><AdopterExperienceWithAuth {...journeyProps} /></Suspense>
               : <AdopterExperience {...journeyProps} /> : null}
           </div>
+          {activePanel === "network" ? <Suspense fallback={<p role="status">Opening discovery tools…</p>}>{clerkConfigured ? <NetworkToolsWithAuth onOpenPet={openPetDetail} /> : <NetworkTools onOpenPet={openPetDetail} onSignIn={() => openPanel("messages")} />}</Suspense> : null}
           {activePanel === "onboarding" ? <Onboarding onNavigate={openPanel} /> : null}
           {activePanel === "resources" ? <Suspense fallback={<p className="panel-loading" role="status">Opening guides…</p>}><MapResources hash={resourceHash} /></Suspense> : null}
           {activePanel === "shelter" ? clerkConfigured

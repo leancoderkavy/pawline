@@ -3,7 +3,7 @@ import { neon } from "@neondatabase/serverless";
 
 const dryRun = process.argv.slice(2).includes("--dry-run");
 const schemaUrl = new URL("../db/schema.sql", import.meta.url);
-const schema = await fs.readFile(schemaUrl, "utf8");
+const schema = await fs.readFile(schemaUrl, "utf8") + "\n" + await fs.readFile(new URL("../db/network-growth.sql", import.meta.url), "utf8");
 
 if (!dryRun && !process.env.DATABASE_URL) {
   const envFile = new URL("../.env.local", import.meta.url);
@@ -132,9 +132,7 @@ function splitSqlStatements(input) {
 
 const statements = splitSqlStatements(schema);
 if (!dryRun) {
-  for (const statement of statements) {
-    await sql.query(statement);
-  }
+  await sql.transaction([sql`SELECT pg_advisory_xact_lock(7240919)`, ...statements.map(statement => sql.query(statement))]);
 }
 
 let verification = null;

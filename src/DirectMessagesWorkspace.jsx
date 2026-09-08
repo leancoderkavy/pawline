@@ -2,6 +2,7 @@
 import React, { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, Check, Flag, LoaderCircle, LockKeyhole, MessageCircle, PawPrint, RefreshCw, Search, Send, ShieldCheck, Video } from "lucide-react";
 import "./directMessages.css";
+import MeetingPlanner from "./MeetingPlanner.jsx";
 
 const VideoCall = lazy(() => import("./VideoCall.jsx"));
 const time = value => new Date(value).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
@@ -221,6 +222,7 @@ export default function DirectMessagesWorkspace({ request, userId, accountContro
         {selected ? <>
           <header className="direct-thread-title"><button type="button" className="direct-mobile-back" aria-label="Back to conversations" onClick={() => selectConversation(null)}><ArrowLeft /></button><PetThumb listing={selected.listing} /><div><h2>{selected.listing.name}</h2><p>{selected.other.name}{selected.organization ? (selected.role === "listing_contact" ? " · Adoption inquiry" : " · Shelter team") : ""}</p></div><button type="button" className="chat-video-button" aria-label="Video call" disabled={paused} onClick={() => openVideo(selected)}><Video /><span>Video call</span></button></header>
           <div className="chat-thread-tools"><span><ShieldCheck />{selected.organization ? "Shared with the caregiver team" : "Private listing conversation"}</span><button type="button" onClick={() => changeConversation(selected.status === "resolved" ? "reopen" : "resolve")}>{selected.status === "resolved" ? "Reopen" : "Mark resolved"}</button><button type="button" disabled={selected.blocked && !selected.blockedByMe} onClick={() => changeConversation(selected.blockedByMe ? "unblock" : "block")}>{selected.blockedByMe ? "Unblock" : "Block"}</button></div>
+          <MeetingPlanner key={selected.id} conversationId={selected.id} request={request} disabled={paused} />
           <div className="direct-message-list" role="log" aria-label="Messages in this conversation" ref={scrollRef} onScroll={() => { const el = scrollRef.current; stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 100; }}>
             {selected.lastCall ? <p className="chat-call-history"><Video size={14} />Video call · {selected.lastCall.state === "accepted" ? "In progress" : selected.lastCall.state === "ringing" ? "Invitation sent" : selected.lastCall.state} · {time(selected.lastCall.createdAt)}</p> : null}
             {olderCursor ? <button type="button" className="chat-load-older" disabled={threadLoading} onClick={() => { stickToBottom.current = false; loadThread(selected.id, { before: olderCursor }); }}>Load older messages</button> : null}
