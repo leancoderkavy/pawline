@@ -21,8 +21,9 @@ test('Daily iframe and camera access are restricted to the configured origin', a
       const headers = (await config.headers())[0].headers;
       const csp = headers.find(header => header.key === 'Content-Security-Policy').value;
       const permissions = headers.find(header => header.key === 'Permissions-Policy').value;
-      assert.equal(csp.includes('https://pawline-test.daily.co'), allowed);
-      assert.equal(permissions.includes('https://pawline-test.daily.co'), allowed);
+      const frameSources = csp.split('; ').find(directive => directive.startsWith('frame-src ')).split(' ').slice(1);
+      assert.deepEqual(frameSources, ['https://clerk.pawlineadopt.com', 'https://*.clerk.accounts.dev', 'https://*.clerk.com', ...(allowed ? ['https://pawline-test.daily.co'] : [])]);
+      assert.equal(permissions, allowed ? 'camera=(self "https://pawline-test.daily.co"), microphone=(self "https://pawline-test.daily.co"), geolocation=(self)' : 'camera=(self), microphone=(self), geolocation=(self)');
       assert.ok(!csp.includes('evil.test')); assert.ok(!csp.includes('*.daily.co'));
     }
   } finally { if (previous === undefined) delete process.env.DAILY_DOMAIN; else process.env.DAILY_DOMAIN = previous; }
