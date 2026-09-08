@@ -6,7 +6,7 @@ import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useStat
 import {
   AlertTriangle, ArrowLeft, CalendarDays, CheckCircle2, ChevronRight, Clock3,
   Building2, CalendarClock, Check, Compass, ExternalLink, FileText, Globe2, Heart, House, Info, Layers3, ListChecks, LocateFixed, LockKeyhole, MapPin, Menu, PawPrint, Pencil,
-  MessageCircle, Route, RotateCcw, Search, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Upload, X
+  PanelLeftClose, PanelLeftOpen, PanelBottomClose, PanelBottomOpen, MessageCircle, Route, RotateCcw, Search, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Upload, X
 } from "lucide-react";
 import heroImage from "./heroData";
 import { rankPets } from "./matching";
@@ -1543,8 +1543,10 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
       <MapPanel location={location} coordinates={coordinates} userCoordinates={userCoordinates} locationPrompt={locationPrompt} configured={integrations.mapboxConfigured} view={mapView} petType={mapPetType} showEvents={showMapEvents} densityMode={densityMode} routePets={routePets} onOpenPet={openPetDetail} onOpenEvent={setSelectedEvent} onOpenDiscovery={setSelectedDiscovery} onOpenShelter={setSelectedShelter} onMapMove={searchThisMapArea} onRequestLocation={requestUserLocation} onDismissLocation={dismissLocationPrompt} onRevealMap={() => setRailCollapsed(true)} />
 
       <aside className={`map-rail ${railCollapsed ? "is-collapsed" : ""}`} aria-label="Map discovery tools">
-        <button className="rail-toggle" type="button" onClick={() => setRailCollapsed(value => !value)} aria-expanded={!railCollapsed} aria-controls="map-rail-content">
-          <ChevronRight />
+        <button className="rail-toggle" type="button" onClick={() => setRailCollapsed(value => !value)} aria-expanded={!railCollapsed} aria-controls="map-rail-content" title={railCollapsed ? "Show discovery tools" : "Hide discovery tools"}>
+          <span className="rail-toggle-desktop" aria-hidden="true">{railCollapsed ? <PanelLeftOpen /> : <PanelLeftClose />}</span>
+          <span className="rail-toggle-mobile" aria-hidden="true">{railCollapsed ? <PanelBottomOpen /> : <PanelBottomClose />}</span>
+          {railCollapsed ? <span className="rail-toggle-label" aria-hidden="true">Show panel</span> : null}
           <span className="sr-only">{railCollapsed ? "Show discovery tools" : "Hide discovery tools"}</span>
         </button>
         <div className="rail-search">

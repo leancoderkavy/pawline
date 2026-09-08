@@ -767,3 +767,18 @@ html:has(.adopter-experience),body:has(.adopter-experience) { min-width:0; }
 .map-detail-controls button:focus-visible { outline:3px solid var(--rust);outline-offset:2px; }
 .map-workspace .mapboxgl-ctrl-scale { background:#fffdf9e6;border-color:#385849;color:#17382f;font-size:11px; }
 @media(max-width:700px) { .map-detail-controls { top:66px;right:66px; } .map-detail-controls button { padding:0 8px; } }
+
+/* Drawer controls describe a panel action instead of browser back navigation. */
+.map-rail .rail-toggle { display:flex;align-items:center;justify-content:center;gap:8px;border:0;background:transparent;border-radius:8px;color:#526b60;box-shadow:none;transition:background .15s ease,color .15s ease; }
+.map-rail .rail-toggle:hover { background:#e8efe8;color:var(--green); }
+.map-rail .rail-toggle:focus-visible { outline:3px solid var(--rust);outline-offset:2px; }
+.map-rail .rail-toggle svg,.map-rail.is-collapsed .rail-toggle svg { width:21px;height:21px;transform:none; }
+.rail-toggle-desktop { display:flex; }.rail-toggle-mobile { display:none; }
+.rail-toggle-label { font-size:13px;font-weight:700;white-space:nowrap; }
+.map-rail.is-collapsed { width:144px; }
+.map-rail.is-collapsed .rail-toggle { inset:4px;width:calc(100% - 8px);height:44px; }
+@media(max-width:820px) {
+  .rail-toggle-desktop { display:none; }.rail-toggle-mobile { display:flex; }
+  .map-rail.is-collapsed { width:auto; }
+  .map-rail.is-collapsed .rail-toggle { inset:6px;width:calc(100% - 12px);height:44px; }
+}
