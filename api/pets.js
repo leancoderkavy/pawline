@@ -1,4 +1,5 @@
 import { getDatabase } from "./_db.js";
+import { PET_SPECIES, canonicalPetSpecies } from "../config/species.js";
 import { createPublicFeedCoalescer, readBoundedText, deduplicatePets } from "./_public-feed.js";
 import { safeHttpUrl, safeImageUrl } from "./_safe-url.js";
 import { buildRescueGroupsUrl } from "./_rescuegroups.js";
@@ -42,11 +43,11 @@ async function reservePetFeedUsage(database, request) {
 export function normalizePetQuery(query = {}) {
   const requestedSpecies = query.species;
   return {
-    species: requestedSpecies === "Dog" || requestedSpecies === "Cat"
+    species: PET_SPECIES.includes(requestedSpecies)
       ? [requestedSpecies]
-      : ["Dog", "Cat"],
-    limit: Math.min(Math.max(Number(query.limit) || 24, 1), 50),
-    page: Math.min(Math.max(Number(query.page) || 1, 1), 20),
+      : PET_SPECIES,
+    limit: Math.min(Math.max(Math.trunc(Number(query.limit)) || 24, 1), 50),
+    page: Math.min(Math.max(Math.trunc(Number(query.page)) || 1, 1), 10000),
   };
 }
 
@@ -119,16 +120,14 @@ function decodeHtml(value) {
 }
 
 export function canonicalSpecies(value) {
-  const species = String(value || "").toLowerCase();
-  if (species === "dog" || species === "canine") return "Dog";
-  if (species === "cat" || species === "feline") return "Cat";
-  return null;
+  return canonicalPetSpecies(value);
 }
 
 function socrataUrl(base, { limit, page, where }) {
   const url = new URL(base);
   url.searchParams.set("$limit", String(limit));
   url.searchParams.set("$offset", String((page - 1) * limit));
+  url.searchParams.set("$order", base === MONTGOMERY_API ? "animalid" : "animal_id");
   if (where) url.searchParams.set("$where", where);
   return url;
 }
@@ -164,6 +163,7 @@ export function normalizeMontgomeryPet(pet, index) {
   }[pet.sex] || pet.sex || "Unknown";
   return {
     id: `montgomery-${pet.animalid}`,
+    identityNamespace: "source:4eec9ba1-1f85-4e6f-a21b-772f84bb0021",
     externalId: pet.animalid,
     name: cleanText(pet.petname)?.replace(/^\*+/, "") || "New friend",
     species,
@@ -191,6 +191,7 @@ export function normalizeKingCountyPet(pet, index) {
   if (!species || !pet.animal_id || !pet.animal_name) return null;
   return {
     id: `king-${pet.animal_id}`,
+    identityNamespace: "source:d7fbc275-cf13-40c1-976e-31df071b25c8",
     externalId: pet.animal_id,
     name: cleanText(pet.animal_name) || "New friend",
     species,
@@ -223,7 +224,7 @@ async function fetchMontgomeryPets(species, options) {
     socrataUrl(MONTGOMERY_API, { ...options, where }),
     "Montgomery County",
   );
-  return rows.map(normalizeMontgomeryPet).filter(Boolean);
+  return Object.assign(rows.map(normalizeMontgomeryPet).filter(Boolean), { hasMore: rows.length >= options.limit });
 }
 
 async function fetchKingCountyPets(species, options) {
@@ -235,7 +236,7 @@ async function fetchKingCountyPets(species, options) {
     socrataUrl(KING_COUNTY_API, { ...options, where: clauses.join(" AND ") }),
     "King County",
   );
-  return rows.map(normalizeKingCountyPet).filter(Boolean);
+  return Object.assign(rows.map(normalizeKingCountyPet).filter(Boolean), { hasMore: rows.length >= options.limit });
 }
 
 export function normalizeLosAngelesPet(record) {
@@ -244,6 +245,7 @@ export function normalizeLosAngelesPet(record) {
   if (!center || !species || !record.id || !record.name) return null;
   return {
     id: `laas-${record.id.toUpperCase()}`,
+    identityNamespace: "provider:laas",
     externalId: record.id.toUpperCase(),
     name: cleanText(decodeHtml(record.name)) || "New friend",
     species,
@@ -285,6 +287,7 @@ export function parseLosAngelesPets(html) {
 }
 
 async function fetchLosAngelesPets(species, { limit, page }) {
+  if (!species.some(item => ["Dog", "Cat"].includes(item))) return [];
   const url = new URL(LOS_ANGELES_PETS_URL);
   url.searchParams.set("items_per_page", String(Math.min(limit, 48)));
   url.searchParams.set("page", String(page - 1));
@@ -303,7 +306,8 @@ async function fetchLosAngelesPets(species, { limit, page }) {
       await upstream.body?.cancel();
       throw new Error(`LA Animal Services returned ${upstream.status}`);
     }
-    return parseLosAngelesPets(await readBoundedText(upstream));
+    const parsed = parseLosAngelesPets(await readBoundedText(upstream));
+    return Object.assign(parsed.filter(pet => species.includes(pet.species)), { hasMore: parsed.length >= Math.min(limit, 48) });
   });
 }
 
@@ -412,6 +416,10 @@ export function normalizeDatabasePet(pet, index) {
   const country = safeDatabaseText(pet.country, null, 80);
   return {
     id: `pawline-${pet.id}`,
+    identityNamespace: pet.source_id ? `source:${pet.source_id}` : `pet:${pet.id}`,
+    organizationId: pet.organization_id || null,
+    lastObservedAt: pet.verified_at || null,
+    listedAt: pet.created_at || null,
     externalId: pet.external_id,
     name: safeDatabaseText(pet.name, "New friend", 120),
     species: canonicalSpecies(pet.species),
@@ -424,7 +432,7 @@ export function normalizeDatabasePet(pet, index) {
     shelter: safeDatabaseText(pet.shelter, "Community rescue", 180),
     rating: null,
     reviews: null,
-    source: "Pawline community · Verified",
+    source: pet.source_id ? "Official feed · Imported" : "Pawline community · Reviewed",
     sourceUrl: safeHttpUrl(pet.source_url),
     messageAvailable: pet.organization_id ? Boolean(pet.organization_has_members) : Boolean(pet.claimed_by_clerk_user_id),
     image: safeImageUrl(pet.image_url),
@@ -435,17 +443,18 @@ export function normalizeDatabasePet(pet, index) {
   };
 }
 
-async function fetchDatabasePets({ limit, page }) {
+async function fetchDatabasePets({ limit, page, species }) {
   const database = getDatabase();
   if (!database) return [];
   const offset = (page - 1) * limit;
   const rows = await database`
-    SELECT id, external_id, name, species, breed, age, sex, size, city, country,
+    SELECT id, source_id, verified_at, external_id, name, species, breed, age, sex, size, city, country,
            shelter, image_url, source_url, latitude, longitude, claimed_by_clerk_user_id, organization_id,
            EXISTS (SELECT 1 FROM organization_memberships m WHERE m.organization_id = pets.organization_id) AS organization_has_members
     FROM pets
     WHERE status = 'available' AND verified_at IS NOT NULL
-    ORDER BY updated_at DESC
+      AND species = ANY(${species})
+    ORDER BY id ASC
     LIMIT ${limit}
     OFFSET ${offset}
   `;
@@ -475,9 +484,10 @@ function normalizeAnimal(animal, included, index) {
 
   return {
     id: `rg-${animal.id}`,
+    identityNamespace: "provider:rescuegroups",
     externalId: String(animal.id),
     name: attributes.name || "New friend",
-    species: speciesName,
+    species: canonicalSpecies(speciesName) || speciesName,
     breed:
       attributes.breedString ||
       attributes.breedPrimary ||
@@ -511,20 +521,31 @@ export function isCurrentProviderListing(pet) {
   return !/\b(?:adopted|no longer available|not available|withdrawn|euthanized|deceased)\b/i.test(name);
 }
 
-async function fetchSpecies(species, { limit, page }, apiKey) {
-  const view = species === "Cat" ? "cats" : "dogs";
+export function rescueSearchBody(species, query = {}) {
+  const groups = { "Small animal": ["Guinea Pig", "Hamster", "Gerbil", "Rat", "Mouse", "Ferret", "Chinchilla"], Reptile: ["Snake", "Turtle", "Tortoise", "Lizard", "Gecko", "Iguana"], Barnyard: ["Goat", "Pig", "Sheep", "Cow"] };
+  const body = { data: { filters: [
+    { fieldName: "statuses.name", operation: "equal", criteria: "Available" },
+    { fieldName: "species.singular", operation: "equal", criteria: species.flatMap(item => groups[item] || [item]) },
+  ] } };
+  const lat = Number(query.latitude), lon = Number(query.longitude), radius = Number(query.radius);
+  if (query.latitude != null && query.longitude != null && Number.isFinite(lat) && Math.abs(lat) <= 90 && Number.isFinite(lon) && Math.abs(lon) <= 180 && Number.isFinite(radius) && radius >= 1 && radius <= 3000) body.data.filterRadius = { lat, lon, miles: radius };
+  return body;
+}
+async function fetchSpecies(species, { limit, page, query }, apiKey) {
   const url = buildRescueGroupsUrl(
     API_BASE,
-    `public/animals/search/available/${view}/`,
+    "public/animals/search/",
     {
       limit,
       page,
-      sort: "random",
+      sort: "animals.id",
       include: "pictures,orgs,locations,species,breeds",
     },
   );
 
   const upstream = await fetch(url.toString(), {
+    method: "POST",
+    body: JSON.stringify(rescueSearchBody(species, query)),
     headers: {
       Accept: "application/vnd.api+json",
       "Content-Type": "application/vnd.api+json",
@@ -557,7 +578,7 @@ export default async function handler(request, response) {
 
   try {
     const requests = [
-      { id: "Pawline", promise: fetchDatabasePets({ limit, page }) },
+      { id: "Pawline", promise: fetchDatabasePets({ limit, page, species }) },
       {
         id: "Montgomery County",
         promise: fetchMontgomeryPets(species, { limit, page }),
@@ -572,12 +593,7 @@ export default async function handler(request, response) {
       },
     ];
     if (apiKey) {
-      requests.push(
-        ...species.map((item) => ({
-          id: `RescueGroups ${item}`,
-          promise: fetchSpecies(item, { limit, page }, apiKey),
-        })),
-      );
+      requests.push({ id: "RescueGroups", promise: fetchSpecies(species, { limit, page, query: request.query }, apiKey) });
     }
     const results = await Promise.allSettled(requests.map((item) => item.promise));
     const databasePets = results[0]?.status === "fulfilled"
@@ -611,12 +627,14 @@ export default async function handler(request, response) {
       ...providerPets,
       ...databasePets,
     ]);
-    const pets = boundMergedPetPage(mergedPets, limit);
+    // Every provider page is returned: truncating this union silently skipped
+    // animals when the next request advanced all providers together.
+    const pets = mergedPets;
     const providerCount = payloads.reduce(
       (total, payload) => total + Number(payload.meta?.count || 0),
       0,
     );
-    const expectedProviderFeeds = 3 + (apiKey ? species.length : 0);
+    const expectedProviderFeeds = 3 + Number(Boolean(apiKey));
     const successfulProviderFeeds =
       Number(results[1]?.status === "fulfilled") +
       Number(results[2]?.status === "fulfilled") +
@@ -643,7 +661,9 @@ export default async function handler(request, response) {
       providerCount,
       page,
       limit,
-      hasMore: page < 20 && pets.length === limit,
+      hasMore: page < 10000 && (databasePets.length >= limit || montgomeryPets.hasMore || kingCountyPets.hasMore || losAngelesPets.hasMore || payloads.some(payload => (payload.data || []).length >= limit)) || false,
+      pagination: "federated-provider-pages",
+      sourceStatus: results.map((result, index) => ({ name: requests[index].id, status: result.status === "fulfilled" ? "responded" : "unavailable" })),
       partial: isPartial,
       fetchedAt: new Date().toISOString(),
       message: providerUnavailable

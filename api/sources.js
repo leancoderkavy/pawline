@@ -1,3 +1,4 @@
+import { getDatabase } from "./_db.js";
 const sourceCatalog = [
   {
     id: "rescuegroups",
@@ -88,16 +89,36 @@ const sourceCatalog = [
   },
 ];
 
-export default function handler(request, response) {
+export function observedSource(row, now = Date.now()) {
+  const last = row.last_success_at ? new Date(row.last_success_at).getTime() : null;
+  return { name: row.name, attribution: row.attribution, termsUrl: row.terms_url, enabled: row.enabled, lastSuccessAt: row.last_success_at, lastAttemptAt: row.last_run_at, availableRecords: Number(row.available_count || 0), state: !row.enabled ? "disabled" : row.last_error ? "error" : !last ? "never_synced" : now - last > 48 * 3600000 ? "stale" : "current" };
+}
+export default async function handler(request, response) {
   if (request.method !== "GET") {
     response.setHeader("Allow", "GET");
     return response.status(405).json({ error: "Method not allowed" });
   }
 
   response.setHeader("Cache-Control", "public, s-maxage=300");
+  let inventory = null, observed = [], observationStatus = "unavailable";
+  const database = getDatabase();
+  if (database) {
+    try {
+      const [rows, counts] = await Promise.all([
+        database`SELECT s.id,s.name,s.attribution,s.terms_url,s.enabled,s.last_success_at,s.last_run_at,s.last_error,
+          count(p.id) FILTER (WHERE p.status='available' AND p.verified_at IS NOT NULL)::integer AS available_count
+          FROM sources s LEFT JOIN pets p ON p.source_id=s.id GROUP BY s.id ORDER BY s.name`,
+        database`SELECT (SELECT count(*)::integer FROM pets WHERE status='available' AND verified_at IS NOT NULL) AS available,
+          (SELECT count(*)::integer FROM organizations) AS organizations,
+          (SELECT count(DISTINCT organization_id)::integer FROM organization_memberships) AS participating_organizations`,
+      ]);
+      observed = rows.map(row => observedSource(row)); inventory = counts[0]; observationStatus = "observed";
+    } catch { /* Unknown counts stay unknown when storage cannot be observed. */ }
+  }
   return response.status(200).json({
+    inventory, observed, observationStatus, observedAt: new Date().toISOString(),
     sources: sourceCatalog,
     active: sourceCatalog.filter((source) => source.status === "active").length,
-    note: "No single public database contains every adoptable pet worldwide.",
+    note: "Stored inventory counts exclude live provider totals and web leads. Source configuration is not proof of feed health. No single public database contains every adoptable pet worldwide.",
   });
 }

@@ -10,11 +10,13 @@ This importer deliberately does not scrape HTML pages.
 from __future__ import annotations
 
 import csv
+import argparse
 import hashlib
 import html
 import io
 import ipaddress
 import json
+import math
 import os
 import re
 import socket
@@ -22,7 +24,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qsl, urlencode, urlunparse
 
 import requests
 
@@ -53,11 +55,11 @@ def nested(row: dict[str, Any], path: str | None) -> Any:
 
 def safe_public_url(url: str) -> str:
     parsed = urlparse(url)
-    if parsed.scheme != "https" or not parsed.hostname:
+    if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password or parsed.port not in (None, 443):
         raise ValueError("Feed URL must be public HTTPS")
     for info in socket.getaddrinfo(parsed.hostname, 443, type=socket.SOCK_STREAM):
         address = ipaddress.ip_address(info[4][0])
-        if address.is_private or address.is_loopback or address.is_link_local:
+        if not address.is_global:
             raise ValueError("Feed URL resolves to a non-public address")
     return url
 
@@ -68,6 +70,14 @@ def canonical_species(value: Any) -> str | None:
         return "Dog"
     if normalized in {"cat", "cats", "feline"}:
         return "Cat"
+    for species, aliases in {
+        "Rabbit": {"rabbit", "rabbits", "bunny"}, "Bird": {"bird", "birds", "avian"},
+        "Small animal": {"small animal", "small & furry", "guinea pig", "hamster", "gerbil", "rat", "mouse", "ferret", "chinchilla"},
+        "Horse": {"horse", "horses", "equine"}, "Reptile": {"reptile", "reptiles", "snake", "turtle", "tortoise", "lizard", "gecko", "iguana"},
+        "Barnyard": {"barnyard", "goat", "pig", "sheep", "cow"},
+    }.items():
+        if normalized in aliases:
+            return species
     return None
 
 
@@ -122,12 +132,82 @@ def normalize(row: dict[str, Any], source: dict[str, Any]) -> dict[str, Any] | N
             item[field] = float(item[field]) if item[field] not in (None, "") else None
         except (TypeError, ValueError):
             item[field] = None
+        maximum = 90 if field == "latitude" else 180
+        if item[field] is not None and (not math.isfinite(item[field]) or abs(item[field]) > maximum):
+            item[field] = None
+    # Names and shelter strings are not unique animal identities.
+    if not item["external_id"]:
+        return None
     identity = item["external_id"] or "|".join(
         str(item.get(key) or "").lower() for key in ("name", "species", "shelter", "city", "country")
     )
     item["fingerprint"] = hashlib.sha256(f'{source["id"]}|{identity}'.encode()).hexdigest()
-    item["raw_payload"] = json.dumps(row, default=str)[:100_000]
+    payload = json.dumps(row, default=str)
+    item["raw_payload"] = payload if len(payload) <= 100_000 else json.dumps({"omitted": "record exceeded storage limit"})
     return item
+
+
+def fetch_snapshot(source: dict[str, Any], fetch=requests.get):
+    """Finish every bounded page before any inventory mutation. Never follow redirects."""
+    config = source.get("parser_config") or {}
+    pagination = config.get("pagination") or {}
+    size = int(pagination.get("page_size", 1000))
+    maximum = int(pagination.get("max_pages", 20)) if pagination else 1
+    if not 1 <= size <= 5000 or not 1 <= maximum <= 100:
+        raise ValueError("Invalid pagination limits")
+    headers = {"Accept": "application/json,text/csv;q=0.9", "User-Agent": "Pawline/1.0 (+https://www.pawlineadopt.com)"}
+    if not pagination:
+        if source.get("etag"):
+            headers["If-None-Match"] = source["etag"]
+        if source.get("last_modified"):
+            headers["If-Modified-Since"] = source["last_modified"]
+    rows, seen_pages, total_bytes = [], set(), 0
+    for page in range(maximum):
+        url = source["url"]
+        if pagination:
+            parsed = urlparse(url)
+            query = dict(parse_qsl(parsed.query))
+            query[pagination.get("limit_param", "$limit")] = str(size)
+            query[pagination.get("offset_param", "$offset")] = str(page * size)
+            url = urlunparse(parsed._replace(query=urlencode(query)))
+        with fetch(safe_public_url(url), headers=headers, timeout=(5, 25), stream=True, allow_redirects=False) as response:
+            if response.status_code == 304 and not pagination:
+                return None, dict(response.headers)
+            if 300 <= response.status_code < 400:
+                raise ValueError("Feed redirects require operator review")
+            response.raise_for_status()
+            response.raw.decode_content = True
+            response._content = response.raw.read(MAX_BYTES + 1)
+            total_bytes += len(response.content)
+            if total_bytes > MAX_BYTES:
+                raise ValueError("Snapshot exceeds 15 MB limit")
+            batch = records_from(response, source)
+            digest = hashlib.sha256(response.content).hexdigest()
+            if batch and digest in seen_pages:
+                raise ValueError("Feed repeated a page; snapshot is incomplete")
+            seen_pages.add(digest)
+            rows.extend(batch)
+            if not pagination or len(batch) < size:
+                return rows, dict(response.headers)
+    raise ValueError("Pagination limit reached; snapshot is incomplete")
+
+
+def snapshot_records(rows, source):
+    is_event = (source.get("parser_config") or {}).get("entity") == "event"
+    normalize_record = normalize_event if is_event else normalize
+    records = [record for row in rows if (record := normalize_record(row, source))]
+    ids = [record["external_id"] for record in records]
+    if len(ids) != len(set(ids)):
+        raise ValueError("Duplicate source animal IDs require review")
+    return records
+
+
+def validate_snapshot_size(previous_count, record_count, source):
+    threshold = float((source.get("parser_config") or {}).get("minimum_snapshot_ratio", 0.5))
+    if not 0 <= threshold <= 1:
+        raise ValueError("Invalid minimum snapshot ratio")
+    if previous_count >= 10 and record_count < previous_count * threshold:
+        raise ValueError("Unexpected inventory drop; snapshot quarantined before updates")
 
 
 def normalize_event(row: dict[str, Any], source: dict[str, Any]) -> dict[str, Any] | None:
@@ -175,18 +255,8 @@ def ingest_source(connection: psycopg.Connection, source: dict[str, Any]) -> dic
         run_id = cursor.fetchone()["id"]
         connection.commit()
     try:
-        headers = {"Accept": "application/json,text/csv;q=0.9,*/*;q=0.1", "User-Agent": "Pawline/1.0"}
-        if source.get("etag"):
-            headers["If-None-Match"] = source["etag"]
-        if source.get("last_modified"):
-            headers["If-Modified-Since"] = source["last_modified"]
-        response = requests.get(
-            safe_public_url(source["url"]),
-            headers=headers,
-            timeout=(5, 25),
-            stream=True,
-        )
-        if response.status_code == 304:
+        rows, response_headers = fetch_snapshot(source)
+        if rows is None:
             with connection.cursor() as cursor:
                 cursor.execute(
                     "UPDATE ingestion_runs SET status='unchanged', finished_at=now() WHERE id=%s",
@@ -198,17 +268,12 @@ def ingest_source(connection: psycopg.Connection, source: dict[str, Any]) -> dic
                 )
             connection.commit()
             return {"source": source["name"], "status": "unchanged", "upserted": 0}
-        response.raise_for_status()
-        response.raw.decode_content = True
-        response._content = response.raw.read(MAX_BYTES + 1)
-        rows = records_from(response, source)
         is_event_source = (source["parser_config"] or {}).get("entity") == "event"
-        records = (
-            [event for row in rows if (event := normalize_event(row, source))]
-            if is_event_source
-            else [pet for row in rows if (pet := normalize(row, source))]
-        )
+        records = snapshot_records(rows, source)
         with connection.cursor() as cursor:
+            if not is_event_source:
+                cursor.execute("SELECT count(*) AS count FROM pets WHERE source_id=%s AND status='available'", (source["id"],))
+                validate_snapshot_size(cursor.fetchone()["count"], len(records), source)
             for record in records:
                 if is_event_source:
                     cursor.execute(
@@ -285,7 +350,7 @@ def ingest_source(connection: psycopg.Connection, source: dict[str, Any]) -> dic
             cursor.execute(
                 """UPDATE sources SET etag=%s, last_modified=%s, last_run_at=now(),
                    last_success_at=now(), last_error=NULL, updated_at=now() WHERE id=%s""",
-                (response.headers.get("ETag"), response.headers.get("Last-Modified"), source["id"]),
+                (response_headers.get("ETag"), response_headers.get("Last-Modified"), source["id"]),
             )
         connection.commit()
         return {
@@ -310,7 +375,7 @@ def ingest_source(connection: psycopg.Connection, source: dict[str, Any]) -> dic
         return {"source": source["name"], "status": "error", "error": message}
 
 
-def run() -> list[dict[str, int | str]]:
+def run(dry_run=False, source_id=None) -> list[dict[str, int | str]]:
     import psycopg
     from psycopg.rows import dict_row
 
@@ -318,21 +383,43 @@ def run() -> list[dict[str, int | str]]:
     if not database_url:
         raise RuntimeError("DATABASE_URL is required")
     with psycopg.connect(database_url, row_factory=dict_row) as connection:
-        install_reviewed_sources(connection)
+        # One coordinator owns a complete run, including conditional HTTP state.
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT pg_try_advisory_lock(7240918) AS acquired")
+            if not cursor.fetchone()["acquired"]:
+                return [{"status": "skipped", "reason": "ingestion already running"}]
+        if not dry_run:
+            install_reviewed_sources(connection)
         with connection.cursor() as cursor:
             cursor.execute(
                 """SELECT * FROM sources WHERE enabled=true
                    AND kind IN ('json', 'csv', 'google_sheet') AND url IS NOT NULL
-                   ORDER BY name"""
+                   AND (%s::uuid IS NULL OR id=%s::uuid) ORDER BY name""", (source_id, source_id)
             )
             sources = cursor.fetchall()
-        return [ingest_source(connection, source) for source in sources]
+        if not dry_run:
+            return [ingest_source(connection, source) for source in sources]
+        results = []
+        for source in sources:
+            try:
+                rows, _ = fetch_snapshot({**source, "etag": None, "last_modified": None})
+                records = snapshot_records(rows or [], source)
+                results.append({"source": source["name"], "status": "preview", "fetched": len(rows or []), "accepted": len(records), "rejected": len(rows or []) - len(records)})
+            except Exception as exc:
+                results.append({"source": source["name"], "status": "error", "error": str(exc)[:1000]})
+        return results
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--dry-run", action="store_true", help="Validate all pages without writing records")
+    parser.add_argument("--source", help="Inspect or import one enabled source UUID")
+    args = parser.parse_args()
+    results = run(dry_run=args.dry_run, source_id=args.source)
     json.dump(
-        {"ranAt": datetime.now(timezone.utc).isoformat(), "results": run()},
+        {"ranAt": datetime.now(timezone.utc).isoformat(), "dryRun": args.dry_run, "results": results},
         sys.stdout,
         indent=2,
     )
     print()
+    sys.exit(1 if any(result["status"] == "error" for result in results) else 0)

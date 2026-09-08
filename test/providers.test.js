@@ -93,7 +93,7 @@ test("live provider listing photos are upgraded at the source", () => {
 
 test("pet feed provider fan-out has bounded query pagination", () => {
   assert.deepEqual(normalizePetQuery({ page: "999", limit: "999", species: "Lizard" }), {
-    species: ["Dog", "Cat"], limit: 50, page: 20,
+    species: ["Dog", "Cat", "Rabbit", "Bird", "Small animal", "Horse", "Reptile", "Barnyard"], limit: 50, page: 999,
   });
   assert.deepEqual(normalizePetQuery({ page: "-5", limit: "0", species: "Dog" }), {
     species: ["Dog"], limit: 24, page: 1,
@@ -194,12 +194,13 @@ test("normalizes King County adoptable pet records", () => {
 });
 
 test("rejects unsupported species and cleans provider markup", () => {
-  assert.equal(canonicalSpecies("Bird"), null);
+  assert.equal(canonicalSpecies("Bird"), "Bird");
+  assert.equal(canonicalSpecies("Unknown"), null);
   assert.equal(cleanText("Friendly</p> pet &quot;today&quot;"), 'Friendly pet "today"');
   assert.equal(normalizeMontgomeryPet({
     animalid: "A789",
     petname: "Tweety",
-    animaltype: "BIRD",
+    animaltype: "UNKNOWN",
   }, 0), null);
 });
 

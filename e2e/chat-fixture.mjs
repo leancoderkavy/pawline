@@ -8,6 +8,11 @@ import { createVideoHandler } from "../api/direct-video.js";
 import { createCaregiversHandler } from "../api/caregivers.js";
 import { createCaregiverPetsHandler } from "../api/caregiver-pets.js";
 import { createSubmissionsHandler } from "../api/submissions.js";
+import { privateHandler } from "../api/_network.js";
+import { savedSearchAction } from "../api/saved-searches.js";
+import { lostReportAction, createLostPetsHandler } from "../api/lost-pets.js";
+import { searchCatalog, catalogQuery } from "../api/catalog.js";
+import { shelterImportAction } from "../api/shelter-import.js";
 import { createAppointmentsHandler } from '../api/appointments.js';
 
 export const ids = {
@@ -24,6 +29,7 @@ export async function createChatFixture(options = {}) {
   const pg = new PGlite({ extensions: { pgcrypto } });
   const schema = await readFile(new URL("../db/schema.sql", import.meta.url), "utf8");
   await pg.exec(schema);
+  await pg.exec(await readFile(new URL("../db/network-growth.sql", import.meta.url), "utf8"));
   const database = (strings, ...values) => {
     const sql = strings.reduce((text, part, index) => text + part + (index < values.length ? `$${index + 1}` : ""), "");
     const params = values.map(value => value instanceof Date ? value.toISOString() : value);
@@ -56,6 +62,12 @@ export async function createChatFixture(options = {}) {
     ...(options.provider ? { provider: options.provider } : {}),
   };
   const handlers = {
+    catalog: async (request,response) => response.status(200).json(await searchCatalog(database,catalogQuery(request.query))),
+    sources: async (_request,response) => response.status(200).json({inventory:null,observed:[]}),
+    "lost-pets-public": createLostPetsHandler({...dependencies, requireUser:dependencies.authenticate}),
+    "saved-searches": privateHandler(["GET","POST","DELETE"], savedSearchAction, {...dependencies, requireUser:dependencies.authenticate}),
+    "lost-pets": privateHandler(["GET","POST","PATCH"], lostReportAction, {...dependencies, requireUser:dependencies.authenticate}),
+    "shelter-import": privateHandler(["POST"], shelterImportAction, {...dependencies, requireUser:dependencies.authenticate}),
     appointments: createAppointmentsHandler(dependencies),
     caregivers: createCaregiversHandler(dependencies),
     "caregiver-pets": createCaregiverPetsHandler(dependencies),

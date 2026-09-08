@@ -20,6 +20,8 @@ const built = await build({
     contents: `import React from "react";
       import { createRoot } from "react-dom/client";
       import Workspace from "./src/DirectMessagesWorkspace.jsx";
+      import NetworkTools from "./src/NetworkTools.jsx";
+      import ShelterImport from "./src/ShelterImport.jsx";
       import CaregiverFixture from "./e2e/CaregiverFixture.jsx";
       const user = new URL(location.href).searchParams.get("user") || "adopter";
       const request = async (url, options = {}) => {
@@ -31,7 +33,7 @@ const built = await build({
       const userIds = ${JSON.stringify(Object.fromEntries(Object.entries(users).map(([key, value]) => [key, value.id])))};
       const workspace = <Workspace request={request} userId={userIds[user]} onBrowse={() => location.assign("/?user=" + user)} />;
       const embedded = new URL(location.href).searchParams.has("embedded");
-      createRoot(document.getElementById("root")).render(new URL(location.href).searchParams.has("caregiver") ? <CaregiverFixture /> : embedded ? <div className="app map-app"><main className="map-workspace panel-messages"><aside className="map-rail"><div className="rail-content"><div className="map-message-tabs"><button>Listing chats</button><button>Application updates</button></div>{workspace}</div></aside></main></div> : workspace);`,
+      createRoot(document.getElementById("root")).render(new URL(location.href).searchParams.has("network") ? <NetworkTools request={request} onOpenPet={pet => alert(pet.name)} /> : new URL(location.href).searchParams.has("import") ? <ShelterImport organizationId="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" request={request} /> : new URL(location.href).searchParams.has("caregiver") ? <CaregiverFixture /> : embedded ? <div className="app map-app"><main className="map-workspace panel-messages"><aside className="map-rail"><div className="rail-content"><div className="map-message-tabs"><button>Listing chats</button><button>Application updates</button></div>{workspace}</div></aside></main></div> : workspace);`,
     resolveDir: process.cwd(), loader: "jsx", sourcefile: "chat-fixture-entry.jsx",
   },
   bundle: true, write: false, outdir: "chat-memory-bundle", entryNames: "fixture-entry", format: "esm", splitting: true,
@@ -51,7 +53,7 @@ const server = createServer(async (request, response) => {
     const url = new URL(request.url, `http://127.0.0.1:${port}`);
     for (const header of headers) response.setHeader(header.key, header.value);
     if (url.pathname.startsWith("/api/")) {
-      const handler = fixture.handlers[url.pathname.slice(5)];
+      const handler = fixture.handlers[url.pathname === "/api/lost-pets" ? "lost-pets-public" : url.pathname.slice(5)];
       if (!handler) { response.writeHead(404).end(); return; }
       const chunks = [];
       for await (const chunk of request) chunks.push(chunk);

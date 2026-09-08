@@ -37,10 +37,11 @@ export function deduplicatePets(pets) {
   const ids = new Set();
   const externalIds = new Set();
   return pets.filter((pet) => {
-    const duplicate = ids.has(pet.id) || (pet.externalId && externalIds.has(pet.externalId));
+    const externalKey = pet.identityNamespace && pet.externalId ? `${pet.identityNamespace}:${pet.externalId}` : null;
+    const duplicate = ids.has(pet.id) || (externalKey && externalIds.has(externalKey));
     // Track rejected rows too, preserving the original first-occurrence rules.
     ids.add(pet.id);
-    if (pet.externalId) externalIds.add(pet.externalId);
+    if (externalKey) externalIds.add(externalKey);
     return !duplicate;
   });
 }

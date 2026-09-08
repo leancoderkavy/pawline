@@ -12,12 +12,13 @@ INSERT INTO sources (
   '4eec9ba1-1f85-4e6f-a21b-772f84bb0021',
   'Montgomery County Animal Services adoptable pets',
   'json',
-  'https://data.montgomerycountymd.gov/resource/e54u-qx42.json?$limit=5000',
+  'https://data.montgomerycountymd.gov/resource/e54u-qx42.json?$order=animalid',
   'US',
   'Montgomery County, Maryland',
   'https://data.montgomerycountymd.gov/Public-Safety/Adoptable-Pets/e54u-qx42',
   true,
   '{
+    "pagination": {"page_size": 1000, "max_pages": 20},
     "mapping": {
       "external_id": "animalid",
       "name": "petname",
@@ -44,12 +45,13 @@ INSERT INTO sources (
   'd7fbc275-cf13-40c1-976e-31df071b25c8',
   'Regional Animal Services of King County adoptable pets',
   'json',
-  'https://data.kingcounty.gov/resource/yaai-7frk.json?$limit=5000&$where=upper(record_type)%20=%20%27ADOPTABLE%27',
+  'https://data.kingcounty.gov/resource/yaai-7frk.json?$order=animal_id&$where=upper(record_type)%20=%20%27ADOPTABLE%27',
   'US',
   'Regional Animal Services of King County',
   'https://data.kingcounty.gov/Pets/Lost-found-adoptable-pets/yaai-7frk',
   true,
   '{
+    "pagination": {"page_size": 1000, "max_pages": 20},
     "mapping": {
       "external_id": "animal_id",
       "name": "animal_name",

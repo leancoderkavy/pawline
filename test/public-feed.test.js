@@ -59,7 +59,14 @@ test("linear deduplication preserves ordering and overlapping duplicate identiti
     { id: "d", externalId: "" }, { id: "e" }, { id: "c", externalId: "3" },
   ];
   const expected = rows.filter((pet, index, all) => all.findIndex(item =>
-    item.id === pet.id || (pet.externalId && item.externalId === pet.externalId)) === index);
+    item.id === pet.id) === index);
   assert.deepEqual(deduplicatePets(rows), expected);
   assert.deepEqual(deduplicatePets([]), []);
+});
+
+test("animal IDs are namespaced by source, not shared across shelters", () => {
+  const a={id:"a",externalId:"A123",identityNamespace:"source:one"};
+  const b={id:"b",externalId:"A123",identityNamespace:"source:two"};
+  const imported={id:"c",externalId:"A123",identityNamespace:"source:one"};
+  assert.deepEqual(deduplicatePets([a,b,imported]),[a,b]);
 });

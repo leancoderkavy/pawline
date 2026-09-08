@@ -17,8 +17,9 @@ class handler(BaseHTTPRequestHandler):
             return
         try:
             results = run()
-            payload = json.dumps({"ok": True, "results": results}).encode()
-            self.send_response(200)
+            ok = not any(result.get("status") == "error" for result in results)
+            payload = json.dumps({"ok": ok, "results": results}).encode()
+            self.send_response(200 if ok else 502)
         except Exception:
             payload = b'{"ok":false,"error":"Ingestion failed"}'
             self.send_response(500)

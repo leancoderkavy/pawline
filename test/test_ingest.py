@@ -61,11 +61,12 @@ class IngestNormalizationTests(unittest.TestCase):
         self.assertEqual(pet["description"], "Friendly dog & companion")
         self.assertEqual(pet["image_url"], "https://example.test/A123")
 
-    def test_unsupported_species_is_rejected(self):
+    def test_unknown_species_is_rejected(self):
         source = {"id": "source-id", "parser_config": {
             "mapping": {"name": "name", "species": "species"}
         }}
-        self.assertIsNone(normalize({"name": "Tweety", "species": "Bird"}, source))
+        self.assertIsNone(normalize({"name": "Tweety", "species": "Unknown"}, source))
+        self.assertEqual(canonical_species("Bird"), "Bird")
 
     def test_text_cleanup_handles_empty_values(self):
         self.assertIsNone(clean_text("  "))

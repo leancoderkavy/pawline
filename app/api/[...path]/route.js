@@ -4,6 +4,10 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const handlers = {
+  catalog: () => import("../../../api/catalog"),
+  "saved-searches": () => import("../../../api/saved-searches"),
+  "lost-pets": () => import("../../../api/lost-pets"),
+  "shelter-import": () => import("../../../api/shelter-import"),
   "adopter-profile": () => import("../../../api/adopter-profile"),
   "adoption-applications": () => import("../../../api/adoption-applications"),
   "adoption-application-messages": () => import("../../../api/adoption-application-messages"),

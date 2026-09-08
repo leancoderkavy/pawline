@@ -1,3 +1,4 @@
+import { PET_SPECIES } from "../config/species.js";
 import crypto from "node:crypto";
 import { getDatabase } from "./_db.js";
 import { notificationStatus, notifySubmission } from "./_email.js";
@@ -118,7 +119,7 @@ async function handleSubmission(request, response, dependencies) {
 
   const pet = {
     name: clean(body.name, 100),
-    species: clean(body.species, 10),
+    species: clean(body.species, 20),
     breed: clean(body.breed, 120),
     age: clean(body.age, 60),
     sex: clean(body.sex, 20),
@@ -155,8 +156,8 @@ async function handleSubmission(request, response, dependencies) {
   if (missing.length) {
     return response.status(400).json({ error: `Missing: ${missing.join(", ")}.` });
   }
-  if (!["Dog", "Cat"].includes(pet.species)) {
-    return response.status(400).json({ error: "Species must be Dog or Cat." });
+  if (!PET_SPECIES.includes(pet.species)) {
+    return response.status(400).json({ error: "Choose a supported species." });
   }
   if (!validEmail(pet.email)) {
     return response.status(400).json({ error: "Enter a valid contact email." });

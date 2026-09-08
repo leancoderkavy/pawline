@@ -1,3 +1,4 @@
+import ShelterImport from "./ShelterImport.jsx";
 import { useAuth } from "@clerk/nextjs";
 import React, { useCallback, useEffect, useState } from "react";
 import ShelterWorkspace from "./ShelterWorkspace.jsx";
@@ -113,6 +114,7 @@ export default function ShelterWorkspaceWithAuth({ onReturnToAdopter }) {
       </select>
     </label> : null}
     {error ? <p role="alert" className="form-error">{error}</p> : null}
+    {selectedOrganization?.role === "administrator" ? <ShelterImport key={selectedOrganizationId} organizationId={selectedOrganizationId} request={async (url, options) => responseJson(await authorizedFetch(url, options))} /> : null}
     <ShelterWorkspace organization={selectedOrganization} applications={applications} reviews={reviews}
       selectedApplicationId={selectedApplicationId} onSelectApplication={setSelectedApplicationId}
       onUpdateCapacity={updateCapacity} onSaveHours={saveHours} onRequestSummary={requestSummary}
