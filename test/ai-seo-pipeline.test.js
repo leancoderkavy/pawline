@@ -96,6 +96,28 @@ test("AI SEO drafts reject certainty claims and citations outside supplied resea
   assert.ok(result.report.blockers.some((blocker) => /outside/i.test(blocker)));
 });
 
+test("AI SEO links use published guides and reject private or invented Pawline paths", () => {
+  const draft = validDraft();
+  draft.internalLinks = [{ anchor: "Adoption questions", url: "https://www.pawlineadopt.com/guides/questions-to-ask-before-adopting" }];
+  assert.equal(validateSeoDraft(draft, research).value.internalLinks.length, 1);
+  for (const url of ["https://www.pawlineadopt.com/api/pets", "https://www.pawlineadopt.com/invented", "http://unknown.example/source"]) {
+    const invalid = { ...draft, articleMarkdown: `${draft.articleMarkdown}\n[More](${url})` };
+    assert.equal(validateSeoDraft(invalid, research).report.passed, false, url);
+  }
+});
+
+test("AI SEO cannot pass by repeating one citation or hiding claims in FAQ answers", () => {
+  const draft = validDraft();
+  draft.citations = [draft.citations[0], draft.citations[0]];
+  assert.equal(validateSeoDraft(draft, research).report.passed, false);
+  const faqDraft = validDraft();
+  faqDraft.faq[0].answer = "This is a guaranteed perfect match.";
+  assert.equal(validateSeoDraft(faqDraft, research).report.passed, false);
+  const uncited = validDraft();
+  uncited.articleMarkdown = uncited.articleMarkdown.replaceAll("https://example.net/adoption-questions", "https://example.org/adopt-a-dog");
+  assert.equal(validateSeoDraft(uncited, research).report.passed, false);
+});
+
 test("AI SEO pipeline fails closed when the migration is absent", async () => {
   const database = async () => [{ jobs: false, sources: false, drafts: false }];
   await assert.rejects(requireSeoPipelineSchema(database), /migration is missing/i);
