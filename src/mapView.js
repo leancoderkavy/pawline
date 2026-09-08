@@ -53,7 +53,17 @@ export function buildMapView({
   petType = "All",
   distance = 150,
   showEvents = true,
+  query = "",
 }) {
+  const terms = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+  const matches = item => {
+    const text = [item.name, item.title, item.breed, item.species, item.shelter, item.city, item.description, item.address, item.venue].filter(value => typeof value === "string").join(" ").toLocaleLowerCase();
+    return terms.every(term => text.includes(term));
+  };
+  pets = pets.filter(matches);
+  shelters = shelters.filter(matches);
+  events = events.filter(matches);
+  discoveries = discoveries.filter(matches);
   const speciesMatches = item =>
     petType === "All" || !item.species || item.species === petType;
 

@@ -74,3 +74,17 @@ python scripts/audit_search.py --base-url https://www.pawlineadopt.com
 ```
 
 On September 8, GSC Performance showed zero clicks, zero impressions, and no query rows; available chart dates were September 5–6. Indexing was still processing. There is no measurable ranking baseline or demonstrated ranking gain. Petfinder's prior robots 403 remains an unresolved access boundary; this follow-up adds no imported inventory.
+
+## Internal navigation follow-up (2026-09-08)
+
+The initial-HTML audit now checks same-origin HTML link destinations and article
+fragment IDs, including relative and cross-page links. It rejects noncanonical
+Pawline origins and reports missing pages and anchors. Live requests are cached,
+limited to 32 destinations, and do not follow redirects or external links. API
+links and path traversal are rejected before fetching. Homepage hash routes
+remain browser-tested application navigation rather than static element IDs.
+
+This caught the standalone source-methodology page's `#guides/matching` link,
+which now opens the canonical matching guide. Its map-panel version retains the
+application hash. The audit runs in existing CI and supports the same production
+verification command. It does not measure Google indexing or ranking changes.

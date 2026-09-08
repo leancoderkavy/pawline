@@ -75,3 +75,15 @@ test("pet result labels make species visible and use the selected species in cou
   assert.equal(petCountLabel(1, "Dog"), "1 dog");
   assert.equal(petCountLabel(0), "0 pets");
 });
+
+
+test("text search matches all nearby record types and requires every query term", () => {
+  const shared = { ...center, name: "Happy Home", city: "Seattle" };
+  const data = { pets: [{ ...shared, breed: "Terrier" }], shelters: [shared], events: [{ ...shared, title: "Adoption day" }], discoveries: [shared], center };
+  const matches = buildMapView({ ...data, query: "HAPPY seattle" });
+  assert.deepEqual(Object.values(matches).map(items => items.length), [1, 1, 1, 1]);
+  const breed = buildMapView({ ...data, query: "terrier" });
+  assert.equal(breed.pets.length, 1);
+  assert.equal(breed.shelters.length, 0);
+  assert.equal(buildMapView({ ...data, query: "happy missing" }).pets.length, 0);
+});

@@ -45,7 +45,7 @@ export default function HowPawlineWorksPage({ standalone = false }) {
         <a href={standalone ? "/#map" : "#map"}>Explore adoptable pets <span aria-hidden="true">→</span></a>
       </section>
 
-      <p className="methodology-related"><a href="#guides/matching">Read: How to find a pet that fits your home and routine <span aria-hidden="true">→</span></a></p>
+      <p className="methodology-related"><a href={standalone ? "/guides/find-a-pet-that-fits-your-home-and-routine" : "#guides/matching"}>Read: How to find a pet that fits your home and routine <span aria-hidden="true">→</span></a></p>
     </article>
 
 
