@@ -42,22 +42,12 @@ test("protected embedded fallbacks fit narrow screens", async () => {
   }
 });
 
-test("the map uses a lightweight preview before loading Mapbox", async () => {
-  const [app, mapApi] = await Promise.all([read("src/App.jsx"), read("api/map.js")]);
-  assert.match(app, /const \[interactive, setInteractive\] = useState\(false\)/);
-  assert.match(app, /className="map-facade"/);
-  assert.match(app, /onError=\{\(\) => setPreviewUnavailable\(true\)\}/);
-  assert.match(app, /className=\{previewUnavailable \? "is-unavailable" : undefined\}/);
-  assert.match(app, /fetchPriority="high"/);
-  assert.match(app, /if \(!interactive \|\| !containerRef\.current\)/);
+test("the interactive map loads automatically and retains lazy code loading", async () => {
+  const app = await read("src/App.jsx");
+  assert.match(app, /import\("mapbox-gl"\)/);
+  assert.doesNotMatch(app, /Explore the interactive map/);
+  assert.match(app, /Retry map/);
   assert.match(app, /configured === true/);
-  assert.match(app, /configured === null \? "status"/);
-  assert.match(app, /mapboxConfigured: null/);
-  assert.match(app, /variant=mobile/);
-  assert.match(mapApi, /"450x760" : "1280x900"/);
-  assert.match(mapApi, /@2x/);
-  assert.match(app, /lazy\(\(\) => import\("\.\/CommunityWithAuth"\)\)/);
-  assert.match(app, /clerkConfigured && savedHydrated/);
 });
 
 test("unavailable map search keeps the existing map center and reports the limitation", async () => {
