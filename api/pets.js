@@ -224,7 +224,7 @@ async function fetchMontgomeryPets(species, options) {
     socrataUrl(MONTGOMERY_API, { ...options, where }),
     "Montgomery County",
   );
-  return rows.map(normalizeMontgomeryPet).filter(Boolean);
+  return Object.assign(rows.map(normalizeMontgomeryPet).filter(Boolean), { hasMore: rows.length >= options.limit });
 }
 
 async function fetchKingCountyPets(species, options) {
@@ -236,7 +236,7 @@ async function fetchKingCountyPets(species, options) {
     socrataUrl(KING_COUNTY_API, { ...options, where: clauses.join(" AND ") }),
     "King County",
   );
-  return rows.map(normalizeKingCountyPet).filter(Boolean);
+  return Object.assign(rows.map(normalizeKingCountyPet).filter(Boolean), { hasMore: rows.length >= options.limit });
 }
 
 export function normalizeLosAngelesPet(record) {
@@ -306,7 +306,8 @@ async function fetchLosAngelesPets(species, { limit, page }) {
       await upstream.body?.cancel();
       throw new Error(`LA Animal Services returned ${upstream.status}`);
     }
-    return parseLosAngelesPets(await readBoundedText(upstream)).filter(pet => species.includes(pet.species));
+    const parsed = parseLosAngelesPets(await readBoundedText(upstream));
+    return Object.assign(parsed.filter(pet => species.includes(pet.species)), { hasMore: parsed.length >= Math.min(limit, 48) });
   });
 }
 
@@ -660,7 +661,7 @@ export default async function handler(request, response) {
       providerCount,
       page,
       limit,
-      hasMore: page < 10000 && (databasePets.length >= limit || montgomeryPets.length >= limit || kingCountyPets.length >= limit || losAngelesPets.length >= limit || payloads.some(payload => (payload.data || []).length >= limit)),
+      hasMore: page < 10000 && (databasePets.length >= limit || montgomeryPets.hasMore || kingCountyPets.hasMore || losAngelesPets.hasMore || payloads.some(payload => (payload.data || []).length >= limit)) || false,
       pagination: "federated-provider-pages",
       sourceStatus: results.map((result, index) => ({ name: requests[index].id, status: result.status === "fulfilled" ? "responded" : "unavailable" })),
       partial: isPartial,
