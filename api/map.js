@@ -71,7 +71,7 @@ export default async function handler(request, response) {
       `pin-s+${point.type === "e" ? "ad5d35" : "2f7458"}(${point.longitude},${point.latitude})`,
     ),
   ];
-  const camera = points.length ? "auto" : `${center[0]},${center[1]},10,0`;
+  const camera = `${center[0]},${center[1]},12,0`;
   const imageSize = request.query.variant === "mobile" ? "450x760" : "1280x900";
   const url = new URL(
     `https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/${overlays.join(",")}/${camera}/${imageSize}@2x`,
@@ -79,7 +79,6 @@ export default async function handler(request, response) {
   url.searchParams.set("access_token", process.env.MAPBOX_ACCESS_TOKEN);
   url.searchParams.set("logo", "true");
   url.searchParams.set("attribution", "true");
-  if (points.length) url.searchParams.set("padding", "60");
 
   try {
     const upstream = await fetch(url, { signal: AbortSignal.timeout(8000) });

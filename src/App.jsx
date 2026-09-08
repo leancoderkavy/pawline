@@ -522,6 +522,8 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
   const densityRef = useRef(densityMode);
   const routeRef = useRef(routePets);
   const [interactive, setInteractive] = useState(false);
+  const [perspective, setPerspective] = useState(false);
+  const [landmarks, setLandmarks] = useState(true);
   const [mapState, setMapState] = useState({ status: "preview", message: "" });
   const center = coordinates
     ? [Number(coordinates.longitude), Number(coordinates.latitude)]
@@ -546,7 +548,7 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
     features: points.map(point => ({
         type: "Feature",
         geometry: { type: "Point", coordinates: [point.longitude, point.latitude] },
-        properties: { type: point.type, id: String(point.id) },
+        properties: { type: point.type, id: String(point.id), name: point.name || point.title || "" },
       })),
   }), [points]);
   geoJsonRef.current = geoJson;
@@ -576,14 +578,16 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
       map = new mapboxgl.Map({
         container: containerRef.current,
         style: "mapbox://styles/mapbox/standard",
-        config: { basemap: { theme: "monochrome", lightPreset: "day", showPointOfInterestLabels: false, showTransitLabels: false } },
+        config: { basemap: { theme: "default", lightPreset: "day", showPointOfInterestLabels: true, showTransitLabels: true, showPlaceLabels: true, showRoadLabels: true, showPedestrianRoads: true, show3dObjects: true } },
         center,
-        zoom: 10,
+        zoom: 12,
+        antialias: true,
         attributionControl: true,
         cooperativeGestures: false,
       });
       mapRef.current = map;
-      map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "top-right");
+      map.addControl(new mapboxgl.NavigationControl({ showCompass: true, visualizePitch: true }), "top-right");
+      map.addControl(new mapboxgl.ScaleControl({ maxWidth: 100, unit: "imperial" }), "bottom-right");
       map.on("load", () => {
         if (!active) return;
         map.addSource("pawline-points", { type: "geojson", data: geoJsonRef.current });
@@ -700,6 +704,11 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
           source: "pawline-points",
           filter: ["==", ["get", "type"], "shelter"],
           paint: { "circle-radius": 20, "circle-color": "#3f6380", "circle-opacity": 0.01 },
+        });
+        map.addLayer({
+          id: "pawline-place-names", type: "symbol", source: "pawline-points", minzoom: 12,
+          layout: { "text-field": ["get", "name"], "text-size": 12, "text-anchor": "top", "text-offset": [0, 2], "text-max-width": 12, "text-optional": true },
+          paint: { "text-color": "#17382f", "text-halo-color": "#ffffff", "text-halo-width": 2 },
         });
         map.on("mouseenter", "pawline-pet-hit-area", () => {
           map.getCanvas().style.cursor = "pointer";
@@ -828,6 +837,18 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
     {mapState.status === "loading" ? <div className="map-loading" role="status">Loading interactive map…</div> : null}
     {mapState.status === "error" ? <div className="map-unavailable" role="alert"><span className="map-unavailable-icon"><MapPin /></span><strong>Map temporarily unavailable</strong><span>{mapState.message}</span><button type="button" className="button" onClick={() => { setInteractive(false); setMapState({ status: "preview", message: "" }); }}>Back to map preview</button></div> : null}
     {mapState.status === "ready" ? <>
+      <div className="map-detail-controls" role="group" aria-label="Map detail">
+        <button type="button" aria-pressed={perspective} onClick={() => {
+          const next = !perspective;
+          mapRef.current?.easeTo({ pitch: next ? 55 : 0, duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 500 });
+          setPerspective(next);
+        }}><Layers3 size={16} />3D view</button>
+        <button type="button" aria-pressed={landmarks} onClick={() => {
+          const next = !landmarks;
+          mapRef.current?.setConfigProperty("basemap", "showPointOfInterestLabels", next);
+          setLandmarks(next);
+        }}><MapPin size={16} />Places</button>
+      </div>
       <button type="button" className="map-fit-results" disabled={!points.length} onClick={() => {
         const bounds = mapResultBounds(points);
         if (!bounds) return;

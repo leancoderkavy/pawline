@@ -182,7 +182,7 @@ export default function AuthModal({
   const submitHandler = mode === "verify" ? verifyEmail : mode === "signup" ? handleSignUp : handleSignIn;
   const codeLabel = mode === "verify" ? "Verification code" : "Password";
 
-  return <Dialog title={title} onClose={onClose}>
+  return <Dialog title={title} onClose={onClose} centered>
     <p className="dialog-copy">Use your email and password to keep your Pawline identity private and portable across listing tools.</p>
     <form onSubmit={submitHandler}>
       {mode !== "verify" ? <label>Email

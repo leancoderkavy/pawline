@@ -2,6 +2,9 @@ const port = Number(process.env.PAWLINE_CHAT_PORT || 4317);
 import { createServer } from "node:http";
 import { build } from "esbuild";
 import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
+import postcss from "postcss";
+import tailwindcss from "@tailwindcss/postcss";
 import { createChatFixture, users } from "./chat-fixture.mjs";
 import { runLegacyHandler } from "../app/api/_adapter.js";
 
@@ -35,7 +38,8 @@ const built = await build({
 const assets = new Map(built.outputFiles.map(file => [file.path.split(/[\\/]/).at(-1), file.contents]));
 const entry = "fixture-entry.js";
 const css = [...assets.keys()].filter(name => name.endsWith(".css"));
-const styles = await readFile(new URL("../src/styles.css", import.meta.url), "utf8");
+const stylePath = fileURLToPath(new URL("../src/styles.css", import.meta.url));
+const styles = (await postcss([tailwindcss()]).process(await readFile(stylePath, "utf8"), { from: stylePath })).css;
 const config = (await import("../next.config.mjs")).default;
 const headers = (await config.headers())[0].headers;
 const server = createServer(async (request, response) => {
