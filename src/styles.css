@@ -790,3 +790,9 @@ html:has(.adopter-experience),body:has(.adopter-experience) { min-width:0; }
 .search-related { padding-block:24px 40px; }
 .search-related h2 { font:400 28px/1.2 var(--serif); }
 .search-related li { margin-top:18px; }.search-related p { line-height:1.6;margin-top:4px; }
+
+.adoption-checklist { list-style:none;padding:0; }.adoption-checklist li { border-bottom:1px solid var(--line); }
+.adoption-checklist label { display:flex;align-items:flex-start;gap:12px;padding:16px 0;line-height:1.6;cursor:pointer; }
+.adoption-checklist input { flex:none;width:22px;height:22px;margin-top:3px;accent-color:var(--green); }
+.adoption-checklist strong { display:block; }.adoption-checklist input:checked + span { color:#65716b; }
+@media print { .search-page-nav,.legal-footer,.search-related { display:none; }.methodology-page { background:white;min-height:0;padding:0; }.methodology-content { margin:0 auto; }.adoption-checklist li { break-inside:avoid; } }
