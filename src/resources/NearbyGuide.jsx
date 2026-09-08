@@ -3,7 +3,7 @@
 export default function FindAdoptablePetsGuidePage({ standalone = false }) {
   return <section className="methodology-page guide-page">
 <article className="methodology-content">
-      <nav className="guide-crumbs" aria-label="Breadcrumb"><a href={standalone ? "/guides" : "#guides"}>Adoption guides</a><span aria-hidden="true">/</span><span>Find adoptable pets near you</span></nav>
+      {!standalone && <nav className="guide-crumbs" aria-label="Breadcrumb"><a href={standalone ? "/guides" : "#guides"}>Adoption guides</a><span aria-hidden="true">/</span><span>Find adoptable pets near you</span></nav>}
       <p className="methodology-kicker">Adoption search guide</p>
       <h1>How to find adoptable dogs and cats near you</h1>
       <p className="methodology-lede">A good adoption search starts with a real location and ends with the shelter or rescue. Pawline helps you compare current records in between, while keeping the source and the unknowns visible.</p>

@@ -782,3 +782,11 @@ html:has(.adopter-experience),body:has(.adopter-experience) { min-width:0; }
   .map-rail.is-collapsed { width:auto; }
   .map-rail.is-collapsed .rail-toggle { inset:6px;width:calc(100% - 12px);height:44px; }
 }
+
+.search-breadcrumbs,.search-related { width:min(780px,calc(100% - 36px));margin:24px auto;color:var(--green); }
+.search-breadcrumbs ol { display:flex;flex-wrap:wrap;gap:8px;list-style:none;padding:0; }
+.search-breadcrumbs li:not(:last-child)::after { content:"/";margin-left:8px;color:#65716b; }
+.search-breadcrumbs a,.search-related a { text-decoration:underline;text-underline-offset:3px; }
+.search-related { padding-block:24px 40px; }
+.search-related h2 { font:400 28px/1.2 var(--serif); }
+.search-related li { margin-top:18px; }.search-related p { line-height:1.6;margin-top:4px; }
