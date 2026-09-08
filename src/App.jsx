@@ -532,6 +532,8 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
   const center = coordinates
     ? [Number(coordinates.longitude), Number(coordinates.latitude)]
     : DEFAULT_MAP_CENTER;
+  const centerRef = useRef(center);
+  centerRef.current = center;
   const geoJson = useMemo(() => ({
     type: "FeatureCollection",
     features: points.map(point => ({
@@ -570,7 +572,7 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
         container: containerRef.current,
         style: "mapbox://styles/mapbox/standard",
         config: { basemap: { theme: "default", lightPreset: "day", showPointOfInterestLabels: true, showTransitLabels: true, showPlaceLabels: true, showRoadLabels: true, showPedestrianRoads: true, show3dObjects: true } },
-        center,
+        center: centerRef.current,
         zoom: 12,
         antialias: true,
         attributionControl: true,
