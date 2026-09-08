@@ -40,6 +40,14 @@ export default function NetworkTools({ request, onSignIn, onOpenPet }) {
     publicConsent: false,
   });
   const [tip, setTip] = useState({ id: "", body: "" });
+  const [savedContext, setSavedContext] = useState(null);
+  const [reportCity, setReportCity] = useState("");
+  const searchRevision = useRef(0);
+  const clearSearchCursor = () => {
+    searchRevision.current++;
+    setCursor(null);
+    setSavedContext(null);
+  };
   const alive = useRef(true);
   useEffect(() => {
     alive.current = true;
@@ -65,10 +73,17 @@ export default function NetworkTools({ request, onSignIn, onOpenPet }) {
   };
   const filters = { q, species, ...(location ? { ...location, radius } : {}) };
   const search = async (more = false) => {
-    const body = await publicRequest(
-      `/api/catalog?${new URLSearchParams({ ...filters, ...(more && cursor ? { cursor } : {}) })}`,
-    );
-    if (!alive.current) return;
+    const revision = ++searchRevision.current;
+    const body =
+      more && savedContext
+        ? await request("/api/saved-searches", {
+            method: "POST",
+            body: JSON.stringify({ action: "check", ...savedContext, cursor }),
+          })
+        : await publicRequest(
+            `/api/catalog?${new URLSearchParams({ ...filters, ...(more && cursor ? { cursor } : {}) })}`,
+          );
+    if (!alive.current || revision !== searchRevision.current) return;
     setPets((current) =>
       more
         ? [
@@ -80,6 +95,36 @@ export default function NetworkTools({ request, onSignIn, onOpenPet }) {
     );
     setCursor(body.nextCursor);
     setSearched(true);
+    if (!more) setSavedContext(null);
+  };
+  const openSaved = async (item, onlyNew = false) => {
+    const revision = ++searchRevision.current;
+    const result = await request("/api/saved-searches", {
+      method: "POST",
+      body: JSON.stringify({ action: "check", id: item.id, onlyNew }),
+    });
+    if (!alive.current || revision !== searchRevision.current) return;
+    setQ(item.filters.q || "");
+    setSpecies(item.filters.species || "All");
+    setLocation(
+      item.filters.latitude === undefined
+        ? null
+        : {
+            latitude: item.filters.latitude,
+            longitude: item.filters.longitude,
+          },
+    );
+    setRadius(String(item.filters.radius || 150));
+    setSavedContext({ id: item.id, onlyNew });
+    setPets(result.pets);
+    setCursor(result.nextCursor);
+    setSearched(true);
+    setTab("search");
+    setNotice(
+      onlyNew
+        ? `Showing pets added since you saved “${item.name}”.`
+        : `Showing matches for “${item.name}”.`,
+    );
   };
   const loadSaved = async () => {
     if (!request) return;
@@ -88,7 +133,7 @@ export default function NetworkTools({ request, onSignIn, onOpenPet }) {
   };
   const loadReports = async () => {
     const body = await publicRequest(
-      `/api/lost-pets?${new URLSearchParams({ city: q })}`,
+      `/api/lost-pets?${new URLSearchParams({ city: reportCity })}`,
     );
     if (alive.current) setReports(body.reports);
     if (request) {
@@ -148,7 +193,7 @@ export default function NetworkTools({ request, onSignIn, onOpenPet }) {
                 value={q}
                 onChange={(e) => {
                   setQ(e.target.value);
-                  setCursor(null);
+                  clearSearchCursor();
                 }}
                 maxLength={100}
               />
@@ -159,7 +204,7 @@ export default function NetworkTools({ request, onSignIn, onOpenPet }) {
                 value={species}
                 onChange={(e) => {
                   setSpecies(e.target.value);
-                  setCursor(null);
+                  clearSearchCursor();
                 }}
               >
                 <option>All</option>
@@ -174,7 +219,7 @@ export default function NetworkTools({ request, onSignIn, onOpenPet }) {
                 value={radius}
                 onChange={(e) => {
                   setRadius(e.target.value);
-                  setCursor(null);
+                  clearSearchCursor();
                 }}
               >
                 {[25, 50, 150, 500, 3000].map((r) => (
@@ -198,7 +243,7 @@ export default function NetworkTools({ request, onSignIn, onOpenPet }) {
                       latitude: position.coords.latitude,
                       longitude: position.coords.longitude,
                     });
-                    setCursor(null);
+                    clearSearchCursor();
                     setNotice(
                       "Location added. Choose Search to update results.",
                     );
@@ -218,7 +263,7 @@ export default function NetworkTools({ request, onSignIn, onOpenPet }) {
                 type="button"
                 onClick={() => {
                   setLocation(null);
-                  setCursor(null);
+                  clearSearchCursor();
                 }}
               >
                 Clear location
@@ -230,8 +275,9 @@ export default function NetworkTools({ request, onSignIn, onOpenPet }) {
           </form>
           {searched && !pets.length ? (
             <p>
-              No matching stored listings. Try a wider area or explore live
-              providers on the map.
+              {savedContext?.onlyNew
+                ? "No new matching pets since this search was saved."
+                : "No matching stored listings. Try a wider area or explore live providers on the map."}
             </p>
           ) : null}
           <div className="network-pets">
@@ -312,23 +358,15 @@ export default function NetworkTools({ request, onSignIn, onOpenPet }) {
                 </p>
                 <button
                   disabled={busy}
-                  onClick={() =>
-                    run(async () => {
-                      const result = await request("/api/saved-searches", {
-                        method: "POST",
-                        body: JSON.stringify({ action: "check", id: item.id }),
-                      });
-                      setPets(result.pets);
-                      setCursor(null);
-                      setSearched(true);
-                      setTab("search");
-                      setNotice(
-                        `${result.newPets.length} newly listed pets on this result page since you saved this search.`,
-                      );
-                    })
-                  }
+                  onClick={() => run(() => openSaved(item))}
                 >
                   Check matches
+                </button>
+                <button
+                  disabled={busy}
+                  onClick={() => run(() => openSaved(item, true))}
+                >
+                  New pets since saved
                 </button>
                 <button
                   disabled={busy}
@@ -358,6 +396,8 @@ export default function NetworkTools({ request, onSignIn, onOpenPet }) {
           </p>
           {source?.inventory ? (
             <dl>
+              <dt>Reviewed public shelter locations</dt>
+              <dd>{source.directory?.locations ?? "Unknown"}</dd>
               <dt>Available stored pet records</dt>
               <dd>{source.inventory.available}</dd>
               <dt>Organization records</dt>
@@ -401,8 +441,8 @@ export default function NetworkTools({ request, onSignIn, onOpenPet }) {
             <label>
               City or neighborhood
               <input
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
+                value={reportCity}
+                onChange={(e) => setReportCity(e.target.value)}
                 maxLength={120}
               />
             </label>

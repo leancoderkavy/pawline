@@ -30,6 +30,7 @@ export async function createChatFixture(options = {}) {
   const schema = await readFile(new URL("../db/schema.sql", import.meta.url), "utf8");
   await pg.exec(schema);
   await pg.exec(await readFile(new URL("../db/network-growth.sql", import.meta.url), "utf8"));
+  await pg.exec(await readFile(new URL("../db/migrations/20260908-shelter-cache.sql", import.meta.url), "utf8"));
   const database = (strings, ...values) => {
     const sql = strings.reduce((text, part, index) => text + part + (index < values.length ? `$${index + 1}` : ""), "");
     const params = values.map(value => value instanceof Date ? value.toISOString() : value);

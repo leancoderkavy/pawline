@@ -1,4 +1,5 @@
 import { getDatabase } from "./_db.js";
+import { PUBLIC_SHELTERS } from "../config/public-shelters.js";
 const sourceCatalog = [
   {
     id: "rescuegroups",
@@ -116,6 +117,7 @@ export default async function handler(request, response) {
     } catch { /* Unknown counts stay unknown when storage cannot be observed. */ }
   }
   return response.status(200).json({
+    directory: { locations: PUBLIC_SHELTERS.length, reviewedAt: "2026-09-08", scope: "Selected Los Angeles city shelters; not participating shelter accounts" },
     inventory, observed, observationStatus, observedAt: new Date().toISOString(),
     sources: sourceCatalog,
     active: sourceCatalog.filter((source) => source.status === "active").length,

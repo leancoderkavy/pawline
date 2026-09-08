@@ -1,8 +1,16 @@
 import { getDatabase } from "./_db.js";
 import { consumeUsageChain, requestClientKey } from "./_usage-limit.js";
+import { createPublicFeedCoalescer, readBoundedText } from "./_public-feed.js";
+import { PUBLIC_SHELTERS } from "../config/public-shelters.js";
+import {
+  readShelterCache,
+  claimShelterRefresh,
+  writeShelterCache,
+  SHELTER_CACHE_FRESH_MS,
+  SHELTER_CACHE_STALE_MS,
+} from "./_shelter-cache.js";
 
 const OVERPASS_API = "https://overpass-api.de/api/interpreter";
-const CACHE_TTL_MS = 15 * 60 * 1000;
 const CACHE_LIMIT = 80;
 const SEARCH_WINDOW_MS = 15 * 60 * 1000;
 const MAX_RADIUS_MILES = 50;
@@ -10,7 +18,6 @@ const MAX_RESULTS = 30;
 const PRIMARY_QUERY_RADIUS_MILES = 25;
 const FALLBACK_QUERY_RADIUS_MILES = 12;
 const OVERPASS_TIMEOUT_MS = 8000;
-const searchCache = new Map();
 
 export function createShelterSearchLimiter({
   clientLimit = 12,
@@ -43,8 +50,16 @@ function first(value) {
 }
 
 function finiteCoordinate(value, minimum, maximum) {
+  if (
+    first(value) === undefined ||
+    first(value) === null ||
+    String(first(value)).trim() === ""
+  )
+    return null;
   const coordinate = Number(first(value));
-  return Number.isFinite(coordinate) && coordinate >= minimum && coordinate <= maximum
+  return Number.isFinite(coordinate) &&
+    coordinate >= minimum &&
+    coordinate <= maximum
     ? coordinate
     : null;
 }
@@ -93,34 +108,56 @@ function safeHttpUrl(value) {
 }
 
 function coordinatesFor(element) {
-  const latitude = Number(element?.lat ?? element?.center?.lat);
-  const longitude = Number(element?.lon ?? element?.center?.lon);
-  return Number.isFinite(latitude) && Number.isFinite(longitude)
+  const latitude = finiteCoordinate(
+    element?.lat ?? element?.center?.lat,
+    -90,
+    90,
+  );
+  const longitude = finiteCoordinate(
+    element?.lon ?? element?.center?.lon,
+    -180,
+    180,
+  );
+  return latitude !== null && longitude !== null
     ? { latitude, longitude }
     : null;
 }
 
 function addressFor(tags) {
   const street = [tags["addr:housenumber"], tags["addr:street"]]
-    .map(value => safeText(value, null, 120))
+    .map((value) => safeText(value, null, 120))
     .filter(Boolean)
     .join(" ");
-  const locality = [tags["addr:city"], tags["addr:state"], tags["addr:postcode"]]
-    .map(value => safeText(value, null, 80))
+  const locality = [
+    tags["addr:city"],
+    tags["addr:state"],
+    tags["addr:postcode"],
+  ]
+    .map((value) => safeText(value, null, 80))
     .filter(Boolean)
     .join(", ");
   return [street, locality].filter(Boolean).join(", ") || null;
 }
 
 function acceptsAdoptions(tags) {
-  const adoption = safeText(tags["animal_shelter:adoption"], "", 80).toLowerCase();
+  const adoption = safeText(
+    tags["animal_shelter:adoption"],
+    "",
+    80,
+  ).toLowerCase();
   return adoption !== "" && adoption !== "no";
 }
 
 export function normalizeNearbyShelter(element) {
   const coordinates = coordinatesFor(element);
   const tags = element?.tags || {};
-  if (!coordinates || !["node", "way", "relation"].includes(element?.type)) return null;
+  if (
+    !coordinates ||
+    !["node", "way", "relation"].includes(element?.type) ||
+    !Number.isSafeInteger(element.id) ||
+    element.id <= 0
+  )
+    return null;
   return {
     id: `osm-${element.type}-${element.id}`,
     name: safeText(tags.name, "Animal shelter", 180),
@@ -139,24 +176,40 @@ export function normalizeNearbyShelter(element) {
 }
 
 export function parseNearbyShelters(payload) {
-  if (!Array.isArray(payload?.elements)) return [];
+  if (!Array.isArray(payload?.elements) || payload.remark)
+    throw new Error("Incomplete shelter source response");
   const seen = new Set();
   return payload.elements
     .map(normalizeNearbyShelter)
-    .filter(shelter => shelter && !seen.has(shelter.id) && seen.add(shelter.id))
+    .filter(
+      (shelter) => shelter && !seen.has(shelter.id) && seen.add(shelter.id),
+    )
     .slice(0, MAX_RESULTS);
 }
 
 async function reserveShelterSearch(database, request) {
   const limits = [
-    { scope: "nearby_shelter_client", subject: requestClientKey(request), limit: 12, windowMs: SEARCH_WINDOW_MS },
-    { scope: "nearby_shelter_global", subject: "all", limit: 160, windowMs: SEARCH_WINDOW_MS },
+    {
+      scope: "nearby_shelter_client",
+      subject: requestClientKey(request),
+      limit: 12,
+      windowMs: SEARCH_WINDOW_MS,
+    },
+    {
+      scope: "nearby_shelter_global",
+      subject: "all",
+      limit: 160,
+      windowMs: SEARCH_WINDOW_MS,
+    },
   ];
   if (database) {
     try {
       return (await consumeUsageChain(database, limits)).allowed;
     } catch (error) {
-      console.error("Durable nearby-shelter rate limit unavailable; using bounded fallback", error);
+      console.error(
+        "Durable nearby-shelter rate limit unavailable; using bounded fallback",
+        error,
+      );
     }
   }
   return reserveFallbackShelterSearch(limits[0].subject);
@@ -166,47 +219,60 @@ function cacheKey({ latitude, longitude, radiusMiles }) {
   return `${latitude.toFixed(3)}:${longitude.toFixed(3)}:${radiusMiles.toFixed(0)}`;
 }
 
-function getCached(key, now = Date.now()) {
-  const entry = searchCache.get(key);
-  if (!entry || entry.expiresAt <= now) {
-    searchCache.delete(key);
-    return null;
-  }
-  return entry.value;
-}
-
-function setCached(key, value) {
-  searchCache.set(key, { value, expiresAt: Date.now() + CACHE_TTL_MS });
-  while (searchCache.size > CACHE_LIMIT) searchCache.delete(searchCache.keys().next().value);
-}
-
 function isRetryableShelterSourceError(error) {
-  return error?.retryable === true || ["TimeoutError", "TypeError", "SyntaxError"].includes(error?.name);
+  return (
+    error?.retryable === true ||
+    ["TimeoutError", "TypeError", "SyntaxError"].includes(error?.name)
+  );
 }
 
-async function fetchSheltersAtRadius(query) {
-  const endpoint = new URL(process.env.OVERPASS_API_BASE_URL || OVERPASS_API);
+async function fetchSheltersAtRadius(query, fetchImpl, endpointUrl) {
+  const endpoint = new URL(endpointUrl);
   endpoint.searchParams.set("data", buildShelterQuery(query));
-  const upstream = await fetch(endpoint, {
+  const upstream = await fetchImpl(endpoint, {
     headers: {
       Accept: "application/json",
       "User-Agent": "Pawline nearby-shelter map (https://www.pawlineadopt.com)",
     },
     signal: AbortSignal.timeout(OVERPASS_TIMEOUT_MS),
+    redirect: "error",
   });
   if (!upstream.ok) {
-    const error = new Error(`Nearby shelter source returned ${upstream.status}`);
-    error.retryable = upstream.status === 429 || upstream.status >= 500;
+    const error = new Error(
+      `Nearby shelter source returned ${upstream.status}`,
+    );
+    error.retryable = upstream.status >= 500;
+    error.retryMs =
+      upstream.status === 429
+        ? Math.min(
+            Math.max(Number(upstream.headers?.get("retry-after")) || 60, 60),
+            3600,
+          ) * 1000
+        : 60000;
+    await upstream.body?.cancel();
     throw error;
   }
-  return parseNearbyShelters(await upstream.json());
+  return parseNearbyShelters(
+    JSON.parse(await readBoundedText(upstream, 512000)),
+  );
 }
 
-async function fetchNearbyShelters(query) {
+export async function fetchNearbyShelters(
+  query,
+  fetchImpl = fetch,
+  endpointUrl = process.env.OVERPASS_API_BASE_URL || OVERPASS_API,
+) {
   let lastError;
   for (const radiusMiles of shelterSearchRadii(query.radiusMiles)) {
     try {
-      return { shelters: await fetchSheltersAtRadius({ ...query, radiusMiles }), radiusMiles };
+      return {
+        shelters: await fetchSheltersAtRadius(
+          { ...query, radiusMiles },
+          fetchImpl,
+          endpointUrl,
+        ),
+        radiusMiles,
+      };
     } catch (error) {
       lastError = error;
       if (!isRetryableShelterSourceError(error)) break;
@@ -215,53 +281,167 @@ async function fetchNearbyShelters(query) {
   throw lastError;
 }
 
-export default async function handler(request, response) {
-  response.setHeader("Cache-Control", "public, s-maxage=900, stale-while-revalidate=900");
-  if (request.method !== "GET") {
-    response.setHeader("Allow", "GET");
-    return response.status(405).json({ error: "Method not allowed" });
-  }
-
-  const query = normalizeShelterQuery(request.query);
-  if (query.latitude === null || query.longitude === null) {
-    return response.status(400).json({ error: "A valid map latitude and longitude are required." });
-  }
-
-  const key = cacheKey(query);
-  const cached = getCached(key);
-  if (cached) return response.status(200).json({ ...cached, cached: true });
-
-  if (!await reserveShelterSearch(getDatabase(), request)) {
-    return response.status(429).json({ mode: "error", shelters: [], message: "Nearby shelter search is busy. Try again shortly." });
-  }
-
-  try {
-    const { shelters, radiusMiles } = await fetchNearbyShelters(query);
-    const result = {
-      mode: shelters.length ? "live" : "empty",
-      shelters,
-      count: shelters.length,
-      radiusMiles,
-      requestedRadiusMiles: query.radiusMiles,
-      provider: "OpenStreetMap via Overpass API",
-      attribution: {
-        text: "OpenStreetMap contributors",
-        url: "https://www.openstreetmap.org/copyright",
-      },
-      message: shelters.length
-        ? radiusMiles < query.radiusMiles
-          ? `Showing mapped shelters within ${radiusMiles} miles to keep this search responsive.`
-          : undefined
-        : "No mapped animal shelters were found in this area. Check the map or try a wider radius.",
+export function nearbyDirectory(query) {
+  const radians = (n) => (n * Math.PI) / 180;
+  return PUBLIC_SHELTERS.map((shelter) => {
+    const a =
+      Math.sin(radians(shelter.latitude - query.latitude) / 2) ** 2 +
+      Math.cos(radians(query.latitude)) *
+        Math.cos(radians(shelter.latitude)) *
+        Math.sin(radians(shelter.longitude - query.longitude) / 2) ** 2;
+    return {
+      ...shelter,
+      distance: 3958.8 * 2 * Math.asin(Math.sqrt(Math.min(1, a))),
     };
-    setCached(key, result);
-    return response.status(200).json(result);
-  } catch (error) {
-    console.error("Nearby shelter lookup failed", error);
-    return response.status(503).json({
-      mode: "error",
-      shelters: [],
-      message: "Nearby shelter locations are temporarily unavailable. Current pet listings are unchanged.",
-    });
-  }
+  })
+    .filter((shelter) => shelter.distance <= query.radiusMiles)
+    .sort((a, b) => a.distance - b.distance);
 }
+
+function usableCache(entry, now, age) {
+  return (
+    entry?.value &&
+    Array.isArray(entry.value.shelters) &&
+    entry.observedAt > now - age
+  );
+}
+
+export function createNearbySheltersHandler(dependencies = {}) {
+  const memory = new Map(),
+    coalesce = createPublicFeedCoalescer();
+  const now = dependencies.now || Date.now;
+  const remember = (key, entry) => {
+    memory.set(key, entry);
+    while (memory.size > CACHE_LIMIT) memory.delete(memory.keys().next().value);
+  };
+  const fallback = (query, entry, statusCode = 503) => {
+    if (
+      usableCache(entry, now(), SHELTER_CACHE_STALE_MS) &&
+      entry.value.shelters.length
+    )
+      return {
+        status: 200,
+        body: {
+          ...entry.value,
+          mode: "cached",
+          cached: true,
+          stale: true,
+          partial: true,
+          message:
+            "Showing previously retrieved shelter locations while the map source is unavailable. Confirm current details with each shelter.",
+        },
+      };
+    const shelters = nearbyDirectory(query);
+    if (shelters.length)
+      return {
+        status: 200,
+        body: {
+          mode: "directory",
+          shelters,
+          count: shelters.length,
+          partial: true,
+          radiusMiles: query.radiusMiles,
+          requestedRadiusMiles: query.radiusMiles,
+          provider: "Reviewed public shelter directory",
+          attribution: {
+            text: "LA Animal Services",
+            url: "https://www.laanimalservices.com/give-us-feedback",
+          },
+          message:
+            "Limited directory results are shown while the map source is unavailable. This is not a complete list of nearby shelters.",
+        },
+      };
+    return {
+      status: statusCode,
+      body: {
+        mode: "error",
+        shelters: [],
+        message:
+          "Nearby shelter locations are temporarily unavailable. Current pet listings are unchanged.",
+      },
+    };
+  };
+  return async (request, response) => {
+    response.setHeader("Cache-Control", "no-store");
+    if (request.method !== "GET") {
+      response.setHeader("Allow", "GET");
+      return response.status(405).json({ error: "Method not allowed" });
+    }
+    const query = normalizeShelterQuery(request.query);
+    if (query.latitude === null || query.longitude === null)
+      return response
+        .status(400)
+        .json({ error: "A valid map latitude and longitude are required." });
+    const key = cacheKey(query);
+    const result = await coalesce(key, async () => {
+      let database = (dependencies.getDatabase || getDatabase)(),
+        entry = memory.get(key);
+      if (!usableCache(entry, now(), SHELTER_CACHE_FRESH_MS)) {
+        try {
+          entry = (await readShelterCache(database, key)) || entry;
+        } catch {
+          database = null;
+        }
+      }
+      if (usableCache(entry, now(), SHELTER_CACHE_FRESH_MS)) {
+        remember(key, entry);
+        return { status: 200, body: { ...entry.value, cached: true } };
+      }
+      if (entry?.retryAt > now()) return fallback(query, entry);
+      try {
+        if (
+          !(await (dependencies.reserve || reserveShelterSearch)(
+            database,
+            request,
+          ))
+        )
+          return fallback(query, entry, 429);
+        if (!(await claimShelterRefresh(database, key, now())))
+          return fallback(query, entry);
+        const { shelters, radiusMiles } = await (
+          dependencies.load || fetchNearbyShelters
+        )(query);
+        const value = {
+          mode: shelters.length ? "live" : "empty",
+          shelters,
+          count: shelters.length,
+          radiusMiles,
+          requestedRadiusMiles: query.radiusMiles,
+          observedAt: new Date(now()).toISOString(),
+          provider: "OpenStreetMap via Overpass API",
+          attribution: {
+            text: "OpenStreetMap contributors",
+            url: "https://www.openstreetmap.org/copyright",
+          },
+          message: shelters.length
+            ? radiusMiles < query.radiusMiles
+              ? `Showing mapped shelters within ${radiusMiles} miles to keep this search responsive.`
+              : undefined
+            : "No mapped animal shelters were found in this area. Check the map or try a wider radius.",
+        };
+        remember(key, {
+          value,
+          observedAt: now(),
+          retryAt: now() + SHELTER_CACHE_FRESH_MS,
+        });
+        await writeShelterCache(database, key, value, now()).catch(() => {});
+        return { status: 200, body: value };
+      } catch (error) {
+        const retryMs = error.retryMs || 60000;
+        remember(key, { ...entry, retryAt: now() + retryMs });
+        await writeShelterCache(database, key, null, now(), retryMs).catch(
+          () => {},
+        );
+        return fallback(query, entry);
+      }
+    });
+    if (result.status === 200) {
+      const cap = result.body.partial ? 60 : 900;
+      const ageLimit = result.body.stale ? SHELTER_CACHE_STALE_MS : SHELTER_CACHE_FRESH_MS;
+      const remaining = result.body.observedAt ? Math.floor((Date.parse(result.body.observedAt) + ageLimit - now()) / 1000) : cap;
+      response.setHeader("Cache-Control", `public, s-maxage=${Math.max(0, Math.min(cap, remaining))}`);
+    }
+    return response.status(result.status).json(result.body);
+  };
+}
+export default createNearbySheltersHandler();

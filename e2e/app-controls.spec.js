@@ -25,6 +25,18 @@ async function open(page) {
   await page.getByRole("button", { name: "Just browsing? Explore pets" }).click();
   await expect(page.getByRole("heading", { name: "Pets near you", exact: true })).toBeVisible();
 }
+
+test('limited shelter directory shows its source and remains usable when map lookup fails', async ({page}) => {
+  await fixture(page);
+  await page.route('**/api/nearby-shelters?*', route => route.fulfill({json:{mode:'directory',partial:true,message:'Limited directory results are shown while the map source is unavailable.',attribution:{text:'LA Animal Services',url:'https://www.laanimalservices.com/give-us-feedback'},shelters:[{id:'directory-LACT4',name:'North Central Animal Shelter',latitude:34.0837,longitude:-118.218,address:'3201 Lacy St, Los Angeles, CA 90031',source:'Official shelter directory',reviewedAt:'2026-09-08',website:'https://www.laanimalservices.com/give-us-feedback'}]}}));
+  await page.setViewportSize({width:390,height:844});
+  await open(page);
+  await expect(page.locator('.nearby-shelters')).toContainText('Limited directory results');
+  await expect(page.locator('.nearby-shelters').getByRole('link')).toHaveText(/LA Animal Services/);
+  await page.getByRole('button',{name:/North Central Animal Shelter/}).click();
+  await expect(page.getByRole('dialog')).toContainText('Official shelter directory');
+  await expect(page.getByRole('dialog').getByRole('link',{name:/Visit shelter site/})).toHaveAttribute('href','https://www.laanimalservices.com/give-us-feedback');
+});
 async function more(page, name) {
   await page.getByRole("button", { name: "More", exact: true }).click();
   await page.getByRole("button", { name, exact: true }).click();
