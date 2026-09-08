@@ -8,7 +8,7 @@ import argparse
 import json
 from html.parser import HTMLParser
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, urljoin, unquote
 from xml.etree import ElementTree
 
 import requests
@@ -20,6 +20,7 @@ class SearchHTML(HTMLParser):
     def __init__(self):
         super().__init__()
         self.canonicals, self.descriptions, self.robots, self.schemas = [], [], [], []
+        self.links, self.ids = [], set()
         self.h1 = 0
         self.title = ""
         self.in_title = False
@@ -28,6 +29,10 @@ class SearchHTML(HTMLParser):
 
     def handle_starttag(self, tag, attrs):
         attrs = dict(attrs)
+        if attrs.get("id"):
+            self.ids.add(attrs["id"])
+        if tag == "a" and attrs.get("href"):
+            self.links.append(attrs["href"])
         if tag == "h1":
             self.h1 += 1
         if tag == "title":
@@ -91,22 +96,75 @@ def fetch(url, content_type):
     return response
 
 
+def audit_links(html, canonical, load_page):
+    """Check public HTML destinations once via a cached loader; never follow external links.
+
+    Homepage hashes are application navigation and need browser tests. Article
+    hashes must resolve to a real element, including relative/cross-page links.
+    """
+    page = SearchHTML()
+    page.feed(html)
+    errors = []
+    checked = set()
+    for href in page.links:
+        target = urlsplit(urljoin(canonical, href))
+        if target.hostname not in ("www.pawlineadopt.com", "pawlineadopt.com"):
+            continue
+        if target.scheme != "https" or target.netloc != "www.pawlineadopt.com":
+            errors.append(f"Internal link does not use canonical origin: {href}")
+            continue
+        path = unquote(target.path).rstrip("/") or "/"
+        if ".." in path.split("/") or "\\" in path or path.startswith("/api/") or path == "/api":
+            errors.append(f"Internal link is not a public page: {href}")
+            continue
+        key = (path, target.fragment)
+        if key in checked:
+            continue
+        checked.add(key)
+        try:
+            destination = SearchHTML()
+            destination.feed(load_page(path)[0])
+            if path != "/" and target.fragment and unquote(target.fragment) not in destination.ids:
+                errors.append(f"Internal link has missing anchor: {href}")
+        except (ValueError, OSError, requests.RequestException) as error:
+            errors.append(f"Broken internal link {href}: {error}")
+    return errors
+
+
 def audit(build_dir=None, base_url=None):
     sitemap = fetch(base_url.rstrip("/") + "/sitemap.xml", "xml").text if base_url else Path("public/sitemap.xml").read_text()
     urls = [element.text for element in ElementTree.fromstring(sitemap).iter("{http://www.sitemaps.org/schemas/sitemap/0.9}loc")]
     if not urls or len(set(urls)) != len(urls):
         raise ValueError("Sitemap is empty or has duplicate URLs")
+    cache = {}
+
+    def load_page(path):
+        if path not in cache:
+            if len(cache) >= 32:
+                raise ValueError("Public page audit exceeds 32 destinations")
+            # Reserve failed destinations too, to keep live requests bounded.
+            cache[path] = ValueError("Page could not be loaded")
+            try:
+                if base_url:
+                    response = fetch(base_url.rstrip("/") + path, "text/html")
+                    cache[path] = (response.text, response.headers.get("X-Robots-Tag", ""))
+                else:
+                    route = path.strip("/") or "index"
+                    cache[path] = ((Path(build_dir) / (route + ".html")).read_text(encoding="utf-8"), "")
+            except (ValueError, OSError, requests.RequestException) as error:
+                cache[path] = error
+        if isinstance(cache[path], Exception):
+            raise cache[path]
+        return cache[path]
+
     rows = []
     for url in urls:
         parsed = urlsplit(url)
-        if parsed.scheme + "://" + parsed.netloc != ORIGIN or parsed.query or parsed.fragment or ".." in parsed.path.split("/"):
+        if parsed.scheme + "://" + parsed.netloc != ORIGIN or parsed.query or parsed.fragment or ".." in unquote(parsed.path).split("/") or "\\" in unquote(parsed.path):
             raise ValueError("Sitemap must use canonical public URLs without queries or fragments")
-        if base_url:
-            response = fetch(base_url.rstrip("/") + parsed.path, "text/html")
-            row = audit_html(response.text, url, response.headers.get("X-Robots-Tag", ""))
-        else:
-            route = parsed.path.strip("/") or "index"
-            row = audit_html((Path(build_dir) / (route + ".html")).read_text(encoding="utf-8"), url)
+        html, header = load_page(parsed.path.rstrip("/") or "/")
+        row = audit_html(html, url, header)
+        row["errors"].extend(audit_links(html, url, load_page))
         if any(prior["title"] == row["title"] for prior in rows):
             row["errors"].append("Duplicate page title")
         rows.append(row)
