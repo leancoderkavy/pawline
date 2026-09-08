@@ -782,3 +782,18 @@ html:has(.adopter-experience),body:has(.adopter-experience) { min-width:0; }
   .map-rail.is-collapsed { width:auto; }
   .map-rail.is-collapsed .rail-toggle { inset:6px;width:calc(100% - 12px);height:44px; }
 }
+
+/* Pass 1: a quiet, discoverable control aligned with the search field. */
+.map-rail .rail-toggle { color:var(--green);background:#f0f4ee;border:1px solid #dde5db; }
+.map-rail .rail-toggle:hover { background:#e1ebdf;border-color:#aebfac; }
+.rail-toggle-hint { position:absolute;top:calc(100% + 8px);right:0;padding:7px 10px;border-radius:6px;background:var(--green);color:#fffdf9;white-space:nowrap;font-size:12px;font-weight:600;opacity:0;visibility:hidden;pointer-events:none; }
+.rail-toggle:hover .rail-toggle-hint,.rail-toggle:focus-visible .rail-toggle-hint { opacity:1;visibility:visible; }
+@media(hover:none) { .rail-toggle:hover .rail-toggle-hint { opacity:0;visibility:hidden; } }
+
+/* Pass 3: keep more of the map visible when the mobile drawer is closed. */
+@media(max-width:820px) {
+  .map-rail.is-collapsed { left:12px;right:auto;width:160px;height:56px;border-radius:14px;box-shadow:0 4px 16px #17382f18; }
+  .map-rail.is-collapsed .rail-toggle { background:transparent;border-color:transparent; }
+  .map-workspace .interactive-map .mapboxgl-ctrl-bottom-right { bottom:76px; }
+}
+@media(prefers-reduced-motion:reduce) { .map-rail .rail-toggle { transition:none; } }
