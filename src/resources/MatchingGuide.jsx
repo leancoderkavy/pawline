@@ -41,7 +41,7 @@ export default function FindAPetThatFitsGuidePage({ standalone = false }) {
       <section className="methodology-next" aria-labelledby="guide-next-heading">
         <h2 id="guide-next-heading">Ready to compare current listings?</h2>
         <p>Open the match quiz, share your everyday situation, and use the original shelter or rescue link for the next step.</p>
-        <a href="#match">Start the match quiz <span aria-hidden="true">→</span></a>
+        <a href={standalone ? "/#match" : "#match"}>Start the match quiz <span aria-hidden="true">→</span></a>
       </section>
     </article>
 
