@@ -44,6 +44,7 @@ export function publicConversation(row, userId) {
     blockedByMe: Boolean(row.blocked_by_me),
     incomingCall: row.incoming_call || null,
     lastCall: row.last_call || null,
+    appointment: row.appointment || null,
   };
 }
 
@@ -82,6 +83,8 @@ export async function listConversations(database, userId, conversationId = null)
   const rows = await database`
     SELECT c.*, p.name AS pet_name, p.species, p.breed, p.shelter, p.image_url, p.city,
       o.name AS organization_name,
+      (SELECT json_build_object('state', a.state, 'startsAt', a.starts_at) FROM adoption_appointments a
+        WHERE a.conversation_id = c.id AND a.state IN ('proposed', 'confirmed') AND a.ends_at > now() LIMIT 1) AS appointment,
       (SELECT json_build_object('state', v.state, 'createdAt', v.created_at) FROM direct_video_calls v
         WHERE v.conversation_id = c.id ORDER BY v.created_at DESC LIMIT 1) AS last_call,
       (SELECT json_build_object('id', v.id, 'conversationId', c.id, 'callerName', v.caller_name, 'state', v.state, 'canAccept', true, 'mine', false, 'participant', false)

@@ -29,4 +29,5 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run test:app
       - run: npm run test:chat
+      - run: npm run test:appointments
       - run: npm audit --audit-level=high

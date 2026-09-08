@@ -11,8 +11,10 @@
     "build": "next build",
     "db:migrate": "node scripts/migrate.mjs",
     "db:migrate:dry-run": "node scripts/migrate.mjs --dry-run",
+    "db:migrate:appointments": "node scripts/migrate-appointments.mjs",
     "start": "next start",
     "test:chat": "playwright test --config playwright.chat.config.js",
+    "test:appointments": "playwright test --config playwright.appointments.config.js",
     "test:app": "playwright test --config playwright.app.config.js",
     "test": "node --test && python -m unittest discover -s test -p \"test_*.py\""
   },
@@ -20,6 +22,7 @@
     "@clerk/backend": "^3.17.0",
     "@clerk/nextjs": "^7.9.0",
     "@clerk/react": "^6.15.0",
+    "@daily-co/daily-js": "^0.92.2",
     "@neondatabase/serverless": "^1.0.1",
     "ably": "^2.28.0",
     "ai": "^7.0.70",

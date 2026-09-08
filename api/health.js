@@ -1,5 +1,6 @@
 import { shelterOutreachStatus } from "./_shelter-outreach.js";
 import { videoConfiguration } from "./_direct-video.js";
+import { dailyConfigured } from "./_daily.js";
 
 export function getHealth(environment = process.env) {
   const communityDatabaseConfigured = Boolean(environment.DATABASE_URL);
@@ -33,7 +34,9 @@ export function getHealth(environment = process.env) {
     shelterOutreach: shelterOutreachStatus(environment),
     clerkConfigured,
     directMessagingConfigured: clerkConfigured && communityDatabaseConfigured,
-    videoCallingConfigured: clerkConfigured && communityDatabaseConfigured && videoConfiguration(environment).enabled,
+    videoCallingConfigured: clerkConfigured && communityDatabaseConfigured && (dailyConfigured(environment) || videoConfiguration(environment).enabled),
+    videoProvider: dailyConfigured(environment) ? 'daily' : videoConfiguration(environment).enabled ? 'webrtc' : null,
+    appointmentRemindersConfigured: clerkConfigured && communityDatabaseConfigured && emailConfigured && Boolean(environment.CRON_SECRET),
     realtimeCommunityConfigured: clerkConfigured && communityDatabaseConfigured && realtimeConfigured,
     communityLinkParsingConfigured: clerkConfigured && communityDatabaseConfigured && Boolean(
       environment.VERCEL || environment.AI_GATEWAY_API_KEY || environment.VERCEL_OIDC_TOKEN,

@@ -4,6 +4,10 @@
   "outputDirectory": ".next",
   "crons": [
     {
+      "path": "/api/cron/appointment-reminders",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/cron/purge-video-signals",
       "schedule": "*/15 * * * *"
     },

@@ -1,9 +1,10 @@
 "use client";
 import React, { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, Check, Flag, LoaderCircle, LockKeyhole, MessageCircle, PawPrint, RefreshCw, Search, Send, ShieldCheck, Video } from "lucide-react";
+import { ArrowLeft, CalendarDays, Check, Flag, LoaderCircle, LockKeyhole, MessageCircle, PawPrint, RefreshCw, Search, Send, ShieldCheck, Video } from "lucide-react";
 import "./directMessages.css";
 
 const VideoCall = lazy(() => import("./VideoCall.jsx"));
+const AppointmentPanel = lazy(() => import('./AppointmentPanel.jsx'));
 const time = value => new Date(value).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 const mergeMessages = (old, next) => [...new Map([...old, ...next].map(message => [message.id, message])).values()].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt) || a.id.localeCompare(b.id));
 
@@ -26,6 +27,8 @@ export default function DirectMessagesWorkspace({ request, userId, accountContro
   const [notice, setNotice] = useState(null);
   const [realtimeEnabled, setRealtimeEnabled] = useState(false);
   const [video, setVideo] = useState(null);
+  const [appointmentsOpen, setAppointmentsOpen] = useState(false);
+  const [dailyVideo, setDailyVideo] = useState(false);
   const selectedRef = useRef(null);
   const generation = useRef(0);
   const alive = useRef(true);
@@ -47,6 +50,7 @@ export default function DirectMessagesWorkspace({ request, userId, accountContro
     if (!alive.current || serial !== listRequest.current) return;
     setConversations(result.conversations || []);
     setRealtimeEnabled(Boolean(result.realtime));
+    setDailyVideo(Boolean(result.dailyVideo));
     setLoading(false);
     const id = selectedRef.current;
     if (id) {
@@ -58,6 +62,7 @@ export default function DirectMessagesWorkspace({ request, userId, accountContro
         setSelected(null);
         setMessages([]);
         setVideo(null);
+        setAppointmentsOpen(false);
       }
     }
   }, [request]);
@@ -84,6 +89,7 @@ export default function DirectMessagesWorkspace({ request, userId, accountContro
   }, [request, errorNotice]);
 
   const selectConversation = useCallback(conversation => {
+    setAppointmentsOpen(false);
     generation.current += 1;
     selectedRef.current = conversation?.id || null;
     setSelected(conversation);
@@ -194,6 +200,7 @@ export default function DirectMessagesWorkspace({ request, userId, accountContro
     } catch (error) { errorNotice(error); }
   };
   const openVideo = async (conversation, invitation = null) => {
+    if (dailyVideo && !invitation) { setAppointmentsOpen(true); return; }
     try {
       const result = await request(`/api/direct-video?conversationId=${conversation.id}`);
       if (!result.enabled) { setNotice({ text: result.reason }); return; }
@@ -214,13 +221,13 @@ export default function DirectMessagesWorkspace({ request, userId, accountContro
       <aside className="direct-inbox-list" aria-label="Private conversations">
         <header><div><p className="chat-eyebrow">A little closer to home</p><h1>Messages</h1><p>Questions, answers, and first hellos.</p></div>{accountControl}</header>
         <div className="chat-inbox-tools"><label className="chat-search"><Search /><span className="sr-only">Search conversations</span><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search pets or people" /></label><div><select aria-label="Filter conversations" value={filter} onChange={event => setFilter(event.target.value)}><option value="all">All conversations</option><option value="unread">Unread</option><option value="open">Open questions</option><option value="resolved">Resolved</option><option value="team">Caregiver inbox</option></select><button type="button" className="chat-icon" aria-label="Refresh conversations" onClick={() => loadInbox().catch(errorNotice)}><RefreshCw /></button></div></div>
-        <div className="direct-inbox-scroll">{loading ? <p className="chat-loading" role="status"><LoaderCircle />Loading conversations…</p> : visible.length ? visible.map(item => <button type="button" key={item.id} className={`direct-conversation-row ${selected?.id === item.id ? "is-active" : ""}`} aria-current={selected?.id === item.id ? "true" : undefined} onClick={() => selectConversation(item)}><PetThumb listing={item.listing} /><span><strong>{item.listing.name}{item.unreadCount ? <b className="chat-unread" aria-label={`${item.unreadCount} unread messages`}>{item.unreadCount}</b> : null}</strong><small>{item.other.name}</small><em>{item.preview}</em><span className="chat-row-meta">{item.incomingCall ? "Incoming call" : item.blocked ? "Blocked" : item.status === "resolved" ? "Resolved" : item.role === "listing_contact" ? "Adoption question" : "Private conversation"} · {time(item.lastMessageAt)}</span></span></button>) : <div className="direct-empty compact"><MessageCircle /><strong>{conversations.length ? "No matching conversations" : "Every adoption starts with a question"}</strong><p>{conversations.length ? "Try another name or filter." : "Ask a shelter, rescue, or foster caregiver a question from a pet's listing. Caregivers receive and answer questions here."}</p>{!conversations.length ? <button type="button" className="button" onClick={onBrowse}>Find a pet</button> : null}</div>}</div>
+        <div className="direct-inbox-scroll">{loading ? <p className="chat-loading" role="status"><LoaderCircle />Loading conversations…</p> : visible.length ? visible.map(item => <button type="button" key={item.id} className={`direct-conversation-row ${selected?.id === item.id ? "is-active" : ""}`} aria-current={selected?.id === item.id ? "true" : undefined} onClick={() => selectConversation(item)}><PetThumb listing={item.listing} /><span><strong>{item.listing.name}{item.unreadCount ? <b className="chat-unread" aria-label={`${item.unreadCount} unread messages`}>{item.unreadCount}</b> : null}</strong><small>{item.other.name}</small><em>{item.appointment ? (item.appointment.state === "proposed" ? "Appointment proposed" : "Appointment confirmed") : item.preview}</em><span className="chat-row-meta">{item.incomingCall ? "Incoming call" : item.blocked ? "Blocked" : item.status === "resolved" ? "Resolved" : item.role === "listing_contact" ? "Adoption question" : "Private conversation"} · {time(item.lastMessageAt)}</span></span></button>) : <div className="direct-empty compact"><MessageCircle /><strong>{conversations.length ? "No matching conversations" : "Every adoption starts with a question"}</strong><p>{conversations.length ? "Try another name or filter." : "Ask a shelter, rescue, or foster caregiver a question from a pet's listing. Caregivers receive and answer questions here."}</p>{!conversations.length ? <button type="button" className="button" onClick={onBrowse}>Find a pet</button> : null}</div>}</div>
         <footer className="chat-inbox-note"><LockKeyhole />Private to you and the shelter or caretaker.</footer>
       </aside>
       <section className="direct-thread" aria-label="Private conversation">
         {selected ? <>
           <header className="direct-thread-title"><button type="button" className="direct-mobile-back" aria-label="Back to conversations" onClick={() => selectConversation(null)}><ArrowLeft /></button><PetThumb listing={selected.listing} /><div><h2>{selected.listing.name}</h2><p>{selected.other.name}{selected.organization ? (selected.role === "listing_contact" ? " · Adoption inquiry" : " · Shelter team") : ""}</p></div><button type="button" className="chat-video-button" aria-label="Video call" disabled={paused} onClick={() => openVideo(selected)}><Video /><span>Video call</span></button></header>
-          <div className="chat-thread-tools"><span><ShieldCheck />{selected.organization ? "Shared with the caregiver team" : "Private listing conversation"}</span><button type="button" onClick={() => changeConversation(selected.status === "resolved" ? "reopen" : "resolve")}>{selected.status === "resolved" ? "Reopen" : "Mark resolved"}</button><button type="button" disabled={selected.blocked && !selected.blockedByMe} onClick={() => changeConversation(selected.blockedByMe ? "unblock" : "block")}>{selected.blockedByMe ? "Unblock" : "Block"}</button></div>
+          <div className="chat-thread-tools"><button type="button" onClick={() => setAppointmentsOpen(true)}><CalendarDays size={14} />Appointments{selected.appointment ? ` · ${selected.appointment.state === "proposed" ? "Time proposed" : "Confirmed"}` : ""}</button><span><ShieldCheck />{selected.organization ? "Shared with the caregiver team" : "Private listing conversation"}</span><button type="button" onClick={() => changeConversation(selected.status === "resolved" ? "reopen" : "resolve")}>{selected.status === "resolved" ? "Reopen" : "Mark resolved"}</button><button type="button" disabled={selected.blocked && !selected.blockedByMe} onClick={() => changeConversation(selected.blockedByMe ? "unblock" : "block")}>{selected.blockedByMe ? "Unblock" : "Block"}</button></div>
           <div className="direct-message-list" role="log" aria-label="Messages in this conversation" ref={scrollRef} onScroll={() => { const el = scrollRef.current; stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 100; }}>
             {selected.lastCall ? <p className="chat-call-history"><Video size={14} />Video call · {selected.lastCall.state === "accepted" ? "In progress" : selected.lastCall.state === "ringing" ? "Invitation sent" : selected.lastCall.state} · {time(selected.lastCall.createdAt)}</p> : null}
             {olderCursor ? <button type="button" className="chat-load-older" disabled={threadLoading} onClick={() => { stickToBottom.current = false; loadThread(selected.id, { before: olderCursor }); }}>Load older messages</button> : null}
@@ -237,5 +244,6 @@ export default function DirectMessagesWorkspace({ request, userId, accountContro
       </section>
     </div>
     {video ? <Suspense fallback={<p role="status">Opening video call…</p>}><VideoCall request={request} conversation={video.conversation} invitation={video.invitation} onClose={() => { setVideo(null); loadInbox().catch(errorNotice); }} /></Suspense> : null}
+    {appointmentsOpen && selected ? <Suspense fallback={<p role="status">Opening appointments…</p>}><AppointmentPanel key={`${userId}:${selected.id}`} request={request} conversation={selected} onClose={() => { setAppointmentsOpen(false); loadInbox().catch(errorNotice); }} /></Suspense> : null}
   </div>;
 }

@@ -1,3 +1,4 @@
+const dailyOrigin = /^https:\/\/[a-z0-9-]+\.daily\.co$/.test(process.env.DAILY_DOMAIN || '') ? process.env.DAILY_DOMAIN : '';
 const securityHeaders = [
   {
     key: "Content-Security-Policy",
@@ -8,7 +9,7 @@ const securityHeaders = [
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: blob: https:",
       "connect-src 'self' https://clerk.pawlineadopt.com https://api.mapbox.com https://events.mapbox.com https://*.clerk.accounts.dev https://api.clerk.com https://*.ably.io https://*.ably-realtime.com wss://*.ably-realtime.com",
-      "frame-src https://clerk.pawlineadopt.com https://*.clerk.accounts.dev https://*.clerk.com",
+      `frame-src https://clerk.pawlineadopt.com https://*.clerk.accounts.dev https://*.clerk.com${dailyOrigin ? ` ${dailyOrigin}` : ''}`,
       "worker-src 'self' blob:",
       "frame-ancestors 'none'",
       "base-uri 'self'",
@@ -18,7 +19,7 @@ const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-  { key: "Permissions-Policy", value: "camera=(self), microphone=(self), geolocation=(self)" },
+  { key: "Permissions-Policy", value: `camera=(self${dailyOrigin ? ` "${dailyOrigin}"` : ''}), microphone=(self${dailyOrigin ? ` "${dailyOrigin}"` : ''}), geolocation=(self)` },
 ];
 
 const nextConfig = {
