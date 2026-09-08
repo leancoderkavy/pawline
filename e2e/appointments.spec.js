@@ -18,6 +18,7 @@ test('two accounts book, reschedule, join, finish, choose a next step and cancel
       const dialog = await adopter.getByRole('dialog').boundingBox();
       expect(dialog.x).toBeGreaterThanOrEqual(0); expect(dialog.x + dialog.width).toBeLessThanOrEqual(width + 1);
     }
+    await adopter.getByRole('checkbox', { name: 'Email me appointment updates and a reminder', exact: true }).check();
     await adopter.getByLabel('What would you like to talk about?').fill('Can we see Miso playing with a favorite toy?');
     await adopter.getByRole('button', { name: 'Propose time', exact: true }).click();
     await expect(adopter.getByText('Waiting for confirmation', { exact: true })).toBeVisible();
@@ -27,6 +28,8 @@ test('two accounts book, reschedule, join, finish, choose a next step and cancel
     const local = new Date(); const value = new Date(local - local.getTimezoneOffset() * 60000).toISOString().slice(0, 19);
     await shelter.getByLabel('Your local date and time').fill(value);
     await shelter.getByRole('button', { name: 'Propose time', exact: true }).click();
+    await expect(adopter.getByRole('checkbox', { name: 'Email me updates and a reminder', exact: true })).toBeChecked();
+    await expect(adopter.getByRole('dialog').getByRole('checkbox')).toHaveCount(1);
     await adopter.getByRole('button', { name: 'Confirm this time' }).click();
     const calendar = adopter.waitForEvent('download');
     await adopter.getByRole('button', { name: 'Add to calendar' }).click();
@@ -34,7 +37,7 @@ test('two accounts book, reschedule, join, finish, choose a next step and cancel
     await adopter.getByRole('button', { name: 'Join video hello', exact: true }).click();
     await shelter.getByRole('button', { name: 'Join video hello', exact: true }).click();
     for (const page of [adopter, shelter]) await expect(page.getByText('You’re in the call. You can keep your camera off.')).toBeVisible();
-    await adopter.getByRole('button', { name: 'Return to messages', exact: true }).click();
+    await adopter.getByRole('button', { name: 'Back to appointment', exact: true }).click();
     await expect(adopter.locator('iframe')).toHaveCount(0);
     await adopter.getByRole('button', { name: 'Join video hello', exact: true }).click();
     await expect(adopter.getByText('You’re in the call. You can keep your camera off.')).toBeVisible();
@@ -45,7 +48,7 @@ test('two accounts book, reschedule, join, finish, choose a next step and cancel
     await adopter.getByRole('button', { name: 'Arrange a final visit', exact: true }).click();
     await adopter.getByLabel('Visit arrangements').fill('Meet at the shelter reception.');
     await adopter.getByRole('button', { name: 'Propose time', exact: true }).click();
-    await shelter.getByRole('button', { name: 'Return to messages', exact: true }).click();
+    await shelter.getByRole('button', { name: 'Back to appointment', exact: true }).click();
     await shelter.getByRole('button', { name: 'Confirm this time' }).click();
     await expect(adopter.getByRole('article', { name: 'Final visit appointment' }).getByText('Confirmed', { exact: true })).toBeVisible();
     await adopter.getByRole('button', { name: 'Cancel appointment', exact: true }).click();
