@@ -2,6 +2,12 @@
 
 const guides = [
   {
+    href: "#guides/checklist", path: "/guides/questions-to-ask-before-adopting",
+    label: "Prepare for a conversation",
+    title: "Questions to ask a shelter before adopting a pet",
+    description: "Confirm availability, meeting arrangements, household needs, and the next step with a practical checklist.",
+  },
+  {
     href: "#guides/nearby", path: "/guides/find-adoptable-pets-near-you",
     label: "Start your search",
     title: "How to find adoptable dogs and cats near you",

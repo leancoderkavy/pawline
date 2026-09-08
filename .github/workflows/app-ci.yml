@@ -25,6 +25,7 @@ jobs:
       - run: npm test
       - run: npm --workspace mcp test
       - run: npm run build
+      - run: python scripts/audit_search.py --build-dir .next/server/app
       - run: npx playwright install --with-deps chromium
       - run: npm run test:app
       - run: npm run test:chat

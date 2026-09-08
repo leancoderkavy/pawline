@@ -1,6 +1,6 @@
 # Pawline search visibility
 
-Reviewed 2026-09-06. Canonical property: https://www.pawlineadopt.com/.
+Reviewed 2026-09-08. Canonical property: https://www.pawlineadopt.com/.
 
 ## Audit and implementation
 
@@ -31,12 +31,12 @@ The signed-in Search Console account did not list Pawline at audit time. A canon
 After Google has processed data, export the Performance report's Queries CSV in English. Compare equal completed date ranges with identical search type, country, device, and page filters. Store exports under ignored `output/search-console/` and run:
 
 ```powershell
-python scripts/search_rankings.py output/search-console/Queries.csv output/search-console/previous-Queries.csv > output/search-console/rankings.json
+python scripts/search_rankings.py output/search-console/Queries.csv output/search-console/previous-Queries.csv --current-context output/search-console/current.json --previous-context output/search-console/previous.json > output/search-console/rankings.json
 ```
 
 The report computes CTR, measured average position, and positive position improvement. Queries with at least 100 impressions and average position 4–20 are flagged for title and intent review; this is an internal prioritization heuristic. Missing observations stay unknown. GSC omits some query data; reports are not an exhaustive keyword census. See the [Search Analytics documentation](https://developers.google.com/webmaster-tools/v1/searchanalytics/query).
 
-Check indexing of the five sitemap URLs, Google-selected canonicals, and mobile experience. Inspect AI search performance separately when the property exposes that report. Verification, sitemap acceptance, indexing, and ranking changes are separate outcomes.
+Check indexing of the six sitemap URLs, Google-selected canonicals, and mobile experience. Inspect AI search performance separately when the property exposes that report. Verification, sitemap acceptance, indexing, and ranking changes are separate outcomes.
 
 ## Petfinder research
 
@@ -49,3 +49,28 @@ python scripts/petfinder_research.py https://www.petfinder.com/ https://www.petf
 ```
 
 The live direct-fetch attempt on 2026-09-06 received HTTP 403 on robots.txt and stopped without requesting listing pages. Evidence: `output/petfinder-research-20260906.json`. This is an access blocker, not a successful inventory import. Do not bypass the block. Any later animal-data integration needs an accessible authorized feed and verified field mappings; the existing authorized-feed importer remains separate.
+
+## Five follow-up improvements (2026-09-08)
+
+1. Shared resource catalog, visible breadcrumbs, BreadcrumbList schema, and related reading connect the guide hierarchy. See Google's [breadcrumb guidance](https://developers.google.com/search/docs/appearance/structured-data/breadcrumb).
+2. `/guides/questions-to-ask-before-adopting` provides an original shelter-conversation checklist with six printable checkboxes and ASPCA references. It is linked from the map guide panel, sitemap, and both LLM reference files. Target intent: questions to ask a shelter before adopting.
+3. AI draft validation requires two distinct supplied sources in both citations and article links, restricts internal links to published resources, and checks FAQ claims. Drafts still require human publication review.
+4. Ranking comparisons require matching property, search type, filters, and equal non-overlapping date ranges. Missing queries remain unknown, including queries seen only in the previous export. Export totals are observed query totals, not property totals.
+5. CI audits initial HTML for every sitemap page: heading, title, description, canonical, indexability, and resource schema. Claim, moderation, and API responses carry noindex directives; this is indexing control, not access control. See Google's [robots directives](https://developers.google.com/search/docs/crawling-indexing/robots-meta-tag).
+
+Each comparison context file records the actual export settings. Example `current.json` (illustrative dates, not measurements):
+
+```json
+{"site":"https://www.pawlineadopt.com/","searchType":"web","startDate":"2026-08-08","endDate":"2026-08-14","filters":{}}
+```
+
+The corresponding previous context uses August 1 through August 7 with the same property, type, and filters. Record any country, device, or page filter in `filters`; empty means unfiltered. Never label mismatched exports as comparable.
+
+Run the crawlability audit locally and after deployment:
+
+```powershell
+python scripts/audit_search.py --build-dir .next/server/app
+python scripts/audit_search.py --base-url https://www.pawlineadopt.com
+```
+
+On September 8, GSC Performance showed zero clicks, zero impressions, and no query rows; available chart dates were September 5–6. Indexing was still processing. There is no measurable ranking baseline or demonstrated ranking gain. Petfinder's prior robots 403 remains an unresolved access boundary; this follow-up adds no imported inventory.
