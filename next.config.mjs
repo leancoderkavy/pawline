@@ -28,7 +28,12 @@ const nextConfig = {
     root: process.cwd(),
   },
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      ...["/api/:path*", "/shelter/claim", "/pawline-moderation/:path*"].map(source => ({
+        source, headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }],
+      })),
+    ];
   },
 };
 

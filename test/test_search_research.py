@@ -32,7 +32,9 @@ class SearchResearchTests(unittest.TestCase):
             path = Path(directory) / "Queries.csv"
             path.write_text('Top queries,Clicks,Impressions,CTR,Position\n"dogs, nearby",10,200,5%,8.5\nnew,0,0,0%,0\n', encoding="utf-8-sig")
             current = read_queries(path)
-        result = summarize(current, {"dogs, nearby": {"averagePosition": 10}})
+        result = summarize(current, {"dogs, nearby": {"averagePosition": 10, "clicks": 5}},
+                           {"site": "pawline", "searchType": "web", "filters": {}, "startDate": "2026-08-08", "endDate": "2026-08-14"},
+                           {"site": "pawline", "searchType": "web", "filters": {}, "startDate": "2026-08-01", "endDate": "2026-08-07"})
         self.assertEqual(result["queries"][0]["positionImprovement"], 1.5)
         self.assertEqual(result["queries"][0]["ctr"], .05)
         self.assertIsNone(result["queries"][1]["averagePosition"])

@@ -1,5 +1,12 @@
 import { generateText, jsonSchema, Output } from "ai";
 import { getDatabase } from "./_db.js";
+import { SEARCH_ORIGIN, searchResources } from "../src/resources/searchCatalog.js";
+
+export const approvedSeoLinks = [
+  { anchor: "Pawline adoption discovery map", url: `${SEARCH_ORIGIN}/` },
+  ...searchResources.map(resource => ({ anchor: resource.title, url: `${SEARCH_ORIGIN}${resource.path}` })),
+];
+const approvedSeoUrls = new Set([...approvedSeoLinks.map(link => link.url), `${SEARCH_ORIGIN}/llms.txt`]);
 
 const TAVILY_SEARCH_URL = "https://api.tavily.com/search";
 const MODEL = process.env.PAWLINE_SEO_MODEL || process.env.PAWLINE_AI_MODEL || "google/gemini-2.5-flash-lite";
@@ -97,7 +104,7 @@ function wordCount(value) {
 }
 
 function urlsInMarkdown(markdown) {
-  return unique([...String(markdown || "").matchAll(/https:\/\/[^\s)\]]+/g)].map((match) => match[0]));
+  return unique([...String(markdown || "").matchAll(/https?:\/\/[^\s)\]]+/g)].map((match) => match[0]));
 }
 
 export function validateSeoBrief(body) {
@@ -196,18 +203,18 @@ export function validateSeoDraft(payload, researchSources) {
   })).filter((item) => knownSourceUrls.has(item.sourceUrl) && item.claim).slice(0, MAX_SOURCES) : [];
   const internalLinks = Array.isArray(payload?.internalLinks) ? payload.internalLinks.map((item) => ({
     anchor: cleanText(item?.anchor, 100), url: String(item?.url || ""),
-  })).filter((item) => item.anchor && /^https:\/\/www\.pawlineadopt\.com\/(?:$|llms\.txt$)/.test(item.url)).slice(0, 3) : [];
+  })).filter((item) => item.anchor && approvedSeoUrls.has(item.url)).slice(0, 3) : [];
   const blockers = [];
   const warnings = [];
   const markdownUrls = urlsInMarkdown(articleMarkdown);
-  const unknownMarkdownUrls = markdownUrls.filter((url) => !knownSourceUrls.has(url) && !url.startsWith("https://www.pawlineadopt.com/"));
+  const unknownMarkdownUrls = markdownUrls.filter((url) => !knownSourceUrls.has(url) && !approvedSeoUrls.has(url));
   const prohibitedClaims = [
     /\b(?:guarantee|guaranteed|always|never)\b/i,
     /\b(?:cure|treat|diagnos(?:e|is|ed|ing)|medical advice)\b/i,
     /\b(?:legally required|legal advice|attorney)\b/i,
     /\b(?:perfect match|best match|adoption decision)\b/i,
     /\b(?:currently available|available now)\b/i,
-  ].filter((pattern) => pattern.test(`${title} ${metaDescription} ${articleMarkdown}`));
+  ].filter((pattern) => pattern.test(`${title} ${metaDescription} ${excerpt} ${articleMarkdown} ${faq.map(item => `${item.question} ${item.answer}`).join(" ")}`));
   if (title.length < 30 || title.length > 70) blockers.push("Title must be 30–70 characters.");
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) blockers.push("Slug must use lowercase letters, numbers, and hyphens only.");
   if (metaDescription.length < 120 || metaDescription.length > 165) blockers.push("Meta description must be 120–165 characters.");
@@ -215,7 +222,8 @@ export function validateSeoDraft(payload, researchSources) {
   if (outline.length < 3) blockers.push("Draft needs at least three outline sections.");
   if (wordCount(articleMarkdown) < 700) blockers.push("Article needs at least 700 words.");
   if (faq.length < 2) blockers.push("Draft needs at least two FAQ answers.");
-  if (citations.length < 2) blockers.push("Draft needs at least two citations from the supplied research.");
+  if (new Set(citations.map(item => item.sourceUrl)).size < 2) blockers.push("Draft needs at least two distinct citations from the supplied research.");
+  if (markdownUrls.filter(url => knownSourceUrls.has(url)).length < 2) blockers.push("Article must link at least two distinct supplied research sources in its body.");
   if (unknownMarkdownUrls.length) blockers.push("Article contains citations outside the supplied research set.");
   if (prohibitedClaims.length) blockers.push("Draft contains a prohibited certainty, advice, or availability claim.");
   if (!articleMarkdown.includes("confirm") && !articleMarkdown.includes("Confirm")) warnings.push("Add a reminder to confirm adoption details with the shelter.");
@@ -247,10 +255,7 @@ async function storeSources(database, jobId, sources) {
 function modelPrompt(brief, sources) {
   return JSON.stringify({
     brief,
-    allowedInternalLinks: [
-      { anchor: "Pawline adoption discovery map", url: "https://www.pawlineadopt.com/" },
-      { anchor: "Pawline source and verification policy", url: "https://www.pawlineadopt.com/llms.txt" },
-    ],
+    allowedInternalLinks: approvedSeoLinks,
     research: sources.map(({ title, excerpt, sourceUrl }) => ({ title, excerpt, sourceUrl })),
   });
 }
