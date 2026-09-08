@@ -31,7 +31,7 @@ export default function DailyAppointmentCall({ request, conversation, appointmen
       expiry = setTimeout(() => { if (!disposed) { setError('Your appointment time has ended.'); destroy(); } }, Math.max(0, new Date(access.expiresAt) - new Date()));
       timer = setTimeout(recheck, 10000);
       await frame.join({ url: access.url, token: access.token });
-    })().catch(() => { if (!disposed) { setError('Video is temporarily unavailable. Return to messages to try again or arrange another time.'); destroy(); } });
+    })().catch(failure => { if (!disposed) { setError(failure.status ? failure.message : 'Video is temporarily unavailable. Go back to your appointment to try again or arrange another time.'); destroy(); } });
     return () => { disposed = true; clearTimeout(timer); clearTimeout(expiry); destroy(); };
   }, [request, conversation.id, conversation.listing.name, appointment.id, appointment.revision]);
   const finish = async () => { setBusy(true); try { await callbacks.current.onFinish(); } catch (failure) { setError(failure.message); } finally { setBusy(false); } };
@@ -39,6 +39,6 @@ export default function DailyAppointmentCall({ request, conversation, appointmen
     <p role={error ? 'alert' : 'status'}>{error || status}</p>
     {!error ? <div ref={container} className="appointment-video-frame" /> : null}
     <p className="appointment-hint">Pawline does not record or transcribe this call. Daily carries the live audio and video. Use headphones for clearer sound.</p>
-    <div className="appointment-actions"><button type="button" onClick={onLeave}>Return to messages</button><button type="button" className="button" onClick={finish} disabled={busy}>{busy ? 'Finishing…' : 'Finish appointment for both people'}</button></div>
+    <div className="appointment-actions"><button type="button" onClick={onLeave}>Back to appointment</button><button type="button" className="button" onClick={finish} disabled={busy}>{busy ? 'Finishing…' : 'Finish appointment for both people'}</button></div>
   </div>;
 }

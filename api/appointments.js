@@ -1,6 +1,7 @@
 import { directEndpoint, directError, parseConversationId, requireConversation, requireWritable } from './_direct.js';
 import { consumeUsage } from './_usage-limit.js';
 import { dailyConfigured, dailyProvider } from './_daily.js';
+import { closeAppointmentRoom, revokeAppointmentRoom } from './_appointment-rooms.js';
 
 export function normalizeAppointment(input, now = Date.now()) {
   const start = Date.parse(input.startsAt), minutes = Number(input.minutes);
@@ -21,11 +22,16 @@ export async function ensureAppointments(db) {
 export async function queueAppointmentEmails(db, appointment) {
   await db`INSERT INTO appointment_notifications (appointment_id, revision, user_id, kind, due_at)
     SELECT ${appointment.id}, ${appointment.revision}, user_id, 'updated', now() FROM appointment_email_preferences
-    WHERE appointment_id = ${appointment.id} AND enabled ON CONFLICT DO NOTHING`;
+    WHERE appointment_id = ${appointment.id} AND enabled
+      AND (${appointment.state} <> 'confirmed' OR ${appointment.starts_at}::timestamptz > now() + interval '30 minutes')
+    ON CONFLICT (appointment_id, revision, user_id, kind) DO UPDATE SET discarded = false, attempts = 0, lease_until = NULL, due_at = EXCLUDED.due_at
+      WHERE appointment_notifications.sent_at IS NULL AND appointment_notifications.discarded`;
   if (appointment.state === 'confirmed') await db`INSERT INTO appointment_notifications (appointment_id, revision, user_id, kind, due_at)
-    SELECT ${appointment.id}, ${appointment.revision}, user_id, 'reminder', ${appointment.starts_at}::timestamptz - interval '30 minutes'
+    SELECT ${appointment.id}, ${appointment.revision}, user_id, 'reminder', GREATEST(now(), ${appointment.starts_at}::timestamptz - interval '30 minutes')
     FROM appointment_email_preferences WHERE appointment_id = ${appointment.id} AND enabled
-      AND ${appointment.starts_at}::timestamptz > now() + interval '30 minutes' ON CONFLICT DO NOTHING`;
+      AND ${appointment.starts_at}::timestamptz > now()
+    ON CONFLICT (appointment_id, revision, user_id, kind) DO UPDATE SET discarded = false, attempts = 0, lease_until = NULL, due_at = EXCLUDED.due_at
+      WHERE appointment_notifications.sent_at IS NULL AND appointment_notifications.discarded`;
 }
 
 function publicAppointment(row, user, conversation, enabled) {
@@ -113,15 +119,37 @@ export function createAppointmentsHandler(dependencies = {}) {
       if (!await consumeUsage(db, { scope: 'appointment_join', subject: `${id}:${user.id}`, limit: 30, windowMs: 3600000 })) throw directError('Too many connection attempts.', 429);
       await reserveVideoMinutes(db, row, environment);
       const name = `pawline-${id}-r${row.revision}`;
-      await db`UPDATE adoption_appointments SET room_name = ${name} WHERE id = ${id} AND revision = ${row.revision} AND state = 'confirmed'`;
-      row.room_name = name;
-      const url = await provider.room(row);
-      const latestConversation = await requireConversation(db, conversation.id, user.id); requireWritable(latestConversation);
-      await requireConversation(db, conversation.id, row.caregiver_id);
-      const [latest] = await db`SELECT * FROM adoption_appointments WHERE id = ${id}`;
-      if (latest.revision !== row.revision || latest.state !== 'confirmed') { await provider.close(name); throw directError('The appointment changed. Please refresh.', 409); }
-      await db`UPDATE adoption_appointments SET room_ready = true WHERE id = ${id} AND revision = ${row.revision}`;
-      return response.status(200).json({ url, token: await provider.token(row, user), expiresAt: row.ends_at });
+      const [claimed] = await db`UPDATE adoption_appointments SET room_name = ${name}, updated_at = now()
+        WHERE id = ${id} AND revision = ${row.revision} AND state = 'confirmed' AND NOT room_closed AND room_name IS NULL RETURNING *`;
+      const verifyAccess = async () => {
+        const currentConversation = await requireConversation(db, conversation.id, user.id); requireWritable(currentConversation);
+        await requireConversation(db, conversation.id, row.caregiver_id);
+        const [current] = await db`SELECT * FROM adoption_appointments WHERE id = ${id}`;
+        if (!current || current.revision !== row.revision || current.room_name !== name || !publicAppointment(current, user, currentConversation, enabled).canJoin) throw directError('The appointment changed. Please refresh.', 409);
+        return current;
+      };
+      let creationFinished = false;
+      try {
+        row = claimed || await verifyAccess();
+        if (!claimed && !row.room_ready) throw directError('The private room is being prepared. Please try joining again in a few seconds.', 409);
+        // Only the atomic first claimant may create a room. Rejoining must never
+        // recreate an expired/deleted room that still has unexpired old tokens.
+        const url = claimed ? await provider.room(row) : `${environment.DAILY_DOMAIN}/${name}`;
+        creationFinished = Boolean(claimed);
+        await verifyAccess();
+        await db`UPDATE adoption_appointments SET room_ready = true WHERE id = ${id} AND revision = ${row.revision} AND state = 'confirmed' AND NOT room_closed`;
+        const token = await provider.token(row, user);
+        await verifyAccess();
+        return response.status(200).json({ url, token, expiresAt: row.ends_at });
+      } catch (error) {
+        // A competing join waiting for the creator does not revoke its room.
+        if (claimed && !creationFinished || [403, 404, 409].includes(error.statusCode) && (claimed || row.room_ready)) {
+          const revoked = await revokeAppointmentRoom(db, { id, room_name: name });
+          try { await closeAppointmentRoom(db, provider, revoked, { creationFinished }); }
+          catch { /* Access is revoked; scheduled maintenance retries closure. */ }
+        }
+        throw error;
+      }
     }
     if (action === 'reminders') {
       if (!view.canEdit) throw directError('Only appointment participants can change reminders.', 403);
@@ -141,7 +169,7 @@ export function createAppointmentsHandler(dependencies = {}) {
           WHERE id = ${id} AND revision = ${row.revision} AND state = 'proposed' AND NOT EXISTS (
             SELECT 1 FROM adoption_appointments other JOIN direct_conversations c ON c.id = other.conversation_id
             WHERE other.id <> ${id} AND other.state = 'confirmed' AND other.starts_at < a.ends_at AND other.ends_at > a.starts_at
-              AND (other.caregiver_id = ${caregiver} OR c.inquirer_clerk_user_id = ${conversation.inquirer_clerk_user_id})
+              AND (other.caregiver_id IN (${caregiver}, ${conversation.inquirer_clerk_user_id}) OR c.inquirer_clerk_user_id IN (${caregiver}, ${conversation.inquirer_clerk_user_id}))
           ) RETURNING *`,
       ]);
       [row] = results[1];
@@ -159,10 +187,11 @@ export function createAppointmentsHandler(dependencies = {}) {
       if (!updated) throw directError('Appointment changed. Refresh before continuing.', 409); row = updated;
     } else if (action === 'end') {
       if (!view.canEdit || !['confirmed', 'elapsed'].includes(row.state) || new Date(row.starts_at) > new Date() && !row.room_name) throw directError('Participants can finish an appointment after its start time or after opening its video room.', 403);
-      if (row.room_name) await provider.close(row.room_name);
-      const [updated] = await db`UPDATE adoption_appointments SET state = 'completed', room_closed = true, revision = revision + 1, updated_at = now()
+      const [updated] = await db`UPDATE adoption_appointments SET state = 'completed', revision = revision + 1
         WHERE id = ${id} AND revision = ${row.revision} RETURNING *`;
       if (!updated) throw directError('Appointment changed. Please refresh.', 409); row = updated;
+      try { if (await closeAppointmentRoom(db, provider, row)) row.room_closed = true; }
+      catch { /* The appointment is finished; maintenance retries media closure. */ }
     } else if (action === 'next_step') {
       if (!view.canSetNextStep || !['continue_application', 'request_information', 'schedule_visit', 'withdraw_interest'].includes(input.nextStep)) throw directError('Choose an adoption next step.', 422);
       const [updated] = await db`UPDATE adoption_appointments SET next_step = ${input.nextStep}, next_step_by = ${user.id}, revision = revision + 1, updated_at = now()
