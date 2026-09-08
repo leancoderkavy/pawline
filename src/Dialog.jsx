@@ -1,17 +1,22 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 const openDialogs = new Set();
 
-export default function Dialog({ title, children, onClose }) {
+export default function Dialog({ title, children, onClose, centered = false }) {
+  const [mounted, setMounted] = useState(false);
   const dialogRef = useRef(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
   const titleId = `dialog-title-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
 
+  useEffect(() => setMounted(true), []);
+
   useEffect(() => {
+    if (!mounted) return;
     const previousFocus = document.activeElement;
     const dialog = dialogRef.current;
     openDialogs.add(dialog);
@@ -49,12 +54,14 @@ export default function Dialog({ title, children, onClose }) {
       document.removeEventListener("keydown", handleKeyDown);
       if (previousFocus?.isConnected) previousFocus.focus?.();
     };
-  }, []);
+  }, [mounted]);
 
-  return <div className="overlay" onMouseDown={onClose}>
+  if (!mounted) return null;
+
+  return createPortal(<div className={`overlay${centered ? " overlay-centered" : ""}`} onMouseDown={onClose}>
     <div ref={dialogRef} data-pawline-dialog className="dialog" onMouseDown={event => event.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby={titleId}>
       <div className="dialog-head"><h2 id={titleId}>{title}</h2><button type="button" onClick={onClose} aria-label="Close dialog"><X /></button></div>
       {children}
     </div>
-  </div>;
+  </div>, document.body);
 }
