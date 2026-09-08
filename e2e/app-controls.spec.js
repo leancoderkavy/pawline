@@ -139,9 +139,9 @@ test("location input, autocomplete keyboard controls and map failure recovery", 
   await expect(input).toHaveValue("Pasadena, California, USA");
   await expect(input).toHaveAttribute("aria-expanded", "false");
   await page.getByRole("button", { name: "Hide discovery tools", exact: true }).click();
-  await page.getByRole("button", { name: /(?:Explore|Open) the interactive map/ }).click();
-  await page.getByRole("button", { name: "Back to map preview" }).click();
-  await expect(page.getByRole("button", { name: /(?:Explore|Open) the interactive map/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Retry map" })).toBeVisible();
+  await page.getByRole("button", { name: "Retry map" }).click();
+  await expect(page.getByRole("button", { name: "Retry map" })).toBeVisible();
 });
 
 test("application fields and optional AI enforce guest and consent boundaries", async ({ page }) => {
@@ -267,4 +267,31 @@ test("refresh failure retains results and recovery clears warning", async ({ pag
   await page.getByLabel("Refresh listings").click();
   await expect(page.locator(".feed-refresh")).toContainText("Checked");
   await expect(page.locator(".feed-refresh")).not.toContainText("out of date");
+});
+
+
+test("nearby text search filters names, breeds and shelter names and clears", async ({ page }) => {
+  await fixture(page); await open(page);
+  const search = page.getByRole("searchbox", { name: "Search nearby pets, shelters, and events" });
+  await search.fill("miso");
+  await expect(page.locator(".map-result-open")).toHaveCount(1);
+  await search.fill("mixed");
+  await expect(page.locator(".map-result-open")).toHaveCount(1);
+  await search.fill("qa shelter");
+  await expect(page.locator(".map-result-open")).toHaveCount(2);
+  await search.fill("no matching pet");
+  await expect(page.locator(".map-result-open")).toHaveCount(0);
+  await page.getByRole("button", { name: "Clear results search" }).click();
+  await expect(page.locator(".map-result-open")).toHaveCount(2);
+});
+
+test("location watch updates the position without changing the chosen search area", async ({ page, context }) => {
+  await context.grantPermissions(["geolocation"]);
+  await context.setGeolocation({ latitude: 34.1478, longitude: -118.1445, accuracy: 12 });
+  await fixture(page, { map: true }); await open(page);
+  await page.getByRole("button", { name: "Use my location", exact: true }).click();
+  await expect(page.locator(".map-location-accuracy")).toContainText("12 m");
+  await context.setGeolocation({ latitude: 34.15, longitude: -118.15, accuracy: 8 });
+  await expect(page.locator(".map-location-accuracy")).toContainText("8 m");
+  await expect(page.getByRole("combobox", { name: "Find pets near" })).toHaveValue("Your location");
 });

@@ -526,28 +526,15 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
   const moveSearchRef = useRef(onMoveSearch);
   const densityRef = useRef(densityMode);
   const routeRef = useRef(routePets);
-  const [interactive, setInteractive] = useState(false);
+  const [mapAttempt, setMapAttempt] = useState(0);
   const [perspective, setPerspective] = useState(false);
   const [landmarks, setLandmarks] = useState(true);
-  const [mapState, setMapState] = useState({ status: "preview", message: "" });
+  const [mapState, setMapState] = useState({ status: "loading", message: "" });
   const center = coordinates
     ? [Number(coordinates.longitude), Number(coordinates.latitude)]
     : DEFAULT_MAP_CENTER;
-  const previewParams = new URLSearchParams({
-    longitude: String(center[0]),
-    latitude: String(center[1]),
-  });
-  const previewPoints = points.filter(point => point.type !== "shelter").slice(0, 40).map(point =>
-    `${point.longitude},${point.latitude},${point.type === "event" ? "e" : "p"}`,
-  ).join("|");
-  if (previewPoints) previewParams.set("points", previewPoints);
-  const previewUrl = `/api/map?${previewParams}&quality=2`;
-  const mobilePreviewUrl = `${previewUrl}&variant=mobile`;
-  const [previewUnavailable, setPreviewUnavailable] = useState(false);
-
-  useEffect(() => {
-    setPreviewUnavailable(false);
-  }, [previewUrl]);
+  const centerRef = useRef(center);
+  centerRef.current = center;
   const geoJson = useMemo(() => ({
     type: "FeatureCollection",
     features: points.map(point => ({
@@ -564,10 +551,12 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
   routeRef.current = routePets;
 
   useEffect(() => {
-    if (!interactive || !containerRef.current) return undefined;
+    if (!containerRef.current) return undefined;
     let active = true;
     let map;
     setMapState({ status: "loading", message: "" });
+    setPerspective(false);
+    setLandmarks(true);
 
     Promise.all([
       fetch("/api/map-token").then(response => readJson(response, "Interactive maps are unavailable."))
@@ -584,7 +573,7 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
         container: containerRef.current,
         style: "mapbox://styles/mapbox/standard",
         config: { basemap: { theme: "default", lightPreset: "day", showPointOfInterestLabels: true, showTransitLabels: true, showPlaceLabels: true, showRoadLabels: true, showPedestrianRoads: true, show3dObjects: true } },
-        center,
+        center: centerRef.current,
         zoom: 12,
         antialias: true,
         attributionControl: true,
@@ -761,6 +750,8 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
         map.on("dragstart", event => searchInteraction.start(event));
         map.on("zoomstart", event => searchInteraction.start(event));
         map.on("moveend", () => searchInteraction.finish(map.getCenter()));
+        map.moveLayer("pawline-user-location-halo");
+        map.moveLayer("pawline-user-location");
         setMapState({ status: "ready", message: "" });
       });
       map.on("error", () => {
@@ -775,7 +766,7 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
       mapRef.current = null;
       if (map) map.remove();
     };
-  }, [interactive]);
+  }, [mapAttempt]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -818,29 +809,9 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
   }, [coordinates?.longitude, coordinates?.latitude]);
 
   return <>
-    {interactive
-      ? <div ref={containerRef} className="interactive-map" role="region" aria-label={`Interactive pet map centered on ${location}`} />
-      : <div className="map-facade">
-          <picture>
-            <source media="(max-width: 700px)" srcSet={mobilePreviewUrl} width="450" height="760" />
-            <img
-              src={previewUrl}
-              width="1280"
-              height="900"
-              alt={`Map preview centered on ${location}`}
-              className={previewUnavailable ? "is-unavailable" : undefined}
-              onError={() => setPreviewUnavailable(true)}
-              fetchPriority="high"
-              decoding="async"
-            />
-          </picture>
-          <button type="button" className="map-activate" onClick={() => setInteractive(true)}>
-            <LocateFixed />
-            <span><strong>{previewUnavailable ? "Open the interactive map" : "Explore the interactive map"}</strong><small>{previewUnavailable ? "Map preview unavailable. Try the interactive view." : "Drag, zoom, and open current listings"}</small></span>
-          </button>
-        </div>}
+    <div ref={containerRef} className="interactive-map" role="region" aria-label={`Interactive pet map centered on ${location}`} />
     {mapState.status === "loading" ? <div className="map-loading" role="status">Loading interactive map…</div> : null}
-    {mapState.status === "error" ? <div className="map-unavailable" role="alert"><span className="map-unavailable-icon"><MapPin /></span><strong>Map temporarily unavailable</strong><span>{mapState.message}</span><button type="button" className="button" onClick={() => { setInteractive(false); setMapState({ status: "preview", message: "" }); }}>Back to map preview</button></div> : null}
+    {mapState.status === "error" ? <div className="map-unavailable" role="alert"><span className="map-unavailable-icon"><MapPin /></span><strong>Map temporarily unavailable</strong><span>{mapState.message}</span><button type="button" className="button" onClick={() => { setMapAttempt(value => value + 1); }}>Retry map</button></div> : null}
     {mapState.status === "ready" ? <>
       <div className="map-detail-controls" role="group" aria-label="Map detail">
         <button type="button" aria-pressed={perspective} onClick={() => {
@@ -1050,6 +1021,8 @@ function MapPanel({ location, coordinates, userCoordinates, locationPrompt, conf
         <button type="button" className="button primary" onClick={onRequestLocation} disabled={locationPrompt.status === "loading"}>{locationPrompt.status === "loading" ? "Locating…" : "Use my location"}</button>
         <button type="button" className="location-permission-dismiss" onPointerDown={event => event.stopPropagation()} onClick={onDismissLocation} aria-label="Dismiss location prompt">Not now</button>
       </div> : null}
+      {configured === true && !locationDialogOpen ? <button type="button" className="map-my-location" onClick={onRequestLocation}><LocateFixed size={18} />My location</button> : null}
+      {userCoordinates ? <span className="map-location-accuracy" role="status">Location accuracy: about {Math.round(userCoordinates.accuracy)} m</span> : null}
       <span className="map-legend"><PawPrint className="pet-paw" /> {petType === "All" ? "Pets" : `${petType}s`} {showEvents ? <><PawPrint className="event-paw" /> Events</> : null} <PawPrint className="discovery-paw" /> Web leads {visibleShelters.length ? <><Building2 className="shelter-marker" /> Shelters</> : null}</span>
       <span className="map-attribution">Markers checked this session · Listing update times vary by provider · Shelter locations © OpenStreetMap contributors</span>
     </div>
@@ -1244,6 +1217,11 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
   });
   const [locationState, setLocationState] = useState({ status: "idle", message: "" });
   const [userCoordinates, setUserCoordinates] = useState(null);
+  const locationWatchRef = useRef(null);
+  const [resultQuery, setResultQuery] = useState("");
+  useEffect(() => () => {
+    if (locationWatchRef.current !== null) navigator.geolocation?.clearWatch(locationWatchRef.current);
+  }, []);
   const [locationPrompt, setLocationPrompt] = useState({ status: "idle", message: "" });
   const refreshFeedRef = useRef(null);
   const [feedRefresh, setFeedRefresh] = useState({ loading: true, updatedAt: null, error: "" });
@@ -1297,7 +1275,8 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
     petType: mapPetType,
     distance: mapDistance,
     showEvents: showMapEvents,
-  }), [hoursFilteredPets, remoteEvents, remoteDiscoveries, communityDiscoveries, nearbyShelters, coordinates, mapPetType, mapDistance, showMapEvents]);
+    query: resultQuery,
+  }), [hoursFilteredPets, remoteEvents, remoteDiscoveries, communityDiscoveries, nearbyShelters, coordinates, mapPetType, mapDistance, showMapEvents, resultQuery]);
   const routePets = useMemo(() => mapView.pets.filter(pet => saved.includes(pet.id)).slice(0, 8), [mapView.pets, saved]);
 
   useEffect(() => {
@@ -1470,16 +1449,22 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
       return;
     }
     setLocationPrompt({ status: "loading", message: "Waiting for your browser…" });
-    navigator.geolocation.getCurrentPosition(
+    if (locationWatchRef.current !== null) navigator.geolocation.clearWatch(locationWatchRef.current);
+    let centerOnFirstFix = true;
+    locationWatchRef.current = navigator.geolocation.watchPosition(
       position => {
         const next = {
           longitude: position.coords.longitude,
           latitude: position.coords.latitude,
+          accuracy: position.coords.accuracy,
         };
         setUserCoordinates(next);
-        setCoordinates({ ...next, name: "Your location" });
-        setLocation("Your location");
-        setMapSearchMoved(false);
+        if (centerOnFirstFix) {
+          setCoordinates({ ...next, name: "Your location" });
+          setLocation("Your location");
+          setMapSearchMoved(false);
+          centerOnFirstFix = false;
+        }
         setLocationState({ status: "success", message: "Your location is shown on the map." });
         setLocationPrompt({ status: "hidden", message: "" });
       },
@@ -1487,9 +1472,10 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
         const message = error.code === error.PERMISSION_DENIED
           ? "Location access was denied. You can enable it in your browser settings."
           : "We couldn’t get your location. Check your connection and try again.";
+        setUserCoordinates(null);
         setLocationPrompt({ status: "error", message });
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
     );
   };
   const dismissLocationPrompt = useCallback(event => {
@@ -1575,6 +1561,8 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
         </div>
         <div id="map-rail-content" className="rail-content" ref={railContentRef}>
           {["explore", "favorites"].includes(activePanel) ? <div className="explore-intro">
+            <div className="result-search"><Search size={18} /><input aria-label="Search nearby pets, shelters, and events" placeholder="Pet, breed, shelter, or event" value={resultQuery} onChange={event => setResultQuery(event.target.value)} type="search" maxLength={120} />{resultQuery ? <button type="button" aria-label="Clear results search" onClick={() => setResultQuery("")}><X size={16} /></button> : null}</div>
+            {resultQuery ? <p role="status">{mapView.pets.length + mapView.shelters.length + mapView.events.length + mapView.discoveries.length} nearby results for "{resultQuery}"</p> : null}
             <div className="explore-heading"><div><h1>{showSavedOnly ? "Saved pets" : "Pets near you"}</h1><span className={`live-state feed-${feed.mode}`}><i />{feed.mode === "live" ? "Current pet listings" : feed.mode === "loading" ? "Checking listings" : "Listings unavailable"}</span></div><button type="button" className="mobile-view-map" onClick={() => setRailCollapsed(true)}><Compass /> View map</button></div>
             <p>{feed.mode === "live" ? `${petCountLabel(showSavedOnly ? mapView.pets.filter(pet => saved.includes(pet.id)).length : mapView.pets.length, mapPetType)}${showSavedOnly ? " saved" : ""} within ${mapDistance} miles.` : feed.message || "Current shelter listings are unavailable. Pawline does not show made-up pets."}</p>
             <button className="onboarding-back" onClick={() => openPanel("onboarding")}>New here? Get started <ChevronRight /></button>
