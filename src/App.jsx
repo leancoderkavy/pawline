@@ -459,7 +459,7 @@ function ShelterDetail({ shelter, onClose }) {
   const directionsUrl = Number.isFinite(Number(shelter.latitude)) && Number.isFinite(Number(shelter.longitude))
     ? `https://www.google.com/maps/dir/?api=1&destination=${shelter.latitude},${shelter.longitude}`
     : null;
-  const location = shelter.address || shelter.city || "Location supplied by OpenStreetMap";
+  const location = shelter.address || shelter.city || "Location supplied by the public source";
   return <Dialog title={shelter.name || "Animal shelter"} onClose={onClose}>
     <div className="map-point-detail">
       <div className="point-detail-hero is-shelter"><span className="point-detail-icon"><Building2 /></span><div><span className="point-detail-label"><MapPin /> Nearby animal shelter</span><p>This is a nearby shelter location, not a current Pawline pet listing. Confirm adoption availability before visiting.</p></div></div>
@@ -469,7 +469,8 @@ function ShelterDetail({ shelter, onClose }) {
         {shelter.animals ? <div><dt><PawPrint /> Animals</dt><dd>{shelter.animals}</dd></div> : null}
         {shelter.operator ? <div><dt><Building2 /> Operator</dt><dd>{shelter.operator}</dd></div> : null}
       </dl>
-      <aside className="visit-note is-caution"><ShieldCheck /><div><strong>{shelter.adoptionIndicated ? "Adoption noted in the source" : "Availability needs confirmation"}</strong><span>{shelter.adoptionIndicated ? "The location is tagged for adoption, but individual pets and visiting rules can change." : "OpenStreetMap does not confirm individual pets, fees, hours, or adoption availability."}</span></div></aside>
+      <p>{shelter.source}{shelter.reviewedAt ? ` · Directory reviewed ${shelter.reviewedAt}` : ""}</p>
+      <aside className="visit-note is-caution"><ShieldCheck /><div><strong>{shelter.adoptionIndicated ? "Adoption noted in the source" : "Availability needs confirmation"}</strong><span>{shelter.adoptionIndicated ? "The location is tagged for adoption, but individual pets and visiting rules can change." : "Directory and map records do not confirm individual pets, fees, hours, or adoption availability."}</span></div></aside>
       <div className="point-detail-actions">
         {shelter.website ? <a className="button" href={shelter.website} target="_blank" rel="noreferrer">Visit shelter site <ExternalLink /></a> : <a className="button" href={shelter.sourceUrl} target="_blank" rel="noreferrer">View source details <ExternalLink /></a>}
         {directionsUrl ? <a className="button button-outline" href={directionsUrl} target="_blank" rel="noreferrer">Directions <Compass /></a> : null}
@@ -872,10 +873,12 @@ function NearbyShelters({ shelters, state, onOpen }) {
   return <section className="nearby-shelters" aria-labelledby="nearby-shelters-title">
     <div><Building2 /><span><small>Nearby shelter locations</small><strong id="nearby-shelters-title">Know where to look next</strong></span></div>
     <p>These are nearby shelter locations, not availability listings. Confirm pets and visit rules with the shelter.</p>
+    {state.message ? <p role="status">{state.message}</p> : null}
+    {state.observedAt ? <p>Map locations last retrieved {new Date(state.observedAt).toLocaleString()}.</p> : null}
     {shelters.slice(0, 3).map(shelter => <button key={shelter.id} type="button" onClick={() => onOpen(shelter)}>
       <span>{shelter.name}</span><small>{shelter.address || shelter.city || "Open location details"}</small><ChevronRight />
     </button>)}
-    <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">Map data from OpenStreetMap <ExternalLink /></a>
+    <a href={state.attribution?.url || "https://www.openstreetmap.org/copyright"} target="_blank" rel="noreferrer">Source: {state.attribution?.text || "OpenStreetMap contributors"} <ExternalLink /></a>
   </section>;
 }
 
@@ -1351,7 +1354,7 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
         const body = await readJson(response, "Nearby shelter locations are unavailable.");
         if (!response.ok) throw new Error(body.message || "Nearby shelter locations are unavailable.");
         setNearbyShelters(body.shelters || []);
-        setShelterState({ status: "ready", message: body.message || "" });
+        setShelterState({ status: "ready", message: body.message || "", attribution: body.attribution, observedAt: body.observedAt });
       })
       .catch(error => {
         if (error.name !== "AbortError") {

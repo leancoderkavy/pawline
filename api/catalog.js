@@ -61,13 +61,24 @@ export function catalogQuery(query = {}) {
 }
 
 export async function searchCatalog(database, options) {
-  const { id, species, latitude, longitude, radius, limit, after, at, text } =
-    options;
+  const {
+    id,
+    species,
+    latitude,
+    longitude,
+    radius,
+    limit,
+    after,
+    at,
+    text,
+    createdAfter = null,
+  } = options;
   const rows = await database`
     SELECT p.*, EXISTS (SELECT 1 FROM organization_memberships m WHERE m.organization_id = p.organization_id) AS organization_has_members
     FROM pets p LEFT JOIN sources s ON s.id = p.source_id
     WHERE p.status='available' AND p.verified_at IS NOT NULL AND p.id > ${after}::uuid AND p.created_at <= ${at}::timestamptz
       AND (${id}::uuid IS NULL OR p.id=${id}::uuid)
+      AND (${createdAfter}::timestamptz IS NULL OR p.created_at > ${createdAfter}::timestamptz)
       AND (p.source_id IS NULL OR (s.enabled AND s.last_success_at > now() - interval '48 hours'))
       AND (${species}::text IS NULL OR p.species=${species})
       AND (${text}='' OR strpos(lower(concat_ws(' ',p.name,p.breed,p.shelter,p.city)),lower(${text})) > 0)

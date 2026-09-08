@@ -3,7 +3,7 @@ import { neon } from "@neondatabase/serverless";
 
 const dryRun = process.argv.slice(2).includes("--dry-run");
 const schemaUrl = new URL("../db/schema.sql", import.meta.url);
-const schema = await fs.readFile(schemaUrl, "utf8") + "\n" + await fs.readFile(new URL("../db/network-growth.sql", import.meta.url), "utf8");
+const schema = await fs.readFile(schemaUrl, "utf8") + "\n" + await fs.readFile(new URL("../db/network-growth.sql", import.meta.url), "utf8") + "\n" + await fs.readFile(new URL("../db/migrations/20260908-shelter-cache.sql", import.meta.url), "utf8");
 
 if (!dryRun && !process.env.DATABASE_URL) {
   const envFile = new URL("../.env.local", import.meta.url);
@@ -138,6 +138,7 @@ if (!dryRun) {
 let verification = null;
 if (!dryRun) [verification] = await sql`
   SELECT
+    to_regclass('public.shelter_search_cache') AS shelter_search_cache,
     to_regclass('public.adoption_appointments') AS adoption_appointments,
     to_regclass('public.appointment_email_preferences') AS appointment_email_preferences,
     to_regclass('public.appointment_notifications') AS appointment_notifications,
@@ -255,6 +256,7 @@ if (!dryRun) [verification] = await sql`
 `;
 
 const requiredTables = [
+  "shelter_search_cache",
   "adoption_appointments", "appointment_email_preferences", "appointment_notifications", "appointment_attendance", "appointment_webhook_events", "appointment_video_budget", "appointment_video_reservations",
   "sources", "pets", "pet_submission_files", "pet_submission_log", "ingestion_runs",
   "ratings", "adoption_events", "web_discoveries",

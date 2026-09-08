@@ -22,7 +22,18 @@ export async function savedSearchAction(database, user, request) {
     const [search] =
       await database`SELECT filters,last_checked_at FROM saved_pet_searches WHERE id=${body.id} AND clerk_user_id=${user.id}`;
     if (!search) throw networkError("Saved search not found.", 404);
-    const result = await searchCatalog(database, catalogQuery(search.filters));
+    let options;
+    try {
+      options = catalogQuery({ ...search.filters, cursor: body.cursor });
+    } catch (error) {
+      throw networkError(error.message);
+    }
+    const result = await searchCatalog(database, {
+      ...options,
+      ...(body.onlyNew === true
+        ? { createdAfter: search.last_checked_at }
+        : {}),
+    });
     // Never mark unseen later pages read; notifications refer to the current page.
     return {
       ...result,
@@ -31,6 +42,7 @@ export async function savedSearchAction(database, user, request) {
           p.listedAt && new Date(p.listedAt) > new Date(search.last_checked_at),
       ),
       lastCheckedAt: search.last_checked_at,
+      onlyNew: body.onlyNew === true,
     };
   }
   const name = requiredText(body.name, 1, 100, "a search name");
@@ -54,7 +66,7 @@ export async function savedSearchAction(database, user, request) {
   const rows = await database`
     INSERT INTO saved_pet_searches (clerk_user_id,name,filters)
     SELECT ${user.id},${name},${JSON.stringify(filters)}::jsonb
-    WHERE (SELECT count(*) FROM saved_pet_searches WHERE clerk_user_id=${user.id}) < 20
+    WHERE (SELECT count(*) FROM saved_pet_searches WHERE clerk_user_id=${user.id}) < 20 OR EXISTS (SELECT 1 FROM saved_pet_searches WHERE clerk_user_id=${user.id} AND name=${name})
     ON CONFLICT (clerk_user_id,name) DO UPDATE SET filters=EXCLUDED.filters
     RETURNING id,name,filters`;
   if (!rows[0])
