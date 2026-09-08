@@ -1,11 +1,12 @@
 import { directEndpoint, directError, listConversations, parseListingId, publicConversation, requireConversation } from "./_direct.js";
 import { consumeUsage } from "./_usage-limit.js";
+import { dailyConfigured, dailyProvider } from './_daily.js';
 
 export function createConversationsHandler(dependencies) {
   return directEndpoint(["GET", "POST", "PATCH"], async ({ request, response, database, user, notify, environment }) => {
     if (request.method === "GET") {
       const rows = await listConversations(database, user.id);
-      return response.status(200).json({ conversations: rows.map(row => publicConversation(row, user.id)), realtime: Boolean(environment.ABLY_API_KEY) });
+      return response.status(200).json({ conversations: rows.map(row => publicConversation(row, user.id)), realtime: Boolean(environment.ABLY_API_KEY), dailyVideo: dailyConfigured(environment) });
     }
     if (request.method === "PATCH") {
       const conversation = await requireConversation(database, request.body?.conversationId, user.id);
@@ -32,6 +33,13 @@ export function createConversationsHandler(dependencies) {
       if (action === "block" || action === "resolve") {
         await database`UPDATE direct_video_calls SET state = 'ended', ended_at = now() WHERE conversation_id = ${conversation.id} AND state IN ('ringing', 'accepted')`;
         await database`DELETE FROM direct_video_signals WHERE call_id IN (SELECT id FROM direct_video_calls WHERE conversation_id = ${conversation.id})`;
+        const rooms = await database`SELECT id, room_name FROM adoption_appointments WHERE conversation_id = ${conversation.id} AND room_name IS NOT NULL AND NOT room_closed`;
+        for (const room of rooms) {
+          try {
+            await (dependencies?.provider || dailyProvider(environment)).close(room.room_name);
+            await database`UPDATE adoption_appointments SET room_closed = true WHERE id = ${room.id}`;
+          } catch { /* The block is saved. Scheduled maintenance retries provider closure. */ }
+        }
       }
       const updated = await requireConversation(database, conversation.id, user.id);
       if (action !== "read") await notify(updated);
