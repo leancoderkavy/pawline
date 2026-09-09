@@ -35,3 +35,17 @@
 .onboarding-footnote { color:#51655c; }
 @media (min-width:821px) { .panel-onboarding { --map-rail-width:520px; } }
 @media (max-width:820px) { .panel-onboarding .map-rail { top:10px; height:auto; } .onboarding { padding:20px 16px max(20px,env(safe-area-inset-bottom)); } }
+
+/* Round 1: leave the primary paths in view on small phones. */
+@media (max-width:520px) {
+ .onboarding-map-art { height:88px;margin:12px 0 16px; }
+ .onboarding-art-pin,.onboarding-art-home { width:36px;height:36px;top:8px; }
+ .onboarding-art-home { top:16px; }
+ .onboarding-art-pin svg,.onboarding-art-home svg { width:20px;height:20px; }
+ .onboarding-art-label { bottom:8px;font-size:11px; }
+ .onboarding h1 { font-size:28px;margin:12px 0 8px; }
+ .onboarding-choices { margin:16px 0;gap:8px; }
+ .onboarding-choices button { padding:12px;min-height:76px;gap:8px; }
+ .onboarding-choices small { font-size:13px;margin-top:4px; }
+ .onboarding-footnote { margin:8px 0 0; }
+}
