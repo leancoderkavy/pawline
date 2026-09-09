@@ -21,6 +21,7 @@ class SearchHTML(HTMLParser):
         super().__init__()
         self.canonicals, self.descriptions, self.robots, self.schemas = [], [], [], []
         self.links, self.ids = [], set()
+        self.social = {}
         self.h1 = 0
         self.title = ""
         self.in_title = False
@@ -41,6 +42,9 @@ class SearchHTML(HTMLParser):
             self.canonicals.append(attrs.get("href", ""))
         if tag == "meta":
             name = attrs.get("name", "").lower()
+            key = attrs.get("property", name)
+            if key.startswith(("og:", "twitter:")):
+                self.social.setdefault(key, []).append(attrs.get("content", ""))
             if name == "description":
                 self.descriptions.append(attrs.get("content", ""))
             if name in ("robots", "googlebot"):
@@ -87,6 +91,23 @@ def audit_html(html, canonical, robots_header=""):
             if len(items) < 2 or [item.get("position") for item in items] != list(range(1, len(items) + 1)) or items[-1].get("item") != canonical:
                 errors.append("Invalid breadcrumb hierarchy")
     return {"url": canonical, "title": page.title, "h1": page.h1, "errors": errors}
+
+
+def audit_social(html, canonical):
+    page = SearchHTML()
+    page.feed(html)
+    errors = []
+    for key in ("og:title", "og:description", "og:url", "og:image", "twitter:card", "twitter:title", "twitter:description", "twitter:image"):
+        values = page.social.get(key, [])
+        if len(values) != 1 or not values[0].strip():
+            errors.append(f"Missing or duplicate social metadata: {key}")
+    if page.social.get("og:url", [""])[0].rstrip("/") != canonical.rstrip("/"):
+        errors.append("Social URL does not match canonical")
+    for key in ("og:image", "twitter:image"):
+        for image in page.social.get(key, []):
+            if urlsplit(image).scheme != "https":
+                errors.append(f"Social image must use HTTPS: {key}")
+    return errors
 
 
 def fetch(url, content_type):
@@ -164,6 +185,7 @@ def audit(build_dir=None, base_url=None):
             raise ValueError("Sitemap must use canonical public URLs without queries or fragments")
         html, header = load_page(parsed.path.rstrip("/") or "/")
         row = audit_html(html, url, header)
+        row["errors"].extend(audit_social(html, url))
         row["errors"].extend(audit_links(html, url, load_page))
         if any(prior["title"] == row["title"] for prior in rows):
             row["errors"].append("Duplicate page title")

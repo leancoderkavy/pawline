@@ -44,3 +44,11 @@ class InternalLinkTests(unittest.TestCase):
         pages = {'/': ('<h1>Map</h1>', ''), '/guides': ('<h2 id="adoption tips">Tips</h2>', '')}
         html = '<a href="/#match">Quiz</a><a href="/guides#adoption%20tips">Tips</a>'
         self.assertEqual(audit_links(html, 'https://www.pawlineadopt.com/guides', pages.__getitem__), [])
+
+class SocialPreviewTests(unittest.TestCase):
+    def test_detects_missing_and_wrong_social_metadata(self):
+        from scripts.audit_search import audit_social
+        errors = audit_social('<meta property="og:url" content="https://www.pawlineadopt.com/wrong"><meta property="og:image" content="http://example.com/image.png">', 'https://www.pawlineadopt.com/guides')
+        self.assertIn('Social URL does not match canonical', errors)
+        self.assertIn('Social image must use HTTPS: og:image', errors)
+        self.assertIn('Missing or duplicate social metadata: twitter:card', errors)
