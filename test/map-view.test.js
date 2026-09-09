@@ -87,3 +87,10 @@ test("text search matches all nearby record types and requires every query term"
   assert.equal(breed.shelters.length, 0);
   assert.equal(buildMapView({ ...data, query: "happy missing" }).pets.length, 0);
 });
+
+test("search tolerates accents and punctuation and includes shelter metadata", () => {
+  const data = { pets: [], events: [], discoveries: [], shelters: [{ ...center, name: "San Jos\u00e9 Rescue", operator: "Happy-Paws", animals: "dogs" }], center };
+  assert.equal(buildMapView({ ...data, query: "san jose" }).shelters.length, 1);
+  assert.equal(buildMapView({ ...data, query: "happy paws dogs" }).shelters.length, 1);
+  assert.equal(buildMapView({ ...data, query: "   " }).shelters.length, 1);
+});
