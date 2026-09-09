@@ -295,3 +295,24 @@ test("location watch updates the position without changing the chosen search are
   await expect(page.locator(".map-location-accuracy")).toContainText("8 m");
   await expect(page.getByRole("combobox", { name: "Find pets near" })).toHaveValue("Your location");
 });
+
+
+test("search recovery explains coverage and restores results", async ({ page }) => {
+  await fixture(page); await open(page);
+  await page.getByRole("searchbox", { name: "Search nearby pets, shelters, and events" }).fill("unmatched animal");
+  await expect(page.locator(".result-search-summary")).toContainText("No nearby matches");
+  await expect(page.locator(".result-search-summary")).toContainText("loaded results");
+  await page.getByRole("button", { name: "Show all nearby results" }).click();
+  await expect(page.locator(".map-result-open")).toHaveCount(2);
+});
+
+test("stopping location sharing removes the dot state and ignores later readings", async ({ page, context }) => {
+  await context.grantPermissions(["geolocation"]);
+  await context.setGeolocation({ latitude: 34.1478, longitude: -118.1445, accuracy: 12 });
+  await fixture(page, { map: true }); await open(page);
+  await page.getByRole("button", { name: "Use my location", exact: true }).click();
+  await page.getByRole("button", { name: "Stop sharing location" }).click();
+  await context.setGeolocation({ latitude: 35, longitude: -119, accuracy: 8 });
+  await expect(page.locator(".map-location-accuracy")).toHaveCount(0);
+  await expect(page.getByRole("combobox", { name: "Find pets near" })).toHaveValue("Your location");
+});
