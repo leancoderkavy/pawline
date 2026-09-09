@@ -12,6 +12,7 @@ from urllib.parse import urlsplit, urljoin, unquote
 from xml.etree import ElementTree
 
 import requests
+from urllib.robotparser import RobotFileParser
 
 ORIGIN = "https://www.pawlineadopt.com"
 
@@ -152,11 +153,28 @@ def audit_links(html, canonical, load_page):
     return errors
 
 
+def audit_robots(text, urls):
+    policy = RobotFileParser()
+    policy.parse(text.splitlines())
+    errors = []
+    if ORIGIN + "/sitemap.xml" not in (policy.site_maps() or []):
+        errors.append("Robots policy is missing canonical sitemap")
+    for agent in ("Googlebot", "bingbot", "OAI-SearchBot", "PerplexityBot"):
+        for url in urls:
+            if not policy.can_fetch(agent, url):
+                errors.append(f"Robots policy blocks {agent}: {url}")
+    return errors
+
+
 def audit(build_dir=None, base_url=None):
     sitemap = fetch(base_url.rstrip("/") + "/sitemap.xml", "xml").text if base_url else Path("public/sitemap.xml").read_text()
     urls = [element.text for element in ElementTree.fromstring(sitemap).iter("{http://www.sitemaps.org/schemas/sitemap/0.9}loc")]
     if not urls or len(set(urls)) != len(urls):
         raise ValueError("Sitemap is empty or has duplicate URLs")
+    robots = fetch(base_url.rstrip("/") + "/robots.txt", "text/plain").text if base_url else Path("public/robots.txt").read_text()
+    robots_errors = audit_robots(robots, urls)
+    if robots_errors:
+        raise ValueError("; ".join(robots_errors))
     cache = {}
 
     def load_page(path):

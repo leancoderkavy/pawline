@@ -52,3 +52,15 @@ class SocialPreviewTests(unittest.TestCase):
         self.assertIn('Social URL does not match canonical', errors)
         self.assertIn('Social image must use HTTPS: og:image', errors)
         self.assertIn('Missing or duplicate social metadata: twitter:card', errors)
+
+class RobotsPolicyTests(unittest.TestCase):
+    def test_specific_search_bot_block_is_detected(self):
+        from scripts.audit_search import audit_robots, ORIGIN
+        policy = 'User-agent: *\nAllow: /\n\nUser-agent: OAI-SearchBot\nDisallow: /guides\n\nSitemap: ' + ORIGIN + '/sitemap.xml'
+        errors = audit_robots(policy, [ORIGIN + '/guides'])
+        self.assertEqual(len(errors), 1)
+        self.assertIn('OAI-SearchBot', errors[0])
+
+    def test_requires_canonical_sitemap(self):
+        from scripts.audit_search import audit_robots
+        self.assertIn('Robots policy is missing canonical sitemap', audit_robots('User-agent: *\nAllow: /', []))
