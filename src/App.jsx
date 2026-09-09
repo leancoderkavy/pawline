@@ -914,7 +914,7 @@ function VisitPlanner({ pets, location }) {
   </section>;
 }
 
-function MapPanel({ showLocationControls = true, location, coordinates, userCoordinates, locationPrompt, configured, view, petType, showEvents, densityMode, routePets, onOpenPet, onOpenEvent, onOpenDiscovery, onOpenShelter, onMapMove, onRequestLocation, onDismissLocation, onRevealMap }) {
+function MapPanel({ showLocationControls = true, location, coordinates, userCoordinates, locationPrompt, configured, view, petType, showEvents, densityMode, routePets, onOpenPet, onOpenEvent, onOpenDiscovery, onOpenShelter, onMapMove, onRequestLocation, onStopLocation, onDismissLocation, onRevealMap }) {
   const locationDialogRef = useRef(null);
   const { pets: visiblePets, events: visibleEvents, discoveries: visibleDiscoveries, shelters: visibleShelters } = view;
   const locationDialogOpen = showLocationControls && configured === true && locationPrompt.status !== "hidden" && !userCoordinates;
@@ -996,7 +996,7 @@ function MapPanel({ showLocationControls = true, location, coordinates, userCoor
         <button type="button" className="location-permission-dismiss" onPointerDown={event => event.stopPropagation()} onClick={onDismissLocation} aria-label="Dismiss location prompt">Not now</button>
       </div> : null}
       {showLocationControls && configured === true && !locationDialogOpen ? <button type="button" className="map-my-location" onClick={onRequestLocation}><LocateFixed size={18} />My location</button> : null}
-      {userCoordinates ? <span className="map-location-accuracy" role="status">Location accuracy: about {Math.round(userCoordinates.accuracy)} m</span> : null}
+      {userCoordinates ? <div className="map-location-accuracy"><span role="status">Location accuracy: about {Math.round(userCoordinates.accuracy)} m</span><button type="button" onClick={onStopLocation}>Stop sharing location</button></div> : null}
       <span className="map-legend"><PawPrint className="pet-paw" /> {petType === "All" ? "Pets" : `${petType}s`} {showEvents ? <><CalendarDays className="event-paw" /> Events</> : null} <Compass className="discovery-paw" /> Web leads {visibleShelters.length ? <><House className="shelter-marker" /> Shelters</> : null}</span>
       <span className="map-attribution">Markers checked this session · Listing update times vary by provider · Shelter locations © OpenStreetMap contributors</span>
     </div>
@@ -1419,6 +1419,14 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
       setLocationState({ status: "error", message: error.message });
     }
   };
+  const stopUserLocation = () => {
+    locationRequestRef.current += 1;
+    if (locationWatchRef.current !== null) navigator.geolocation?.clearWatch(locationWatchRef.current);
+    locationWatchRef.current = null;
+    setUserCoordinates(null);
+    setLocationPrompt({ status: "hidden", message: "" });
+    setLocationState({ status: "success", message: "Location sharing stopped. Your search area is unchanged." });
+  };
   const requestUserLocation = () => {
     if (!navigator.geolocation) {
       setLocationPrompt({ status: "error", message: "Location sharing is not supported by this browser." });
@@ -1530,7 +1538,7 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
       accountAction={clerkConfigured ? <Suspense fallback={null}><MapAccountActions onProfile={() => openPanel("profile")} /></Suspense> : null} />
 
   <main id="discover" tabIndex={-1} className={`map-workspace panel-${activePanel} ${railCollapsed ? "rail-collapsed" : ""} ${selectedPet ? "detail-open" : ""}`}>
-      <MapPanel showLocationControls={activePanel !== "onboarding"} location={location} coordinates={coordinates} userCoordinates={userCoordinates} locationPrompt={locationPrompt} configured={integrations.mapboxConfigured} view={mapView} petType={mapPetType} showEvents={showMapEvents} densityMode={densityMode} routePets={routePets} onOpenPet={openPetDetail} onOpenEvent={setSelectedEvent} onOpenDiscovery={setSelectedDiscovery} onOpenShelter={setSelectedShelter} onMapMove={searchThisMapArea} onRequestLocation={requestUserLocation} onDismissLocation={dismissLocationPrompt} onRevealMap={() => setRailCollapsed(true)} />
+      <MapPanel showLocationControls={activePanel !== "onboarding"} location={location} coordinates={coordinates} userCoordinates={userCoordinates} locationPrompt={locationPrompt} configured={integrations.mapboxConfigured} view={mapView} petType={mapPetType} showEvents={showMapEvents} densityMode={densityMode} routePets={routePets} onOpenPet={openPetDetail} onOpenEvent={setSelectedEvent} onOpenDiscovery={setSelectedDiscovery} onOpenShelter={setSelectedShelter} onMapMove={searchThisMapArea} onStopLocation={stopUserLocation} onRequestLocation={requestUserLocation} onDismissLocation={dismissLocationPrompt} onRevealMap={() => setRailCollapsed(true)} />
 
       <aside className={`map-rail ${railCollapsed ? "is-collapsed" : ""}`} aria-label="Map discovery tools">
         <button ref={railToggleRef} className="rail-toggle" type="button" onClick={() => setRailCollapsed(value => !value)} aria-expanded={!railCollapsed} aria-controls="map-rail-content" title={railCollapsed ? "Show discovery tools" : "Hide discovery tools"}>
