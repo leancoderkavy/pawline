@@ -787,7 +787,7 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
     {mapState.status === "loading" ? <div className="map-loading" role="status">Loading interactive map…</div> : null}
     {mapState.status === "error" ? <div className="map-unavailable" role="alert"><span className="map-unavailable-icon"><MapPin /></span><strong>Map temporarily unavailable</strong><span>{mapState.message}</span><button type="button" className="button" onClick={() => { setMapAttempt(value => value + 1); }}>Retry map</button></div> : null}
     {mapState.status === "ready" ? <>
-      <div className="map-detail-controls" role="group" aria-label="Map detail">
+      <details className="map-detail-controls"><summary><SlidersHorizontal size={16} />Map options</summary><div role="group" aria-label="Map detail">
         <button type="button" aria-pressed={perspective} onClick={() => {
           const next = !perspective;
           mapRef.current?.easeTo({ pitch: next ? 55 : 0, duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 500 });
@@ -798,7 +798,7 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
           mapRef.current?.setConfigProperty("basemap", "showPointOfInterestLabels", next);
           setLandmarks(next);
         }}><MapPin size={16} />Places</button>
-      </div>
+      </div></details>
       <button type="button" className="map-fit-results" disabled={!points.length} onClick={() => {
         const bounds = mapResultBounds(points);
         if (!bounds) return;
