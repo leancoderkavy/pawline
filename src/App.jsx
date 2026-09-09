@@ -787,7 +787,7 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
     {mapState.status === "loading" ? <div className="map-loading" role="status">Loading interactive map…</div> : null}
     {mapState.status === "error" ? <div className="map-unavailable" role="alert"><span className="map-unavailable-icon"><MapPin /></span><strong>Map temporarily unavailable</strong><span>{mapState.message}</span><button type="button" className="button" onClick={() => { setMapAttempt(value => value + 1); }}>Retry map</button></div> : null}
     {mapState.status === "ready" ? <>
-      <div className="map-detail-controls" role="group" aria-label="Map detail">
+      <details className="map-detail-controls"><summary><SlidersHorizontal size={16} />Map options</summary><div role="group" aria-label="Map detail">
         <button type="button" aria-pressed={perspective} onClick={() => {
           const next = !perspective;
           mapRef.current?.easeTo({ pitch: next ? 55 : 0, duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 500 });
@@ -798,7 +798,7 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
           mapRef.current?.setConfigProperty("basemap", "showPointOfInterestLabels", next);
           setLandmarks(next);
         }}><MapPin size={16} />Places</button>
-      </div>
+      </div></details>
       <button type="button" className="map-fit-results" disabled={!points.length} onClick={() => {
         const bounds = mapResultBounds(points);
         if (!bounds) return;
@@ -953,13 +953,13 @@ function MapPanel({ showLocationControls = true, location, coordinates, userCoor
   }, [locationDialogOpen, onDismissLocation]);
   const points = useMemo(() => [
     ...visiblePets
-      .map(pet => ({ id: pet.id, longitude: pet.longitude, latitude: pet.latitude, type: "pet" })),
+      .map(pet => ({ id: pet.id, name: pet.name, longitude: pet.longitude, latitude: pet.latitude, type: "pet" })),
     ...visibleEvents.slice(0, 10)
-      .map(event => ({ id: event.id, longitude: event.longitude, latitude: event.latitude, type: "event" })),
+      .map(event => ({ id: event.id, name: event.title || event.name, longitude: event.longitude, latitude: event.latitude, type: "event" })),
     ...visibleDiscoveries.slice(0, 10)
-      .map(item => ({ id: item.id, longitude: item.longitude, latitude: item.latitude, type: "discovery" })),
+      .map(item => ({ id: item.id, name: item.title || item.name, longitude: item.longitude, latitude: item.latitude, type: "discovery" })),
     ...visibleShelters.slice(0, 20)
-      .map(shelter => ({ id: shelter.id, longitude: shelter.longitude, latitude: shelter.latitude, type: "shelter" })),
+      .map(shelter => ({ id: shelter.id, name: shelter.name, longitude: shelter.longitude, latitude: shelter.latitude, type: "shelter" })),
   ], [visiblePets, visibleEvents, visibleDiscoveries, visibleShelters]);
   const openPoint = (id, type) => {
     if (type === "discovery") {
@@ -991,9 +991,9 @@ function MapPanel({ showLocationControls = true, location, coordinates, userCoor
         : <div className="map-unavailable" role={configured === null ? "status" : undefined}><span className="map-unavailable-icon"><MapPin /></span><strong>{configured === null ? "Checking map availability" : "Interactive map unavailable"}</strong><span>{configured === null ? "Your discovery tools will be ready in a moment." : "You can still browse current pets and use the filters. Location search is unavailable right now."}</span></div>}
       {locationDialogOpen ? <div ref={locationDialogRef} className="location-permission" role="dialog" aria-modal="true" aria-label="See where you are" aria-describedby="location-permission-description">
         <span className="location-permission-icon" aria-hidden="true"><LocateFixed /></span>
-        <div><strong id="location-permission-title">See where you are</strong><span id="location-permission-description">{locationPrompt.message || "Share your location to show your position on the map."}</span></div>
+        <div><strong id="location-permission-title">See where you are</strong><span id="location-permission-description">{locationPrompt.message || "Use your location, or keep browsing around the city in the search box."}</span></div>
         <button type="button" className="button primary" onClick={onRequestLocation} disabled={locationPrompt.status === "loading"}>{locationPrompt.status === "loading" ? "Locating…" : "Use my location"}</button>
-        <button type="button" className="location-permission-dismiss" onPointerDown={event => event.stopPropagation()} onClick={onDismissLocation} aria-label="Dismiss location prompt">Not now</button>
+        <button type="button" className="location-permission-dismiss" onPointerDown={event => event.stopPropagation()} onClick={onDismissLocation} aria-label="Dismiss location prompt">Keep browsing</button>
       </div> : null}
       {showLocationControls && configured === true && !locationDialogOpen ? <button type="button" className="map-my-location" onClick={onRequestLocation}><LocateFixed size={18} />My location</button> : null}
       {userCoordinates ? <div className="map-location-accuracy"><span role="status">Location accuracy: about {Math.round(userCoordinates.accuracy)} m</span><button type="button" onClick={onStopLocation}>Stop sharing location</button></div> : null}
@@ -1429,7 +1429,7 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
   };
   const requestUserLocation = () => {
     if (!navigator.geolocation) {
-      setLocationPrompt({ status: "error", message: "Location sharing is not supported by this browser." });
+      setLocationPrompt({ status: "error", message: "Location sharing is not supported. You can search by city instead." });
       return;
     }
     setLocationPrompt({ status: "loading", message: "Waiting for your browser…" });
@@ -1544,7 +1544,7 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
         <button ref={railToggleRef} className="rail-toggle" type="button" onClick={() => setRailCollapsed(value => !value)} aria-expanded={!railCollapsed} aria-controls="map-rail-content" title={railCollapsed ? "Show discovery tools" : "Hide discovery tools"}>
           <span className="rail-toggle-desktop" aria-hidden="true">{railCollapsed ? <PanelLeftOpen /> : <PanelLeftClose />}</span>
           <span className="rail-toggle-mobile" aria-hidden="true">{railCollapsed ? <PanelBottomOpen /> : <PanelBottomClose />}</span>
-          {railCollapsed ? <span className="rail-toggle-label" aria-hidden="true">Show panel</span> : <span className="rail-toggle-hint" aria-hidden="true">Hide panel</span>}
+          {railCollapsed ? <span className="rail-toggle-label" aria-hidden="true">Browse results</span> : <span className="rail-toggle-hint" aria-hidden="true">View map</span>}
           <span className="sr-only">{railCollapsed ? "Show discovery tools" : "Hide discovery tools"}</span>
         </button>
         <div className="rail-search">
