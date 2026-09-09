@@ -44,3 +44,23 @@ class InternalLinkTests(unittest.TestCase):
         pages = {'/': ('<h1>Map</h1>', ''), '/guides': ('<h2 id="adoption tips">Tips</h2>', '')}
         html = '<a href="/#match">Quiz</a><a href="/guides#adoption%20tips">Tips</a>'
         self.assertEqual(audit_links(html, 'https://www.pawlineadopt.com/guides', pages.__getitem__), [])
+
+class SocialPreviewTests(unittest.TestCase):
+    def test_detects_missing_and_wrong_social_metadata(self):
+        from scripts.audit_search import audit_social
+        errors = audit_social('<meta property="og:url" content="https://www.pawlineadopt.com/wrong"><meta property="og:image" content="http://example.com/image.png">', 'https://www.pawlineadopt.com/guides')
+        self.assertIn('Social URL does not match canonical', errors)
+        self.assertIn('Social image must use HTTPS: og:image', errors)
+        self.assertIn('Missing or duplicate social metadata: twitter:card', errors)
+
+class RobotsPolicyTests(unittest.TestCase):
+    def test_specific_search_bot_block_is_detected(self):
+        from scripts.audit_search import audit_robots, ORIGIN
+        policy = 'User-agent: *\nAllow: /\n\nUser-agent: OAI-SearchBot\nDisallow: /guides\n\nSitemap: ' + ORIGIN + '/sitemap.xml'
+        errors = audit_robots(policy, [ORIGIN + '/guides'])
+        self.assertEqual(len(errors), 1)
+        self.assertIn('OAI-SearchBot', errors[0])
+
+    def test_requires_canonical_sitemap(self):
+        from scripts.audit_search import audit_robots
+        self.assertIn('Robots policy is missing canonical sitemap', audit_robots('User-agent: *\nAllow: /', []))

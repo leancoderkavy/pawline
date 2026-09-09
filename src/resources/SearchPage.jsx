@@ -3,6 +3,7 @@ import { searchBreadcrumbs, searchPageSchema, searchResources } from "./searchCa
 export default function SearchPage({ title, path, children }) {
   const crumbs = searchBreadcrumbs(title, path);
   const schema = searchPageSchema(title, path);
+  const resource = searchResources.find(item => item.path === path);
   return <>
     <nav className="search-page-nav" aria-label="Pawline navigation">
       <a href="/#map">Pawline adoption map</a>
@@ -14,6 +15,7 @@ export default function SearchPage({ title, path, children }) {
           {index === crumbs.length - 1 ? <span aria-current="page">{crumb.name}</span> : <a href={crumb.path}>{crumb.name}</a>}
         </li>)}</ol>
       </nav>
+      {resource && <p className="search-breadcrumbs">{resource.description}</p>}
       {children}
       {path !== "/guides" && <aside className="search-related" aria-label="Related adoption guides">
         <h2>Keep planning your adoption</h2>

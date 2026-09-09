@@ -12,6 +12,7 @@ from urllib.parse import urlsplit, urljoin, unquote
 from xml.etree import ElementTree
 
 import requests
+from urllib.robotparser import RobotFileParser
 
 ORIGIN = "https://www.pawlineadopt.com"
 
@@ -21,6 +22,7 @@ class SearchHTML(HTMLParser):
         super().__init__()
         self.canonicals, self.descriptions, self.robots, self.schemas = [], [], [], []
         self.links, self.ids = [], set()
+        self.social = {}
         self.h1 = 0
         self.title = ""
         self.in_title = False
@@ -41,6 +43,9 @@ class SearchHTML(HTMLParser):
             self.canonicals.append(attrs.get("href", ""))
         if tag == "meta":
             name = attrs.get("name", "").lower()
+            key = attrs.get("property", name)
+            if key.startswith(("og:", "twitter:")):
+                self.social.setdefault(key, []).append(attrs.get("content", ""))
             if name == "description":
                 self.descriptions.append(attrs.get("content", ""))
             if name in ("robots", "googlebot"):
@@ -89,6 +94,23 @@ def audit_html(html, canonical, robots_header=""):
     return {"url": canonical, "title": page.title, "h1": page.h1, "errors": errors}
 
 
+def audit_social(html, canonical):
+    page = SearchHTML()
+    page.feed(html)
+    errors = []
+    for key in ("og:title", "og:description", "og:url", "og:image", "twitter:card", "twitter:title", "twitter:description", "twitter:image"):
+        values = page.social.get(key, [])
+        if len(values) != 1 or not values[0].strip():
+            errors.append(f"Missing or duplicate social metadata: {key}")
+    if page.social.get("og:url", [""])[0].rstrip("/") != canonical.rstrip("/"):
+        errors.append("Social URL does not match canonical")
+    for key in ("og:image", "twitter:image"):
+        for image in page.social.get(key, []):
+            if urlsplit(image).scheme != "https":
+                errors.append(f"Social image must use HTTPS: {key}")
+    return errors
+
+
 def fetch(url, content_type):
     response = requests.get(url, timeout=20, allow_redirects=False)
     if response.status_code != 200 or content_type not in response.headers.get("Content-Type", ""):
@@ -131,11 +153,28 @@ def audit_links(html, canonical, load_page):
     return errors
 
 
+def audit_robots(text, urls):
+    policy = RobotFileParser()
+    policy.parse(text.splitlines())
+    errors = []
+    if ORIGIN + "/sitemap.xml" not in (policy.site_maps() or []):
+        errors.append("Robots policy is missing canonical sitemap")
+    for agent in ("Googlebot", "bingbot", "OAI-SearchBot", "PerplexityBot"):
+        for url in urls:
+            if not policy.can_fetch(agent, url):
+                errors.append(f"Robots policy blocks {agent}: {url}")
+    return errors
+
+
 def audit(build_dir=None, base_url=None):
     sitemap = fetch(base_url.rstrip("/") + "/sitemap.xml", "xml").text if base_url else Path("public/sitemap.xml").read_text()
     urls = [element.text for element in ElementTree.fromstring(sitemap).iter("{http://www.sitemaps.org/schemas/sitemap/0.9}loc")]
     if not urls or len(set(urls)) != len(urls):
         raise ValueError("Sitemap is empty or has duplicate URLs")
+    robots = fetch(base_url.rstrip("/") + "/robots.txt", "text/plain").text if base_url else Path("public/robots.txt").read_text()
+    robots_errors = audit_robots(robots, urls)
+    if robots_errors:
+        raise ValueError("; ".join(robots_errors))
     cache = {}
 
     def load_page(path):
@@ -164,6 +203,7 @@ def audit(build_dir=None, base_url=None):
             raise ValueError("Sitemap must use canonical public URLs without queries or fragments")
         html, header = load_page(parsed.path.rstrip("/") or "/")
         row = audit_html(html, url, header)
+        row["errors"].extend(audit_social(html, url))
         row["errors"].extend(audit_links(html, url, load_page))
         if any(prior["title"] == row["title"] for prior in rows):
             row["errors"].append("Duplicate page title")

@@ -88,3 +88,13 @@ This caught the standalone source-methodology page's `#guides/matching` link,
 which now opens the canonical matching guide. Its map-panel version retains the
 application hash. The audit runs in existing CI and supports the same production
 verification command. It does not measure Google indexing or ranking changes.
+
+## Five further rounds (2026-09-09)
+
+- Resource summaries are visible beside the breadcrumb and match each page's structured description.
+- Both LLM reference files group the checklist with the other canonical guides; the extended reference review date is current.
+- GSC CSV imports reject duplicate columns and missing or extra row fields before reporting metrics.
+- The search audit checks Open Graph/Twitter metadata presence, canonical social URLs, and HTTPS image URLs. Image delivery remains a separate check.
+- The audit checks robots.txt for the canonical sitemap and public-resource access for Googlebot, Bingbot, OAI-SearchBot, and PerplexityBot. This is a configuration check, not proof of crawler visits.
+
+These changes extend the existing six-page search surface. No ranking gain or fresh inventory is inferred. Google's [AI search guidance](https://developers.google.com/search/docs/fundamentals/ai-optimization-guide) states that special AI files and markup are not required for Google Search.

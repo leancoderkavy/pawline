@@ -22,6 +22,7 @@ export function searchPageSchema(title, path) {
     "@context": "https://schema.org",
     "@graph": [
       { "@type": "WebPage", "@id": `${url}#webpage`, url, name: title, inLanguage: "en-US",
+        description: searchResources.find(resource => resource.path === path)?.description,
         isPartOf: { "@id": `${SEARCH_ORIGIN}/#website` },
         publisher: { "@id": `${SEARCH_ORIGIN}/#organization` },
         breadcrumb: { "@id": `${url}#breadcrumb` } },
