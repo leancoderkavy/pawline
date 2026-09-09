@@ -914,7 +914,7 @@ function VisitPlanner({ pets, location }) {
   </section>;
 }
 
-function MapPanel({ showLocationControls = true, location, coordinates, userCoordinates, locationPrompt, configured, view, petType, showEvents, densityMode, routePets, onOpenPet, onOpenEvent, onOpenDiscovery, onOpenShelter, onMapMove, onRequestLocation, onDismissLocation, onRevealMap }) {
+function MapPanel({ showLocationControls = true, location, coordinates, userCoordinates, locationPrompt, configured, view, petType, showEvents, densityMode, routePets, onOpenPet, onOpenEvent, onOpenDiscovery, onOpenShelter, onMapMove, onRequestLocation, onStopLocation, onDismissLocation, onRevealMap }) {
   const locationDialogRef = useRef(null);
   const { pets: visiblePets, events: visibleEvents, discoveries: visibleDiscoveries, shelters: visibleShelters } = view;
   const locationDialogOpen = showLocationControls && configured === true && locationPrompt.status !== "hidden" && !userCoordinates;
@@ -996,7 +996,7 @@ function MapPanel({ showLocationControls = true, location, coordinates, userCoor
         <button type="button" className="location-permission-dismiss" onPointerDown={event => event.stopPropagation()} onClick={onDismissLocation} aria-label="Dismiss location prompt">Keep browsing</button>
       </div> : null}
       {showLocationControls && configured === true && !locationDialogOpen ? <button type="button" className="map-my-location" onClick={onRequestLocation}><LocateFixed size={18} />My location</button> : null}
-      {userCoordinates ? <span className="map-location-accuracy" role="status">Location accuracy: about {Math.round(userCoordinates.accuracy)} m</span> : null}
+      {userCoordinates ? <div className="map-location-accuracy"><span role="status">Location accuracy: about {Math.round(userCoordinates.accuracy)} m</span><button type="button" onClick={onStopLocation}>Stop sharing location</button></div> : null}
       <span className="map-legend"><PawPrint className="pet-paw" /> {petType === "All" ? "Pets" : `${petType}s`} {showEvents ? <><CalendarDays className="event-paw" /> Events</> : null} <Compass className="discovery-paw" /> Web leads {visibleShelters.length ? <><House className="shelter-marker" /> Shelters</> : null}</span>
       <span className="map-attribution">Markers checked this session · Listing update times vary by provider · Shelter locations © OpenStreetMap contributors</span>
     </div>
@@ -1192,8 +1192,10 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
   const [locationState, setLocationState] = useState({ status: "idle", message: "" });
   const [userCoordinates, setUserCoordinates] = useState(null);
   const locationWatchRef = useRef(null);
+  const locationRequestRef = useRef(0);
   const [resultQuery, setResultQuery] = useState("");
   useEffect(() => () => {
+    locationRequestRef.current += 1;
     if (locationWatchRef.current !== null) navigator.geolocation?.clearWatch(locationWatchRef.current);
   }, []);
   const [locationPrompt, setLocationPrompt] = useState({ status: "idle", message: "" });
@@ -1417,6 +1419,14 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
       setLocationState({ status: "error", message: error.message });
     }
   };
+  const stopUserLocation = () => {
+    locationRequestRef.current += 1;
+    if (locationWatchRef.current !== null) navigator.geolocation?.clearWatch(locationWatchRef.current);
+    locationWatchRef.current = null;
+    setUserCoordinates(null);
+    setLocationPrompt({ status: "hidden", message: "" });
+    setLocationState({ status: "success", message: "Location sharing stopped. Your search area is unchanged." });
+  };
   const requestUserLocation = () => {
     if (!navigator.geolocation) {
       setLocationPrompt({ status: "error", message: "Location sharing is not supported. You can search by city instead." });
@@ -1424,9 +1434,11 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
     }
     setLocationPrompt({ status: "loading", message: "Waiting for your browser…" });
     if (locationWatchRef.current !== null) navigator.geolocation.clearWatch(locationWatchRef.current);
+    const requestId = ++locationRequestRef.current;
     let centerOnFirstFix = true;
     locationWatchRef.current = navigator.geolocation.watchPosition(
       position => {
+        if (requestId !== locationRequestRef.current) return;
         const next = {
           longitude: position.coords.longitude,
           latitude: position.coords.latitude,
@@ -1443,6 +1455,11 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
         setLocationPrompt({ status: "hidden", message: "" });
       },
       error => {
+        if (requestId !== locationRequestRef.current) return;
+        if (error.code === error.PERMISSION_DENIED) {
+          navigator.geolocation.clearWatch(locationWatchRef.current);
+          locationWatchRef.current = null;
+        }
         const message = error.code === error.PERMISSION_DENIED
           ? "Location access was denied. You can enable it in your browser settings."
           : "We couldn’t get your location. Check your connection and try again.";
@@ -1521,7 +1538,7 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
       accountAction={clerkConfigured ? <Suspense fallback={null}><MapAccountActions onProfile={() => openPanel("profile")} /></Suspense> : null} />
 
   <main id="discover" tabIndex={-1} className={`map-workspace panel-${activePanel} ${railCollapsed ? "rail-collapsed" : ""} ${selectedPet ? "detail-open" : ""}`}>
-      <MapPanel showLocationControls={activePanel !== "onboarding"} location={location} coordinates={coordinates} userCoordinates={userCoordinates} locationPrompt={locationPrompt} configured={integrations.mapboxConfigured} view={mapView} petType={mapPetType} showEvents={showMapEvents} densityMode={densityMode} routePets={routePets} onOpenPet={openPetDetail} onOpenEvent={setSelectedEvent} onOpenDiscovery={setSelectedDiscovery} onOpenShelter={setSelectedShelter} onMapMove={searchThisMapArea} onRequestLocation={requestUserLocation} onDismissLocation={dismissLocationPrompt} onRevealMap={() => setRailCollapsed(true)} />
+      <MapPanel showLocationControls={activePanel !== "onboarding"} location={location} coordinates={coordinates} userCoordinates={userCoordinates} locationPrompt={locationPrompt} configured={integrations.mapboxConfigured} view={mapView} petType={mapPetType} showEvents={showMapEvents} densityMode={densityMode} routePets={routePets} onOpenPet={openPetDetail} onOpenEvent={setSelectedEvent} onOpenDiscovery={setSelectedDiscovery} onOpenShelter={setSelectedShelter} onMapMove={searchThisMapArea} onStopLocation={stopUserLocation} onRequestLocation={requestUserLocation} onDismissLocation={dismissLocationPrompt} onRevealMap={() => setRailCollapsed(true)} />
 
       <aside className={`map-rail ${railCollapsed ? "is-collapsed" : ""}`} aria-label="Map discovery tools">
         <button ref={railToggleRef} className="rail-toggle" type="button" onClick={() => setRailCollapsed(value => !value)} aria-expanded={!railCollapsed} aria-controls="map-rail-content" title={railCollapsed ? "Show discovery tools" : "Hide discovery tools"}>
@@ -1536,7 +1553,7 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
         <div id="map-rail-content" className="rail-content" ref={railContentRef}>
           {["explore", "favorites"].includes(activePanel) ? <div className="explore-intro">
             <div className="result-search"><Search size={18} /><input aria-label="Search nearby pets, shelters, and events" placeholder="Pet, breed, shelter, or event" value={resultQuery} onChange={event => setResultQuery(event.target.value)} type="search" maxLength={120} />{resultQuery ? <button type="button" aria-label="Clear results search" onClick={() => setResultQuery("")}><X size={16} /></button> : null}</div>
-            {resultQuery ? <p role="status">{mapView.pets.length + mapView.shelters.length + mapView.events.length + mapView.discoveries.length} nearby results for "{resultQuery}"</p> : null}
+            {resultQuery.trim() ? <div className="result-search-summary" role="status"><strong>{mapView.pets.length + mapView.shelters.length + mapView.events.length + mapView.discoveries.length ? `${mapView.pets.length} pets · ${mapView.shelters.length} shelters · ${mapView.events.length} events · ${mapView.discoveries.length} web leads` : "No nearby matches"}</strong><span>Searching loaded results within {mapDistance} miles. Try a pet name, breed, or shelter.</span><button type="button" onClick={() => setResultQuery("")}>Show all nearby results</button></div> : null}
             <div className="explore-heading"><div><h1>{showSavedOnly ? "Saved pets" : "Pets near you"}</h1><span className={`live-state feed-${feed.mode}`}><i />{feed.mode === "live" ? "Current pet listings" : feed.mode === "loading" ? "Checking listings" : "Listings unavailable"}</span></div><button type="button" className="mobile-view-map" onClick={() => setRailCollapsed(true)}><Compass /> View map</button></div>
             <p>{feed.mode === "live" ? `${petCountLabel(showSavedOnly ? mapView.pets.filter(pet => saved.includes(pet.id)).length : mapView.pets.length, mapPetType)}${showSavedOnly ? " saved" : ""} within ${mapDistance} miles.` : feed.message || "Current shelter listings are unavailable. Pawline does not show made-up pets."}</p>
             <button className="onboarding-back" onClick={() => openPanel("onboarding")}>New here? Get started <ChevronRight /></button>

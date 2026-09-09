@@ -1,3 +1,7 @@
+export function normalizeMapSearch(value) {
+  return String(value || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+}
+
 export function hasMapCoordinates(item) {
   return Number.isFinite(item?.longitude) && Math.abs(item.longitude) <= 180 &&
     Number.isFinite(item?.latitude) && Math.abs(item.latitude) <= 90;
@@ -55,9 +59,9 @@ export function buildMapView({
   showEvents = true,
   query = "",
 }) {
-  const terms = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+  const terms = normalizeMapSearch(query).split(/\s+/).filter(Boolean);
   const matches = item => {
-    const text = [item.name, item.title, item.breed, item.species, item.shelter, item.city, item.description, item.address, item.venue].filter(value => typeof value === "string").join(" ").toLocaleLowerCase();
+    const text = normalizeMapSearch([item.name, item.title, item.breed, item.species, item.shelter, item.city, item.description, item.address, item.venue, item.operator, item.animals].filter(value => typeof value === "string").join(" "));
     return terms.every(term => text.includes(term));
   };
   pets = pets.filter(matches);
