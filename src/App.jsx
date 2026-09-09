@@ -1,6 +1,7 @@
 "use client";
 
 import PetImage from "./PetImage";
+import { PAWLINE_BASEMAP, addMapMarker } from "./mapBrand.js";
 import { PET_SPECIES } from "../config/species.js";
 import NetworkTools from "./NetworkTools.jsx";
 const NetworkToolsWithAuth = React.lazy(() => import("./NetworkToolsWithAuth.jsx"));
@@ -490,33 +491,6 @@ function routeGeoJson(pets) {
     : { type: "FeatureCollection", features: [] };
 }
 
-function addPawImage(map, id, color) {
-  if (map.hasImage(id)) return;
-  const size = 64;
-  const canvas = document.createElement("canvas");
-  canvas.width = size;
-  canvas.height = size;
-  const context = canvas.getContext("2d");
-  context.fillStyle = color;
-  context.strokeStyle = "#fffaf1";
-  context.lineWidth = 4;
-  const circle = (x, y, radius) => {
-    context.beginPath();
-    context.arc(x, y, radius, 0, Math.PI * 2);
-    context.fill();
-    context.stroke();
-  };
-  circle(17, 17, 7);
-  circle(31, 11, 7);
-  circle(45, 17, 7);
-  circle(51, 30, 6);
-  context.beginPath();
-  context.ellipse(32, 42, 17, 13, 0, 0, Math.PI * 2);
-  context.fill();
-  context.stroke();
-  map.addImage(id, { width: size, height: size, data: context.getImageData(0, 0, size, size).data });
-}
-
 function InteractiveMap({ coordinates, userCoordinates, points, location, onPointClick, onMoveSearch, densityMode, routePets, onRevealMap }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
@@ -572,7 +546,7 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
       map = new mapboxgl.Map({
         container: containerRef.current,
         style: "mapbox://styles/mapbox/standard",
-        config: { basemap: { theme: "default", lightPreset: "day", showPointOfInterestLabels: true, showTransitLabels: true, showPlaceLabels: true, showRoadLabels: true, showPedestrianRoads: true, show3dObjects: true } },
+        config: { basemap: PAWLINE_BASEMAP },
         center: centerRef.current,
         zoom: 12,
         antialias: true,
@@ -614,10 +588,10 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
             "circle-stroke-width": 3,
           },
         });
-        addPawImage(map, "pawline-pet-marker", "#2f7458");
-        addPawImage(map, "pawline-event-marker", "#ad5d35");
-        addPawImage(map, "pawline-discovery-marker", "#7a5a9b");
-        addPawImage(map, "pawline-shelter-marker", "#3f6380");
+        addMapMarker(map, "pawline-pet-marker", "pet");
+        addMapMarker(map, "pawline-event-marker", "event");
+        addMapMarker(map, "pawline-discovery-marker", "discovery");
+        addMapMarker(map, "pawline-shelter-marker", "shelter");
         map.addLayer({ id: "pawline-density", type: "heatmap", source: "pawline-points", filter: ["==", ["get", "type"], "pet"], maxzoom: 13, layout: { visibility: densityRef.current ? "visible" : "none" }, paint: {
           "heatmap-weight": 1,
           "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 7, 0.7, 13, 1.5],
@@ -940,10 +914,10 @@ function VisitPlanner({ pets, location }) {
   </section>;
 }
 
-function MapPanel({ location, coordinates, userCoordinates, locationPrompt, configured, view, petType, showEvents, densityMode, routePets, onOpenPet, onOpenEvent, onOpenDiscovery, onOpenShelter, onMapMove, onRequestLocation, onDismissLocation, onRevealMap }) {
+function MapPanel({ showLocationControls = true, location, coordinates, userCoordinates, locationPrompt, configured, view, petType, showEvents, densityMode, routePets, onOpenPet, onOpenEvent, onOpenDiscovery, onOpenShelter, onMapMove, onRequestLocation, onDismissLocation, onRevealMap }) {
   const locationDialogRef = useRef(null);
   const { pets: visiblePets, events: visibleEvents, discoveries: visibleDiscoveries, shelters: visibleShelters } = view;
-  const locationDialogOpen = configured === true && locationPrompt.status !== "hidden" && !userCoordinates;
+  const locationDialogOpen = showLocationControls && configured === true && locationPrompt.status !== "hidden" && !userCoordinates;
   useEffect(() => {
     if (!locationDialogOpen) return undefined;
     const previousFocus = document.activeElement;
@@ -1021,9 +995,9 @@ function MapPanel({ location, coordinates, userCoordinates, locationPrompt, conf
         <button type="button" className="button primary" onClick={onRequestLocation} disabled={locationPrompt.status === "loading"}>{locationPrompt.status === "loading" ? "Locating…" : "Use my location"}</button>
         <button type="button" className="location-permission-dismiss" onPointerDown={event => event.stopPropagation()} onClick={onDismissLocation} aria-label="Dismiss location prompt">Not now</button>
       </div> : null}
-      {configured === true && !locationDialogOpen ? <button type="button" className="map-my-location" onClick={onRequestLocation}><LocateFixed size={18} />My location</button> : null}
+      {showLocationControls && configured === true && !locationDialogOpen ? <button type="button" className="map-my-location" onClick={onRequestLocation}><LocateFixed size={18} />My location</button> : null}
       {userCoordinates ? <span className="map-location-accuracy" role="status">Location accuracy: about {Math.round(userCoordinates.accuracy)} m</span> : null}
-      <span className="map-legend"><PawPrint className="pet-paw" /> {petType === "All" ? "Pets" : `${petType}s`} {showEvents ? <><PawPrint className="event-paw" /> Events</> : null} <PawPrint className="discovery-paw" /> Web leads {visibleShelters.length ? <><Building2 className="shelter-marker" /> Shelters</> : null}</span>
+      <span className="map-legend"><PawPrint className="pet-paw" /> {petType === "All" ? "Pets" : `${petType}s`} {showEvents ? <><CalendarDays className="event-paw" /> Events</> : null} <Compass className="discovery-paw" /> Web leads {visibleShelters.length ? <><House className="shelter-marker" /> Shelters</> : null}</span>
       <span className="map-attribution">Markers checked this session · Listing update times vary by provider · Shelter locations © OpenStreetMap contributors</span>
     </div>
   </section>;
@@ -1547,7 +1521,7 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
       accountAction={clerkConfigured ? <Suspense fallback={null}><MapAccountActions onProfile={() => openPanel("profile")} /></Suspense> : null} />
 
   <main id="discover" tabIndex={-1} className={`map-workspace panel-${activePanel} ${railCollapsed ? "rail-collapsed" : ""} ${selectedPet ? "detail-open" : ""}`}>
-      <MapPanel location={location} coordinates={coordinates} userCoordinates={userCoordinates} locationPrompt={locationPrompt} configured={integrations.mapboxConfigured} view={mapView} petType={mapPetType} showEvents={showMapEvents} densityMode={densityMode} routePets={routePets} onOpenPet={openPetDetail} onOpenEvent={setSelectedEvent} onOpenDiscovery={setSelectedDiscovery} onOpenShelter={setSelectedShelter} onMapMove={searchThisMapArea} onRequestLocation={requestUserLocation} onDismissLocation={dismissLocationPrompt} onRevealMap={() => setRailCollapsed(true)} />
+      <MapPanel showLocationControls={activePanel !== "onboarding"} location={location} coordinates={coordinates} userCoordinates={userCoordinates} locationPrompt={locationPrompt} configured={integrations.mapboxConfigured} view={mapView} petType={mapPetType} showEvents={showMapEvents} densityMode={densityMode} routePets={routePets} onOpenPet={openPetDetail} onOpenEvent={setSelectedEvent} onOpenDiscovery={setSelectedDiscovery} onOpenShelter={setSelectedShelter} onMapMove={searchThisMapArea} onRequestLocation={requestUserLocation} onDismissLocation={dismissLocationPrompt} onRevealMap={() => setRailCollapsed(true)} />
 
       <aside className={`map-rail ${railCollapsed ? "is-collapsed" : ""}`} aria-label="Map discovery tools">
         <button ref={railToggleRef} className="rail-toggle" type="button" onClick={() => setRailCollapsed(value => !value)} aria-expanded={!railCollapsed} aria-controls="map-rail-content" title={railCollapsed ? "Show discovery tools" : "Hide discovery tools"}>
