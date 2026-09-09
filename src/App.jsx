@@ -9,7 +9,7 @@ const NetworkToolsWithAuth = React.lazy(() => import("./NetworkToolsWithAuth.jsx
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle, ArrowLeft, CalendarDays, CheckCircle2, ChevronRight, Clock3,
-  Building2, CalendarClock, Check, Compass, ExternalLink, FileText, Globe2, Heart, House, Info, Layers3, ListChecks, LocateFixed, LockKeyhole, MapPin, Menu, PawPrint, Pencil,
+  Building2, CalendarClock, Check, Compass, ExternalLink, FileText, Fullscreen, Globe2, Heart, House, Info, Layers3, ListChecks, LocateFixed, LockKeyhole, MapPin, Menu, PawPrint, Pencil,
   PanelLeftClose, PanelLeftOpen, PanelBottomClose, PanelBottomOpen, MessageCircle, Route, RotateCcw, Search, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Upload, X
 } from "lucide-react";
 import heroImage from "./heroData";
@@ -787,7 +787,7 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
     {mapState.status === "loading" ? <div className="map-loading" role="status">Loading interactive map…</div> : null}
     {mapState.status === "error" ? <div className="map-unavailable" role="alert"><span className="map-unavailable-icon"><MapPin /></span><strong>Map temporarily unavailable</strong><span>{mapState.message}</span><button type="button" className="button" onClick={() => { setMapAttempt(value => value + 1); }}>Retry map</button></div> : null}
     {mapState.status === "ready" ? <>
-      <details className="map-detail-controls"><summary><SlidersHorizontal size={16} />Map options</summary><div role="group" aria-label="Map detail">
+      <details className="map-detail-controls"><summary title="Map options"><SlidersHorizontal size={16} aria-hidden="true" /><span className="map-control-label">Map options</span></summary><div role="group" aria-label="Map detail">
         <button type="button" aria-pressed={perspective} onClick={() => {
           const next = !perspective;
           mapRef.current?.easeTo({ pitch: next ? 55 : 0, duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 500 });
@@ -799,7 +799,7 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
           setLandmarks(next);
         }}><MapPin size={16} />Places</button>
       </div></details>
-      <button type="button" className="map-fit-results" disabled={!points.length} onClick={() => {
+      <button type="button" className="map-fit-results" title="Fit results" disabled={!points.length} onClick={() => {
         const bounds = mapResultBounds(points);
         if (!bounds) return;
         onRevealMap?.();
@@ -808,7 +808,7 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
           maxZoom: 13,
           duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 450,
         });
-      }}><LocateFixed size={18} /> Fit results</button>
+      }}><Fullscreen size={18} aria-hidden="true" /><span className="map-control-label">Fit results</span></button>
       <span className="map-instructions">Move the map to search this area · Use +/− to zoom</span>
     </> : null}
   </>;
@@ -995,7 +995,7 @@ function MapPanel({ showLocationControls = true, location, coordinates, userCoor
         <button type="button" className="button primary" onClick={onRequestLocation} disabled={locationPrompt.status === "loading"}>{locationPrompt.status === "loading" ? "Locating…" : "Use my location"}</button>
         <button type="button" className="location-permission-dismiss" onPointerDown={event => event.stopPropagation()} onClick={onDismissLocation} aria-label="Dismiss location prompt">Keep browsing</button>
       </div> : null}
-      {showLocationControls && configured === true && !locationDialogOpen ? <button type="button" className="map-my-location" onClick={onRequestLocation}><LocateFixed size={18} />My location</button> : null}
+      {showLocationControls && configured === true && !locationDialogOpen ? <button type="button" className="map-my-location" title="My location" onClick={onRequestLocation}><LocateFixed size={18} aria-hidden="true" /><span className="map-control-label">My location</span></button> : null}
       {userCoordinates ? <div className="map-location-accuracy"><span role="status">Location accuracy: about {Math.round(userCoordinates.accuracy)} m</span><button type="button" onClick={onStopLocation}>Stop sharing location</button></div> : null}
       <span className="map-legend"><PawPrint className="pet-paw" /> {petType === "All" ? "Pets" : `${petType}s`} {showEvents ? <><CalendarDays className="event-paw" /> Events</> : null} <Compass className="discovery-paw" /> Web leads {visibleShelters.length ? <><House className="shelter-marker" /> Shelters</> : null}</span>
       <span className="map-attribution">Markers checked this session · Listing update times vary by provider · Shelter locations © OpenStreetMap contributors</span>
