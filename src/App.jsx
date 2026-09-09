@@ -953,13 +953,13 @@ function MapPanel({ showLocationControls = true, location, coordinates, userCoor
   }, [locationDialogOpen, onDismissLocation]);
   const points = useMemo(() => [
     ...visiblePets
-      .map(pet => ({ id: pet.id, longitude: pet.longitude, latitude: pet.latitude, type: "pet" })),
+      .map(pet => ({ id: pet.id, name: pet.name, longitude: pet.longitude, latitude: pet.latitude, type: "pet" })),
     ...visibleEvents.slice(0, 10)
-      .map(event => ({ id: event.id, longitude: event.longitude, latitude: event.latitude, type: "event" })),
+      .map(event => ({ id: event.id, name: event.title || event.name, longitude: event.longitude, latitude: event.latitude, type: "event" })),
     ...visibleDiscoveries.slice(0, 10)
-      .map(item => ({ id: item.id, longitude: item.longitude, latitude: item.latitude, type: "discovery" })),
+      .map(item => ({ id: item.id, name: item.title || item.name, longitude: item.longitude, latitude: item.latitude, type: "discovery" })),
     ...visibleShelters.slice(0, 20)
-      .map(shelter => ({ id: shelter.id, longitude: shelter.longitude, latitude: shelter.latitude, type: "shelter" })),
+      .map(shelter => ({ id: shelter.id, name: shelter.name, longitude: shelter.longitude, latitude: shelter.latitude, type: "shelter" })),
   ], [visiblePets, visibleEvents, visibleDiscoveries, visibleShelters]);
   const openPoint = (id, type) => {
     if (type === "discovery") {
