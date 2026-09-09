@@ -1527,7 +1527,7 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
         <button ref={railToggleRef} className="rail-toggle" type="button" onClick={() => setRailCollapsed(value => !value)} aria-expanded={!railCollapsed} aria-controls="map-rail-content" title={railCollapsed ? "Show discovery tools" : "Hide discovery tools"}>
           <span className="rail-toggle-desktop" aria-hidden="true">{railCollapsed ? <PanelLeftOpen /> : <PanelLeftClose />}</span>
           <span className="rail-toggle-mobile" aria-hidden="true">{railCollapsed ? <PanelBottomOpen /> : <PanelBottomClose />}</span>
-          {railCollapsed ? <span className="rail-toggle-label" aria-hidden="true">Show panel</span> : <span className="rail-toggle-hint" aria-hidden="true">Hide panel</span>}
+          {railCollapsed ? <span className="rail-toggle-label" aria-hidden="true">Browse results</span> : <span className="rail-toggle-hint" aria-hidden="true">View map</span>}
           <span className="sr-only">{railCollapsed ? "Show discovery tools" : "Hide discovery tools"}</span>
         </button>
         <div className="rail-search">

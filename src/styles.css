@@ -826,3 +826,8 @@ html:has(.adopter-experience),body:has(.adopter-experience) { min-width:0; }
 .map-detail-controls summary:focus-visible { outline:3px solid var(--rust);outline-offset:2px;border-radius:10px; }
 .map-detail-controls > div { display:flex;gap:4px;padding:4px;border-top:1px solid var(--line); }
 .map-detail-controls[open] { z-index:4; }
+
+/* Round 5: readable discovery controls and a clearer return to results. */
+.map-rail.is-collapsed { width:176px; }
+.map-rail .rail-toggle-label { font-size:13px; }
+@media (max-width:820px) { .map-rail.is-collapsed { width:176px; } }
