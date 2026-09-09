@@ -17,8 +17,12 @@ def read_queries(path):
         reader = csv.DictReader(file)
         if not {"Top queries", "Clicks", "Impressions", "Position"}.issubset(reader.fieldnames or []):
             raise ValueError("Use the English GSC Performance Queries.csv export")
+        if len(reader.fieldnames) != len(set(reader.fieldnames)):
+            raise ValueError("Duplicate CSV columns")
         result = {}
         for row in reader:
+            if None in row or any(row.get(key) is None for key in ("Top queries", "Clicks", "Impressions", "Position")):
+                raise ValueError("Malformed CSV row: expected all query metrics")
             query = row["Top queries"].strip()
             if not query:
                 raise ValueError("Query must not be blank")
