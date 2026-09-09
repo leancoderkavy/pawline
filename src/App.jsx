@@ -991,9 +991,9 @@ function MapPanel({ showLocationControls = true, location, coordinates, userCoor
         : <div className="map-unavailable" role={configured === null ? "status" : undefined}><span className="map-unavailable-icon"><MapPin /></span><strong>{configured === null ? "Checking map availability" : "Interactive map unavailable"}</strong><span>{configured === null ? "Your discovery tools will be ready in a moment." : "You can still browse current pets and use the filters. Location search is unavailable right now."}</span></div>}
       {locationDialogOpen ? <div ref={locationDialogRef} className="location-permission" role="dialog" aria-modal="true" aria-label="See where you are" aria-describedby="location-permission-description">
         <span className="location-permission-icon" aria-hidden="true"><LocateFixed /></span>
-        <div><strong id="location-permission-title">See where you are</strong><span id="location-permission-description">{locationPrompt.message || "Share your location to show your position on the map."}</span></div>
+        <div><strong id="location-permission-title">See where you are</strong><span id="location-permission-description">{locationPrompt.message || "Use your location, or keep browsing around the city in the search box."}</span></div>
         <button type="button" className="button primary" onClick={onRequestLocation} disabled={locationPrompt.status === "loading"}>{locationPrompt.status === "loading" ? "Locating…" : "Use my location"}</button>
-        <button type="button" className="location-permission-dismiss" onPointerDown={event => event.stopPropagation()} onClick={onDismissLocation} aria-label="Dismiss location prompt">Not now</button>
+        <button type="button" className="location-permission-dismiss" onPointerDown={event => event.stopPropagation()} onClick={onDismissLocation} aria-label="Dismiss location prompt">Keep browsing</button>
       </div> : null}
       {showLocationControls && configured === true && !locationDialogOpen ? <button type="button" className="map-my-location" onClick={onRequestLocation}><LocateFixed size={18} />My location</button> : null}
       {userCoordinates ? <span className="map-location-accuracy" role="status">Location accuracy: about {Math.round(userCoordinates.accuracy)} m</span> : null}
@@ -1419,7 +1419,7 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
   };
   const requestUserLocation = () => {
     if (!navigator.geolocation) {
-      setLocationPrompt({ status: "error", message: "Location sharing is not supported by this browser." });
+      setLocationPrompt({ status: "error", message: "Location sharing is not supported. You can search by city instead." });
       return;
     }
     setLocationPrompt({ status: "loading", message: "Waiting for your browser…" });
