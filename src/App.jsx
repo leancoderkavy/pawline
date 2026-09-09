@@ -1192,8 +1192,10 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
   const [locationState, setLocationState] = useState({ status: "idle", message: "" });
   const [userCoordinates, setUserCoordinates] = useState(null);
   const locationWatchRef = useRef(null);
+  const locationRequestRef = useRef(0);
   const [resultQuery, setResultQuery] = useState("");
   useEffect(() => () => {
+    locationRequestRef.current += 1;
     if (locationWatchRef.current !== null) navigator.geolocation?.clearWatch(locationWatchRef.current);
   }, []);
   const [locationPrompt, setLocationPrompt] = useState({ status: "idle", message: "" });
@@ -1424,9 +1426,11 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
     }
     setLocationPrompt({ status: "loading", message: "Waiting for your browser…" });
     if (locationWatchRef.current !== null) navigator.geolocation.clearWatch(locationWatchRef.current);
+    const requestId = ++locationRequestRef.current;
     let centerOnFirstFix = true;
     locationWatchRef.current = navigator.geolocation.watchPosition(
       position => {
+        if (requestId !== locationRequestRef.current) return;
         const next = {
           longitude: position.coords.longitude,
           latitude: position.coords.latitude,
@@ -1443,6 +1447,11 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
         setLocationPrompt({ status: "hidden", message: "" });
       },
       error => {
+        if (requestId !== locationRequestRef.current) return;
+        if (error.code === error.PERMISSION_DENIED) {
+          navigator.geolocation.clearWatch(locationWatchRef.current);
+          locationWatchRef.current = null;
+        }
         const message = error.code === error.PERMISSION_DENIED
           ? "Location access was denied. You can enable it in your browser settings."
           : "We couldn’t get your location. Check your connection and try again.";
