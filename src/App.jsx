@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import heroImage from "./heroData";
 import { rankPets } from "./matching";
-import { buildMapView, mapResultBounds, petCountLabel, petResultDetail } from "./mapView";
+import { buildMapView, distanceInMiles, mapResultBounds, petCountLabel, petResultDetail } from "./mapView";
 import { parseStoredFavorites, restoreFavoriteAfterFailure } from "./favoritesState";
 import Dialog from "./Dialog";
 import { startFeedRefresh } from "./feedRefresh";
@@ -1195,6 +1195,9 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
     showEvents: showMapEvents,
     query: resultQuery,
   }), [hoursFilteredPets, remoteEvents, remoteDiscoveries, communityDiscoveries, nearbyShelters, coordinates, mapPetType, mapDistance, showMapEvents, resultQuery]);
+  const nearbyJourneyPets = useMemo(() => buildMapView({
+    pets: remotePets, events: [], discoveries: [], center: coordinates, distance: mapDistance,
+  }).pets.map(pet => ({ ...pet, distance: distanceInMiles(pet, coordinates) })), [remotePets, coordinates, mapDistance]);
   const routePets = useMemo(() => mapView.pets.filter(pet => saved.includes(pet.id)).slice(0, 8), [mapView.pets, saved]);
 
   useEffect(() => {
@@ -1470,7 +1473,7 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
     window.addEventListener("popstate", syncPanel);
     return () => { window.removeEventListener("hashchange", syncPanel); window.removeEventListener("popstate", syncPanel); };
   }, [isSignedIn]);
-  const journeyProps = { pets: remotePets, feed, saved, onSave: toggleSave, view: journeyView, active: JOURNEY_PANELS.includes(activePanel), onNavigate: openPanel,
+  const journeyProps = { pets: remotePets, nearbyPets: nearbyJourneyPets, searchLocation: location, searchDistance: mapDistance, feed, saved, onSave: toggleSave, view: journeyView, active: JOURNEY_PANELS.includes(activePanel), onNavigate: openPanel,
     applicationPet, onApplicationHandled: () => setApplicationPet(null), onOpenMap: () => openPanel("explore") };
   return <div className="app map-app">
     <a className="skip-link" href="#discover">Skip to main content</a>

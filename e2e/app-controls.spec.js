@@ -385,3 +385,23 @@ test("pet list provides evidence, official next steps and a private draft on mob
   await expect(page.locator(".share-review")).toContainText("has not enabled Pawline applications");
   await expect(page.getByRole("button", { name: "Save private draft" })).toBeDisabled();
 });
+
+
+test("pet list excludes distant and unknown locations and keeps its own species controls", async ({ page }) => {
+  await fixture(page);
+  await page.route("**/api/pets**", route => route.fulfill({ json: { mode: "live", pets: [...pets,
+    { ...pets[0], id: "far", name: "Distant pet", latitude: 39.1, longitude: -77.1 },
+    { ...pets[0], id: "unknown", name: "Unknown location", latitude: null, longitude: null },
+    { ...pets[0], id: "bird", name: "Local bird", species: "Bird" },
+  ] } }));
+  await open(page);
+  await page.getByRole("button", { name: "Cats", exact: true }).click();
+  await more(page, "Browse pet list");
+  await expect(page.locator(".journey-pet-card")).toHaveCount(3);
+  await expect(page.locator(".journey-content")).toContainText("within 150 miles of Pasadena");
+  await expect(page.locator(".journey-content")).not.toContainText("Distant pet");
+  await expect(page.locator(".journey-content")).not.toContainText("Unknown location");
+  await page.getByRole("button", { name: "Birds", exact: true }).click();
+  await expect(page.locator(".journey-pet-card")).toHaveCount(1);
+  await expect(page.locator(".journey-pet-card")).toContainText("Local bird");
+});
