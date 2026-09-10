@@ -858,3 +858,6 @@ html:has(.adopter-experience),body:has(.adopter-experience) { min-width:0; }
 /* Profile actions remain easy to target on touch screens. */
 .household-panel li button { min-width:44px;min-height:44px;padding:4px 8px;font-size:12px; }
 .profile-save > button:disabled { opacity:.65;cursor:wait; }
+
+.application-form > .share-review { margin-top:0; }
+.application-source-action:not(:empty) { margin-top:12px; }
