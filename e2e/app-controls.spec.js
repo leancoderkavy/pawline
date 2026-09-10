@@ -173,6 +173,7 @@ test("profile fields, household controls and guest privacy survive navigation co
   }
   await page.getByLabel("Accessibility or visit needs (optional)").fill("QA step-free access");
   await page.getByLabel("Household name (optional)").fill("QA household");
+  await expect(page.getByRole("button", { name: "Sign in to save private details" })).toBeVisible();
   await page.getByPlaceholder("Add a household member’s first name").fill("Alex");
   await page.getByRole("button", { name: "Add", exact: true }).click();
   await expect(page.getByLabel("Remove Alex")).toBeVisible();
@@ -182,7 +183,7 @@ test("profile fields, household controls and guest privacy survive navigation co
   await expect(page.getByLabel("Remove Alex")).toHaveCount(1);
   await page.getByLabel("Remove Alex").click();
   await expect(page.getByLabel("Remove Alex")).toHaveCount(0);
-  await page.getByRole("button", { name: "Save preferences" }).click();
+  await page.getByRole("button", { name: "Sign in to save private details" }).click();
   await expect(page.locator(".app [role=alert]")).toContainText("Sign in");
   await page.reload();
   await expect(page.getByLabel("Household name (optional)")).toHaveValue("");

@@ -344,10 +344,11 @@ export default function NetworkTools({ request, onSignIn, onOpenPet }) {
       ) : null}
       {tab === "saved" ? (
         <>
+          <p>Save a search, then return here to check for new pets. Email and push alerts are not enabled.</p>
           {!request ? (
             <button onClick={onSignIn}>Sign in to save searches</button>
           ) : !saved.length ? (
-            <p>No saved searches yet. Save your criteria from Pet search.</p>
+            <div className="network-empty"><p>No saved searches yet. Choose the pets and area you want to check.</p><button className="button" onClick={() => setTab("search")}>Find pets to save a search</button></div>
           ) : (
             saved.map((item) => (
               <article key={item.id}>

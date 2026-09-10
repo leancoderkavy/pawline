@@ -17,7 +17,7 @@ export default function AppointmentForm({ current, videoEnabled, busy, onSubmit,
   return <form className="appointment-form" onSubmit={submit}>
     <h3>{current ? 'Suggest a different time' : 'Make time to meet'}</h3>
     <p>The other person confirms the time before your appointment is booked.</p>
-    {!current ? <label>How would you like to meet?<select value={kind} onChange={event => setKind(event.target.value)}><option value="video" disabled={!videoEnabled}>Video hello{!videoEnabled ? ' · coming soon' : ''}</option><option value="visit">Final in-person visit</option></select></label> : null}
+    {!current ? <label>How would you like to meet?<select value={kind} onChange={event => setKind(event.target.value)}><option value="video" disabled={!videoEnabled}>Video hello{!videoEnabled ? ' · unavailable' : ''}</option><option value="visit">In-person visit</option></select></label> : null}
     <label>Your local date and time<input type="datetime-local" step="1" required value={when} onChange={event => setWhen(event.target.value)} /></label>
     <p className="appointment-hint">Times are shown in {zone.replaceAll('_', ' ')}.</p>
     <label>Length<select value={minutes} onChange={event => setMinutes(event.target.value)}>{[15, 20, 30].map(value => <option key={value} value={value}>{value} minutes</option>)}</select></label>

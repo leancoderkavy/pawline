@@ -855,5 +855,11 @@ html:has(.adopter-experience),body:has(.adopter-experience) { min-width:0; }
   .map-rail.is-collapsed .rail-toggle-label { font-size:12px; }
 }
 
+/* Profile actions remain easy to target on touch screens. */
+.household-panel li button { min-width:44px;min-height:44px;padding:4px 8px;font-size:12px; }
+.profile-save > button:disabled { opacity:.65;cursor:wait; }
+
+.application-form > .share-review { margin-top:0; }
+.application-source-action:not(:empty) { margin-top:12px; }
 .search-skip { position:absolute;left:16px;top:8px;transform:translateY(-200%);z-index:20;padding:12px 16px;background:var(--green);color:white;border-radius:8px; }
 .search-skip:focus { transform:none;outline:3px solid var(--rust);outline-offset:2px; }
