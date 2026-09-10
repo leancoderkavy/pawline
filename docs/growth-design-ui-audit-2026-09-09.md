@@ -108,4 +108,4 @@ Simplify implementation-heavy explanatory copy, audit all color contrast and key
 
 ## Validation record
 
-Fill final test and release evidence after execution. Public production verification is read-only; no real application, report, claim, message or listing will be submitted for this UI review.
+Pre-merge validation: production build; 228 JavaScript and 31 Python tests on the integrated base; 18 app browser scenarios; 7 chat/caregiver/network scenarios; one appointment scenario; import failure/retry regression; profile layouts at 320, 768 and 1440px; zero dependency audit vulnerabilities. The fixture video scenario is not production media proof. One initial local build worker exited during page-data collection without a diagnostic; a fresh build passed. Public production verification is read-only; no real application, report, claim, message or listing will be submitted for this UI review.
