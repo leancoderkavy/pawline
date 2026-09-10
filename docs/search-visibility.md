@@ -98,3 +98,13 @@ verification command. It does not measure Google indexing or ranking changes.
 - The audit checks robots.txt for the canonical sitemap and public-resource access for Googlebot, Bingbot, OAI-SearchBot, and PerplexityBot. This is a configuration check, not proof of crawler visits.
 
 These changes extend the existing six-page search surface. No ranking gain or fresh inventory is inferred. Google's [AI search guidance](https://developers.google.com/search/docs/fundamentals/ai-optimization-guide) states that special AI files and markup are not required for Google Search.
+
+## Five follow-up rounds: guide navigation and data consistency
+
+Guide pages now provide a keyboard-visible skip link that targets focusable article content. Shared metadata supplies consistent social titles, image dimensions, and image alternative text across all five resource pages.
+
+`node scripts/sync-search-resources.mjs` updates only marked guide sections in both LLM reference files from the resource catalog. CI runs it with `--check` to reject drift while keeping explanatory content hand-maintained.
+
+GSC reports now include current/previous query counts, shared queries, queries present in only one export, and the number eligible for position deltas. These are export coverage counts, not an estimate of all searches. Missing periods remain unknown.
+
+The structured-data audit accepts object, array, and graph forms and rejects malformed roots with an actionable error. It also validates that each resource WebPage actually references its BreadcrumbList. These checks establish technical consistency, not indexing or ranking gains.

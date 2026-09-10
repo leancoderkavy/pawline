@@ -67,6 +67,19 @@ class SearchHTML(HTMLParser):
             self.schema_text += data
 
 
+def schema_nodes(value):
+    """Accept JSON-LD objects, arrays and graphs; reject malformed roots cleanly."""
+    if isinstance(value, list):
+        return [node for item in value for node in schema_nodes(item)]
+    if not isinstance(value, dict):
+        raise ValueError("JSON-LD must contain objects, not scalar values")
+    if "@graph" in value:
+        if not isinstance(value["@graph"], list):
+            raise ValueError("JSON-LD @graph must be an array")
+        return schema_nodes(value["@graph"])
+    return [value]
+
+
 def audit_html(html, canonical, robots_header=""):
     page = SearchHTML()
     page.feed(html)
@@ -81,7 +94,7 @@ def audit_html(html, canonical, robots_header=""):
         errors.append("Missing or duplicate description")
     if any("noindex" in value or "none" in [token.strip() for token in value.split(",")] for value in [*page.robots, robots_header.lower()]):
         errors.append("Sitemap page is marked noindex")
-    nodes = [node for schema in page.schemas for node in schema.get("@graph", [schema])]
+    nodes = [node for schema in page.schemas for node in schema_nodes(schema)]
     if urlsplit(canonical).path not in ("", "/"):
         web_pages = [node for node in nodes if node.get("@type") == "WebPage" and node.get("url") == canonical]
         breadcrumbs = [node for node in nodes if node.get("@type") == "BreadcrumbList"]
@@ -89,8 +102,11 @@ def audit_html(html, canonical, robots_header=""):
             errors.append("Expected a canonical WebPage and BreadcrumbList")
         else:
             items = breadcrumbs[0].get("itemListElement", [])
-            if len(items) < 2 or [item.get("position") for item in items] != list(range(1, len(items) + 1)) or items[-1].get("item") != canonical:
+            if not isinstance(items, list) or not all(isinstance(item, dict) for item in items) or len(items) < 2 or [item.get("position") for item in items] != list(range(1, len(items) + 1)) or items[-1].get("item") != canonical:
                 errors.append("Invalid breadcrumb hierarchy")
+            reference = web_pages[0].get("breadcrumb")
+            if not isinstance(reference, dict) or reference.get("@id") != breadcrumbs[0].get("@id") or not breadcrumbs[0].get("@id"):
+                errors.append("WebPage breadcrumb reference is missing or disconnected")
     return {"url": canonical, "title": page.title, "h1": page.h1, "errors": errors}
 
 
