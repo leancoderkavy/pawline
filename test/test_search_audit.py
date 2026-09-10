@@ -64,3 +64,15 @@ class RobotsPolicyTests(unittest.TestCase):
     def test_requires_canonical_sitemap(self):
         from scripts.audit_search import audit_robots
         self.assertIn('Robots policy is missing canonical sitemap', audit_robots('User-agent: *\nAllow: /', []))
+
+class StructuredDataShapeTests(unittest.TestCase):
+    def test_accepts_array_and_graph_forms(self):
+        from scripts.audit_search import schema_nodes
+        node = {'@type':'WebPage'}
+        self.assertEqual(schema_nodes([node, {'@graph':[node]}]), [node,node])
+
+    def test_rejects_scalar_and_malformed_graph(self):
+        from scripts.audit_search import schema_nodes
+        for value in (None, 'bad', 42, {'@graph':{}}, [None]):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                schema_nodes(value)
