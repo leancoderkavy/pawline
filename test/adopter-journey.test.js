@@ -137,5 +137,5 @@ test("discovery distinguishes live-feed loading and failure from a genuine empty
   assert.match(experience, /const isLoading = feed\?\.mode === "loading"/);
   assert.match(experience, /Current listings are loading\./);
   assert.match(experience, /Current listings are temporarily unavailable\./);
-  assert.match(experience, /<Discovery pets=\{pets\} feed=\{feed\}/);
+  assert.match(experience, /<Discovery pets=\{nearbyPets\}[^>]*feed=\{feed\}/);
 });
