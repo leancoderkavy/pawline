@@ -7,6 +7,8 @@ export const PAWLINE_BASEMAP = {
   showPointOfInterestLabels: true, showTransitLabels: true,
   showPlaceLabels: true, showRoadLabels: true,
   showPedestrianRoads: true, show3dObjects: true,
+  showLandmarkIcons: true, showLandmarkIconLabels: true,
+  showAdminBoundaries: true,
 };
 
 const markers = {

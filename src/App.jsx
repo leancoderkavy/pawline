@@ -495,6 +495,7 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const geoJsonRef = useRef(null);
+  const pointDataKeyRef = useRef("");
   const userCoordinatesRef = useRef(userCoordinates);
   const pointClickRef = useRef(onPointClick);
   const moveSearchRef = useRef(onMoveSearch);
@@ -513,6 +514,7 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
     type: "FeatureCollection",
     features: points.map(point => ({
         type: "Feature",
+        id: `${point.type}:${point.id}`,
         geometry: { type: "Point", coordinates: [point.longitude, point.latitude] },
         properties: { type: point.type, id: String(point.id), name: point.name || point.title || "" },
       })),
@@ -528,12 +530,14 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
     if (!containerRef.current) return undefined;
     let active = true;
     let map;
+    let resizeObserver;
+    const controller = new AbortController();
     setMapState({ status: "loading", message: "" });
     setPerspective(false);
     setLandmarks(true);
 
     Promise.all([
-      fetch("/api/map-token").then(response => readJson(response, "Interactive maps are unavailable."))
+      fetch("/api/map-token", { signal: controller.signal }).then(response => readJson(response, "Interactive maps are unavailable."))
         .then(body => {
           if (!body.accessToken) throw new Error("Interactive maps are unavailable.");
           return body.accessToken;
@@ -554,11 +558,14 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
         cooperativeGestures: false,
       });
       mapRef.current = map;
+      resizeObserver = new ResizeObserver(() => map.resize());
+      resizeObserver.observe(containerRef.current);
       map.addControl(new mapboxgl.NavigationControl({ showCompass: true, visualizePitch: true }), "top-right");
       map.addControl(new mapboxgl.ScaleControl({ maxWidth: 100, unit: "imperial" }), "bottom-right");
       map.on("load", () => {
         if (!active) return;
         map.addSource("pawline-points", { type: "geojson", data: geoJsonRef.current });
+        pointDataKeyRef.current = JSON.stringify(geoJsonRef.current);
         map.addSource("pawline-visit-route", { type: "geojson", data: routeGeoJson(routeRef.current) });
         map.addSource("pawline-user-location", {
           type: "geojson",
@@ -606,117 +613,44 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
           type: "circle",
           source: "pawline-points",
           paint: {
-            "circle-radius": 22,
+            "circle-radius": ["interpolate", ["linear"], ["zoom"], 7, 15, 12, 20, 16, 22],
             "circle-color": ["match", ["get", "type"], "event", "#f4dfd2", "discovery", "#eee6f3", "shelter", "#e2edf4", "#deebe2"],
-            "circle-opacity": 0.9,
+            "circle-opacity": ["case", ["boolean", ["feature-state", "hover"], false], 1, 0.85],
+            "circle-opacity-transition": { duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 150 },
             "circle-stroke-color": "#fffaf1",
-            "circle-stroke-width": 2,
+            "circle-stroke-width": ["case", ["boolean", ["feature-state", "hover"], false], 4, 2],
           },
         });
         map.addLayer({
-          id: "pawline-pets",
-          type: "symbol",
-          source: "pawline-points",
-          filter: ["==", ["get", "type"], "pet"],
-          layout: { "icon-image": "pawline-pet-marker", "icon-size": 0.52, "icon-allow-overlap": true },
+          id: "pawline-markers", type: "symbol", source: "pawline-points",
+          layout: { "icon-image": ["match", ["get", "type"], "event", "pawline-event-marker", "discovery", "pawline-discovery-marker", "shelter", "pawline-shelter-marker", "pawline-pet-marker"], "icon-size": 0.52, "icon-allow-overlap": true },
         });
         map.addLayer({
-          id: "pawline-pet-hit-area",
-          type: "circle",
-          source: "pawline-points",
-          filter: ["==", ["get", "type"], "pet"],
-          paint: {
-            "circle-radius": 20,
-            "circle-color": "#2f7458",
-            "circle-opacity": 0.01,
-          },
-        });
-        map.addLayer({
-          id: "pawline-events",
-          type: "symbol",
-          source: "pawline-points",
-          filter: ["==", ["get", "type"], "event"],
-          layout: { "icon-image": "pawline-event-marker", "icon-size": 0.52, "icon-allow-overlap": true },
-        });
-        map.addLayer({
-          id: "pawline-event-hit-area",
-          type: "circle",
-          source: "pawline-points",
-          filter: ["==", ["get", "type"], "event"],
-          paint: { "circle-radius": 20, "circle-color": "#ad5d35", "circle-opacity": 0.01 },
-        });
-        map.addLayer({
-          id: "pawline-discoveries",
-          type: "symbol",
-          source: "pawline-points",
-          filter: ["==", ["get", "type"], "discovery"],
-          layout: { "icon-image": "pawline-discovery-marker", "icon-size": 0.52, "icon-allow-overlap": true },
-        });
-        map.addLayer({
-          id: "pawline-discovery-hit-area",
-          type: "circle",
-          source: "pawline-points",
-          filter: ["==", ["get", "type"], "discovery"],
-          paint: { "circle-radius": 20, "circle-color": "#7a5a9b", "circle-opacity": 0.01 },
-        });
-        map.addLayer({
-          id: "pawline-shelters",
-          type: "symbol",
-          source: "pawline-points",
-          filter: ["==", ["get", "type"], "shelter"],
-          layout: { "icon-image": "pawline-shelter-marker", "icon-size": 0.52, "icon-allow-overlap": true },
-        });
-        map.addLayer({
-          id: "pawline-shelter-hit-area",
-          type: "circle",
-          source: "pawline-points",
-          filter: ["==", ["get", "type"], "shelter"],
-          paint: { "circle-radius": 20, "circle-color": "#3f6380", "circle-opacity": 0.01 },
+          id: "pawline-hit-area", type: "circle", source: "pawline-points",
+          paint: { "circle-radius": 22, "circle-opacity": 0 },
         });
         map.addLayer({
           id: "pawline-place-names", type: "symbol", source: "pawline-points", minzoom: 12,
-          layout: { "text-field": ["get", "name"], "text-size": 12, "text-anchor": "top", "text-offset": [0, 2], "text-max-width": 12, "text-optional": true },
+          layout: { "text-field": ["get", "name"], "text-size": ["interpolate", ["linear"], ["zoom"], 12, 11, 16, 14], "text-anchor": "top", "text-offset": [0, 2], "text-max-width": 12, "text-optional": true },
           paint: { "text-color": "#17382f", "text-halo-color": "#ffffff", "text-halo-width": 2 },
         });
-        map.on("mouseenter", "pawline-pet-hit-area", () => {
+        let hoveredPoint = null;
+        map.on("mousemove", "pawline-hit-area", event => {
+          const next = event.features?.[0]?.id;
+          if (next === hoveredPoint) return;
+          if (hoveredPoint !== null) map.setFeatureState({ source: "pawline-points", id: hoveredPoint }, { hover: false });
+          hoveredPoint = next ?? null;
+          if (hoveredPoint !== null) map.setFeatureState({ source: "pawline-points", id: hoveredPoint }, { hover: true });
           map.getCanvas().style.cursor = "pointer";
         });
-        map.on("mouseleave", "pawline-pet-hit-area", () => {
+        map.on("mouseleave", "pawline-hit-area", () => {
+          if (hoveredPoint !== null) map.setFeatureState({ source: "pawline-points", id: hoveredPoint }, { hover: false });
+          hoveredPoint = null;
           map.getCanvas().style.cursor = "";
         });
-        map.on("click", "pawline-pet-hit-area", event => {
-          const id = event.features?.[0]?.properties?.id;
-          if (id) pointClickRef.current?.(id, "pet");
-        });
-        map.on("mouseenter", "pawline-event-hit-area", () => {
-          map.getCanvas().style.cursor = "pointer";
-        });
-        map.on("mouseleave", "pawline-event-hit-area", () => {
-          map.getCanvas().style.cursor = "";
-        });
-        map.on("click", "pawline-event-hit-area", event => {
-          const id = event.features?.[0]?.properties?.id;
-          if (id) pointClickRef.current?.(id, "event");
-        });
-        map.on("mouseenter", "pawline-discovery-hit-area", () => {
-          map.getCanvas().style.cursor = "pointer";
-        });
-        map.on("mouseleave", "pawline-discovery-hit-area", () => {
-          map.getCanvas().style.cursor = "";
-        });
-        map.on("click", "pawline-discovery-hit-area", event => {
-          const id = event.features?.[0]?.properties?.id;
-          if (id) pointClickRef.current?.(id, "discovery");
-        });
-        map.on("mouseenter", "pawline-shelter-hit-area", () => {
-          map.getCanvas().style.cursor = "pointer";
-        });
-        map.on("mouseleave", "pawline-shelter-hit-area", () => {
-          map.getCanvas().style.cursor = "";
-        });
-        map.on("click", "pawline-shelter-hit-area", event => {
-          const id = event.features?.[0]?.properties?.id;
-          if (id) pointClickRef.current?.(id, "shelter");
+        map.on("click", "pawline-hit-area", event => {
+          const point = event.features?.[0]?.properties;
+          if (point?.id) pointClickRef.current?.(point.id, point.type);
         });
         const searchInteraction = createMapSearchInteraction(nextCenter => {
           moveSearchRef.current?.(nextCenter);
@@ -737,6 +671,8 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
 
     return () => {
       active = false;
+      controller.abort();
+      resizeObserver?.disconnect();
       mapRef.current = null;
       if (map) map.remove();
     };
@@ -746,7 +682,11 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
     const map = mapRef.current;
     if (!map) return;
     const source = map.getSource("pawline-points");
-    if (source) source.setData(geoJson);
+    const key = JSON.stringify(geoJson);
+    if (source && key !== pointDataKeyRef.current) {
+      source.setData(geoJson);
+      pointDataKeyRef.current = key;
+    }
   }, [geoJson]);
 
   useEffect(() => {
@@ -779,7 +719,8 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
     if (!map || !coordinates) return;
     const current = map.getCenter();
     if (Math.abs(current.lng - center[0]) < 0.0001 && Math.abs(current.lat - center[1]) < 0.0001) return;
-    map.easeTo({ center, zoom: Math.max(map.getZoom(), 10), duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 450 });
+    map.stop();
+    map.flyTo({ center, zoom: Math.max(map.getZoom(), 12), duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 900, essential: false });
   }, [coordinates?.longitude, coordinates?.latitude]);
 
   return <>
@@ -790,7 +731,7 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
       <details className="map-detail-controls"><summary title="Map options"><SlidersHorizontal size={16} aria-hidden="true" /><span className="map-control-label">Map options</span></summary><div role="group" aria-label="Map detail">
         <button type="button" aria-pressed={perspective} onClick={() => {
           const next = !perspective;
-          mapRef.current?.easeTo({ pitch: next ? 55 : 0, duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 500 });
+          mapRef.current?.easeTo({ pitch: next ? 60 : 0, duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 700 });
           setPerspective(next);
         }}><Layers3 size={16} />3D view</button>
         <button type="button" aria-pressed={landmarks} onClick={() => {
