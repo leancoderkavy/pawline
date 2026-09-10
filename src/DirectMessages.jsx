@@ -21,7 +21,7 @@ export default function DirectMessages(props) {
   if (!isSignedIn) return <div className="community-auth-state">
     {showAuthModal ? <AuthModal initialMode={authMode} onClose={() => setShowAuthModal(false)} onSuccess={() => setShowAuthModal(false)} /> : null}
     <span><MessageCircle /></span><h2>Talk with a shelter or foster</h2>
-    <p>Ask about a pet, answer adoption questions, or arrange a video hello. Sign in to keep your conversations together.</p>
+    <p>Ask about a pet and agree on the next adoption step. Sign in to keep your conversations together.</p>
     <div className="auth-actions"><button className="button" onClick={() => { setAuthMode("signup"); setShowAuthModal(true); }}>Create account</button><button className="button button-outline" onClick={() => { setAuthMode("signin"); setShowAuthModal(true); }}>Sign in</button></div>
     <div className="auth-safety"><ShieldCheck /><span><strong>Private conversations</strong>Messages are shared with you and the listing's caretaker or shelter team.</span></div>
   </div>;
