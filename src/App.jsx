@@ -399,13 +399,6 @@ function PetDetail({ pet, onClose, saved, onSave, onMessage, onApply }) {
         />
       </div>
       {detailTags.length ? <div className="detail-meta">{detailTags.map(tag => <span key={tag}>{tag}</span>)}</div> : null}
-      {hasSpecificBreed ? <h3>{pet.breed}</h3> : null}
-      <p className="detail-location"><MapPin /><span><strong>{pet.locationAccuracy === "shelter" ? "Current shelter location" : "Location"}</strong>{pet.address || pet.city}{pet.address && pet.city ? <small>{pet.city}</small> : null}</span></p>
-      <p><ShieldCheck /> {pet.shelter} · verified source</p>
-      <p className="detail-hours"><CalendarClock /><span><strong>Shelter hours</strong>{suppliedHours(pet) || "Not supplied by this listing—confirm before visiting."}</span></p>
-      {pet.locationAccuracy === "shelter" ? <p className="detail-note">The map marker shows the shelter caring for {pet.name}, not a private or foster address. Confirm current availability before visiting.</p> : null}
-      {pet.description ? <p>{pet.description}</p> : null}
-      <aside className="pet-visit-questions"><ListChecks /><div><strong>Good questions for {pet.name}</strong><span>Ask about daily routine, medical history, behavior observations, adoption fees, and the best first week at home.</span></div></aside>
       <div className="detail-actions">
         <Button onClick={() => onApply(pet)}><FileText />Start application</Button>
         {pet.id?.startsWith("pawline-") ? <a className="button button-outline" href={`/pets/${pet.id.slice(8)}`}>Shareable pet page</a> : null}
@@ -414,6 +407,14 @@ function PetDetail({ pet, onClose, saved, onSave, onMessage, onApply }) {
         {pet.sourceUrl ? <a className="button" href={pet.sourceUrl} target="_blank" rel="noreferrer">View adoption listing <ChevronRight /></a> : <span className="button button-disabled" aria-disabled="true">Contact the listed rescue</span>}
         {directionsUrl ? <a className="button button-outline detail-directions" href={directionsUrl} target="_blank" rel="noreferrer"><Compass /> Directions</a> : null}
       </div>
+      {hasSpecificBreed ? <h3>{pet.breed}</h3> : null}
+      <p className="detail-location"><MapPin /><span><strong>{pet.locationAccuracy === "shelter" ? "Current shelter location" : "Location"}</strong>{pet.address || pet.city}{pet.address && pet.city ? <small>{pet.city}</small> : null}</span></p>
+      <p><ShieldCheck /> {pet.shelter} · verified source</p>
+      <p className="detail-hours"><CalendarClock /><span><strong>Shelter hours</strong>{suppliedHours(pet) || "Not supplied by this listing—confirm before visiting."}</span></p>
+      {pet.locationAccuracy === "shelter" ? <p className="detail-note">The map marker shows the shelter caring for {pet.name}, not a private or foster address. Confirm current availability before visiting.</p> : null}
+      {pet.description ? <p>{pet.description}</p> : null}
+      <aside className="pet-visit-questions"><ListChecks /><div><strong>Good questions for {pet.name}</strong><span>Ask about daily routine, medical history, behavior observations, adoption fees, and the best first week at home.</span></div></aside>
+
     </div>
   </Dialog>;
 }
@@ -766,7 +767,7 @@ function MapFilters({ petType, distance, showEvents, densityMode, hoursFilter, o
     <details className="more-filters">
       <summary><SlidersHorizontal /><span>Filters</span>{activeFilterCount ? <span className="filter-count" aria-label={activeFilterLabel}>{activeFilterCount}</span> : null}</summary>
       <div>
-        <label className="map-select">All species<select aria-label="All pet species" value={petType} onChange={event => onPetTypeChange(event.target.value)}><option>All</option>{PET_SPECIES.map(item => <option key={item}>{item}</option>)}</select></label>
+        <label className="map-select"><PawPrint /><span>Species</span><select aria-label="All pet species" value={petType} onChange={event => onPetTypeChange(event.target.value)}><option>All</option>{PET_SPECIES.map(item => <option key={item}>{item}</option>)}</select></label>
         <label className="map-select"><LocateFixed /><span>Search radius</span><select value={distance} onChange={event => onDistanceChange(event.target.value)} aria-label="Map search radius"><option value="25">25 mi</option><option value="50">50 mi</option><option value="100">100 mi</option><option value="150">150 mi</option></select></label>
         <label className="map-select"><CalendarClock /><span>Shelter hours</span><select value={hoursFilter} onChange={event => onHoursFilterChange(event.target.value)} aria-label="Filter by supplied shelter hours"><option value="all">All listings</option><option value="known">Hours supplied</option></select></label>
         <button type="button" className={`map-toggle ${showEvents ? "is-active" : ""}`} onClick={() => onShowEventsChange(value => !value)} aria-pressed={showEvents}><CalendarDays /> Show events</button>
@@ -939,7 +940,7 @@ function MapPanel({ showLocationControls = true, location, coordinates, userCoor
       {showLocationControls && configured === true && !locationDialogOpen ? <button type="button" className="map-my-location" title="My location" onClick={onRequestLocation}><LocateFixed size={18} aria-hidden="true" /><span className="map-control-label">My location</span></button> : null}
       {userCoordinates ? <div className="map-location-accuracy"><span role="status">Location accuracy: about {Math.round(userCoordinates.accuracy)} m</span><button type="button" onClick={onStopLocation}>Stop sharing location</button></div> : null}
       <span className="map-legend"><PawPrint className="pet-paw" /> {petType === "All" ? "Pets" : `${petType}s`} {showEvents ? <><CalendarDays className="event-paw" /> Events</> : null} <Compass className="discovery-paw" /> Web leads {visibleShelters.length ? <><House className="shelter-marker" /> Shelters</> : null}</span>
-      <span className="map-attribution">Markers checked this session · Listing update times vary by provider · Shelter locations © OpenStreetMap contributors</span>
+      <details className="map-provenance"><summary>Map information</summary><p>Markers checked this session. Listing update times vary by provider. Shelter locations © OpenStreetMap contributors.</p></details>
     </div>
   </section>;
 }
@@ -1500,10 +1501,9 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
             {resultQuery.trim() ? <div className="result-search-summary" role="status"><strong>{mapView.pets.length + mapView.shelters.length + mapView.events.length + mapView.discoveries.length ? `${mapView.pets.length} pets · ${mapView.shelters.length} shelters · ${mapView.events.length} events · ${mapView.discoveries.length} web leads` : "No nearby matches"}</strong><span>Searching loaded results within {mapDistance} miles. Try a pet name, breed, or shelter.</span><button type="button" onClick={() => setResultQuery("")}>Show all nearby results</button></div> : null}
             <div className="explore-heading"><div><h1>{showSavedOnly ? "Saved pets" : "Pets near you"}</h1><span className={`live-state feed-${feed.mode}`}><i />{feed.mode === "live" ? "Current pet listings" : feed.mode === "loading" ? "Checking listings" : "Listings unavailable"}</span></div><button type="button" className="mobile-view-map" onClick={() => setRailCollapsed(true)}><Compass /> View map</button></div>
             <p>{feed.mode === "live" ? `${petCountLabel(showSavedOnly ? mapView.pets.filter(pet => saved.includes(pet.id)).length : mapView.pets.length, mapPetType)}${showSavedOnly ? " saved" : ""} within ${mapDistance} miles.` : feed.message || "Current shelter listings are unavailable. Pawline does not show made-up pets."}</p>
-            <button className="onboarding-back" onClick={() => openPanel("onboarding")}>New here? Get started <ChevronRight /></button>
             <div className="feed-refresh"><span role="status">{feedRefresh.loading ? "Checking for updates…" : feedRefresh.error || (feedRefresh.updatedAt ? `Checked ${feedRefresh.updatedAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} · checks every minute` : "Waiting for connection")}</span><button type="button" disabled={feedRefresh.loading} onClick={() => refreshFeedRef.current?.()} aria-label="Refresh listings"><RotateCcw size={16} /> Refresh</button></div>
             <MapFilters petType={mapPetType} distance={mapDistance} showEvents={showMapEvents} densityMode={densityMode} hoursFilter={hoursFilter} onPetTypeChange={setMatchSpecies} onDistanceChange={setMapDistance} onShowEventsChange={setShowMapEvents} onDensityChange={setDensityMode} onHoursFilterChange={setHoursFilter} onReset={resetMapFilters} />
-            <button className="button button-outline" onClick={() => openPanel("network")}>Search all stored pets, save searches, or find lost pets</button>
+            <button className="discovery-search-link" onClick={() => openPanel("network")}><Search size={16} />Search all pets & lost pets<ChevronRight size={16} /></button>
             {mapSearchMoved ? <p className="map-area-status" role="status">Showing results around the map center.</p> : null}
             <MapResults view={mapView} saved={saved} showSavedOnly={showSavedOnly} onToggleSavedOnly={toggleSavedOnly} onSave={toggleSave} onOpenPet={openPetDetail} onOpenEvent={setSelectedEvent} onOpenDiscovery={setSelectedDiscovery} />
             <div className="network-pagination" aria-label="Live provider pages"><button type="button" disabled={livePage === 1 || feedRefresh.loading} onClick={() => setLivePage(value => value - 1)}>Previous pets</button><span>Page {livePage}</span><button type="button" disabled={!feed.hasMore || feedRefresh.loading} onClick={() => setLivePage(value => value + 1)}>Next pets</button></div>

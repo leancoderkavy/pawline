@@ -1,5 +1,58 @@
 import { test, expect } from "@playwright/test";
 
+for (const width of [320, 390]) {
+  test(`production UI regressions: readable actions and unobstructed controls at ${width}px`, async ({ page }) => {
+    await fixture(page);
+    await page.setViewportSize({ width, height: 844 });
+    await open(page);
+    const search = page.getByRole('button', { name: 'Search all pets & lost pets', exact: true });
+    const colors = await search.evaluate(el => ({ color: getComputedStyle(el).color, background: getComputedStyle(el).backgroundColor }));
+    expect(colors.color).not.toBe(colors.background);
+    await search.click();
+    await expect(page.getByRole('heading', { name: 'Find and connect' })).toBeVisible();
+    await page.getByRole('button', { name: 'Find pets', exact: true }).click();
+    await page.locator('.more-filters summary').click();
+    const toolbar = await page.locator('.map-toolbar').boundingBox();
+    const field = await page.getByLabel('All pet species').boundingBox();
+    expect(field.width).toBeGreaterThan(toolbar.width / 2);
+    await page.locator('.more-filters summary').click();
+    await page.getByRole('button', { name: 'More', exact: true }).click();
+    const menu = await page.locator('#map-more-menu').boundingBox();
+    expect(menu.x).toBeGreaterThanOrEqual(0);
+    expect(menu.x + menu.width).toBeLessThanOrEqual(width);
+    await page.getByRole('button', { name: 'More', exact: true }).click();
+    await page.getByRole('button', { name: 'Messages', exact: true }).click();
+    const tab = await page.getByRole('button', { name: 'Application updates', exact: true }).boundingBox();
+    const toggle = await page.getByRole('button', { name: 'Hide discovery tools', exact: true }).boundingBox();
+    expect(tab.y).toBeGreaterThanOrEqual(toggle.y + toggle.height);
+    await page.getByRole('button', { name: 'Find pets', exact: true }).click();
+    await page.getByRole('button', { name: 'Open QA Miso details', exact: true }).click();
+    const apply = await page.getByRole('button', { name: 'Start application', exact: true }).boundingBox();
+    expect(apply.y + apply.height).toBeLessThan(844);
+    await page.getByLabel('Close dialog').click();
+    await page.getByRole('button', { name: 'Show discovery tools', exact: true }).click();
+    await page.getByRole('button', { name: 'Hide discovery tools', exact: true }).click();
+    const info = page.locator('.map-provenance summary');
+    await info.click();
+    await expect(page.locator('.map-provenance p')).toBeVisible();
+    await page.goto('/guides');
+    const heading = await page.getByRole('heading', { level: 1 }).boundingBox();
+    expect(heading.y).toBeLessThan(320);
+  });
+}
+
+test('mobile location prompt reserves space above search', async ({ page }) => {
+  await fixture(page);
+  await page.route('**/api/health', route => route.fulfill({ json: { mapboxConfigured: true } }));
+  await page.setViewportSize({ width: 320, height: 568 });
+  await open(page);
+  const prompt = await page.getByRole('dialog', { name: 'See where you are' }).boundingBox();
+  const search = await page.locator('.rail-search').boundingBox();
+  expect(prompt.y + prompt.height).toBeLessThanOrEqual(search.y);
+  await page.getByRole('button', { name: 'Dismiss location prompt' }).click();
+  await expect(page.getByRole('dialog', { name: 'See where you are' })).toHaveCount(0);
+});
+
 const pets = [
   { id: "qa-cat", name: "QA Miso", species: "Cat", breed: "Domestic Shorthair", latitude: 34.1478, longitude: -118.1445, hours: "10am–4pm", city: "Pasadena", shelter: "QA Shelter", image: "/pet-photo-placeholder.svg", sourceUrl: "https://example.org/miso", description: "Test listing", age: "Adult", size: "Small" },
   { id: "qa-dog", name: "QA Willow", species: "Dog", breed: "Mixed", latitude: 34.15, longitude: -118.15, city: "Pasadena", shelter: "QA Shelter", image: "/pet-photo-placeholder.svg", sourceUrl: "https://example.org/willow", description: "Test listing", age: "Adult", size: "Medium" },
