@@ -1,7 +1,6 @@
 export const ANY_LIFESTYLE = "Any lifestyle";
 
 const normalize = (value) => String(value || "").trim().toLowerCase();
-const includesAny = (text, terms) => terms.some((term) => text.includes(term));
 
 const TRAITS = {
   active: ["active", "energetic", "hiking", "runner", "high energy", "playful"],
@@ -10,25 +9,39 @@ const TRAITS = {
   noKids: ["no children", "no kids", "adult-only", "adult only"],
   dogs: ["good with dogs", "dog friendly", "lived with dogs"],
   cats: ["good with cats", "cat friendly", "lived with cats"],
-  experienced: ["experienced adopter", "experienced owner", "needs training", "resource guarding"],
+  experienced: ["experienced adopter", "experienced owner", "resource guarding"],
   alone: ["independent", "does well alone", "can be left alone"],
 };
 
 function petText(pet) {
   return normalize([
     pet.description,
-    pet.name,
-    pet.breed,
-    pet.age,
-    pet.size,
     ...(pet.lifestyles || []),
   ].filter(Boolean).join(" "));
 }
 
 function knownTrait(text, positive, negative = []) {
-  if (includesAny(text, TRAITS[positive])) return true;
-  if (negative.length && includesAny(text, negative)) return false;
-  return null;
+  const terms = TRAITS[positive];
+  // A negative or uncertain statement must never become compatibility evidence.
+  if (negative.some(term => text.includes(term))) return false;
+  let supported = false;
+  for (const term of terms) {
+    const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const pattern = new RegExp(`\\b${escaped}\\b`, "g");
+    for (const match of text.matchAll(pattern)) {
+      const before = text.slice(Math.max(0, match.index - 55), match.index).split(/[.!?;\n]/).pop();
+      if (/\b(no|not|never|isn't|is not|cannot|can't|doesn't)\b(?:\W+\w+){0,3}\W*$/.test(before)) return false;
+      if (/\b(unknown|unsure|whether|may|might|possibly)\b[^.!?;]*$/.test(before)) continue;
+      supported = true;
+    }
+  }
+  return supported ? true : null;
+}
+
+function distanceValue(pet) {
+  if (pet.distance == null || String(pet.distance).trim() === "") return Infinity;
+  const distance = Number(pet.distance);
+  return Number.isFinite(distance) && distance >= 0 ? distance : Infinity;
 }
 
 export function scorePet(pet, answers = {}) {
@@ -46,7 +59,6 @@ export function scorePet(pet, answers = {}) {
     } else if (result === false) {
       if (consideration) considerations.push(consideration);
     } else {
-      earned += weight * 0.55;
       if (question) questions.push(question);
     }
   };
@@ -55,25 +67,20 @@ export function scorePet(pet, answers = {}) {
     add(24, pet.species === answers.species, null, null, null);
   }
 
-  const size = normalize(pet.size);
-  if (answers.home === "Apartment or condo") {
-    add(12, size ? includesAny(size, ["small", "medium"]) : null,
-      `${pet.size} size can be easier to accommodate in an apartment.`,
-      `${pet.size || "This pet's"} size may need more room than your home offers.`,
-      "Ask whether this pet is comfortable in an apartment.");
-  } else if (answers.home) {
-    add(8, true, "Your home type does not create an obvious size conflict.", null, null);
+  if (answers.home) {
+    add(12, null, null, null,
+      "Ask about exercise, noise, space needs, and your housing rules; size alone does not establish home suitability.");
   }
 
   const active = knownTrait(text, "active");
   const calm = knownTrait(text, "calm");
   if (answers.energy === "Active") {
-    add(18, active, "The listing describes an active, playful companion.",
+    add(18, active === null && calm === true ? false : active, "The listing describes an active, playful companion.",
       "The listing suggests a calmer pace than you selected.",
       "Ask the shelter about daily exercise needs.");
   } else if (answers.energy === "Calm") {
-    add(18, calm, "The listing describes a calm, lower-key companion.",
-      active ? "This pet may need more daily activity than you selected." : null,
+    add(18, calm === null && active === true ? false : calm, "The listing describes a calm, lower-key companion.",
+      "The listing may not support the calmer pace you selected.",
       "Ask the shelter about daily exercise needs.");
   } else if (answers.energy) {
     add(12, active || calm || null, "The listing includes useful energy-level information.", null,
@@ -88,21 +95,21 @@ export function scorePet(pet, answers = {}) {
   }
 
   if (answers.pets === "Dogs") {
-    add(12, knownTrait(text, "dogs"), "The listing mentions compatibility with dogs.", null,
+    add(12, knownTrait(text, "dogs", ["no dogs", "only dog", "dog-free"]), "The listing mentions compatibility with dogs.", "The listing indicates a possible conflict with resident dogs.",
       "Ask whether this pet has been evaluated with dogs.");
   } else if (answers.pets === "Cats") {
-    add(12, knownTrait(text, "cats"), "The listing mentions compatibility with cats.", null,
+    add(12, knownTrait(text, "cats", ["no cats", "cat-free"]), "The listing mentions compatibility with cats.", "The listing indicates a possible conflict with resident cats.",
       "Ask whether this pet has been evaluated with cats.");
   } else if (answers.pets === "Dogs and cats") {
-    const withDogs = knownTrait(text, "dogs");
-    const withCats = knownTrait(text, "cats");
+    const withDogs = knownTrait(text, "dogs", ["no dogs", "only dog", "dog-free"]);
+    const withCats = knownTrait(text, "cats", ["no cats", "cat-free"]);
     add(12, withDogs && withCats ? true : withDogs === false || withCats === false ? false : null,
-      "The listing mentions compatibility with dogs and cats.", null,
+      "The listing mentions compatibility with dogs and cats.", "The listing indicates a possible conflict with resident animals.",
       "Ask whether this pet has been evaluated with both dogs and cats.");
   }
 
   if (answers.alone === "Often") {
-    add(10, knownTrait(text, "alone"), "The listing describes a more independent pet.", null,
+    add(10, knownTrait(text, "alone"), "The listing describes a more independent pet.", "The listing suggests this pet may need company or support when alone.",
       "Ask how this pet handles time alone.");
   }
 
@@ -114,13 +121,13 @@ export function scorePet(pet, answers = {}) {
       "Ask whether this pet is suitable for a first-time adopter.");
   }
 
-  const score = possible ? Math.round((earned / possible) * 100) : 70;
+  const score = possible ? Math.round((earned / possible) * 100) : 0;
   return {
     pet,
-    score: Math.max(35, Math.min(98, score)),
-    reasons: reasons.slice(0, 2),
-    considerations: considerations.slice(0, 1),
-    questions: questions.slice(0, 2),
+    score,
+    reasons,
+    considerations,
+    questions,
   };
 }
 
@@ -128,7 +135,7 @@ export function rankPets(pets, answers = {}) {
   return pets
     .filter((pet) => !answers.species || answers.species === "Either" || pet.species === answers.species)
     .map((pet) => scorePet(pet, answers))
-    .sort((left, right) => right.score - left.score || Number(left.pet.distance || 0) - Number(right.pet.distance || 0));
+    .sort((left, right) => left.considerations.length - right.considerations.length || right.score - left.score || distanceValue(left.pet) - distanceValue(right.pet));
 }
 
 export function matchPets(pets, { species = "All", lifestyle = ANY_LIFESTYLE, location = "" } = {}) {
@@ -143,6 +150,6 @@ export function matchPets(pets, { species = "All", lifestyle = ANY_LIFESTYLE, lo
     const leftLocal = locationTerm && normalize(left.city).includes(locationTerm) ? 1 : 0;
     const rightLocal = locationTerm && normalize(right.city).includes(locationTerm) ? 1 : 0;
     if (leftLocal !== rightLocal) return rightLocal - leftLocal;
-    return Number(left.distance || 0) - Number(right.distance || 0);
+    return distanceValue(left) - distanceValue(right);
   });
 }

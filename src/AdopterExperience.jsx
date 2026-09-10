@@ -1,6 +1,7 @@
 "use client";
 
 import PetImage from "./PetImage";
+import { resultFreshness } from "./listingEvidence";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -65,12 +66,6 @@ async function authorizedJson(getToken, path, options = {}) {
   return body;
 }
 
-function resultFreshness(pet) {
-  if (pet.status && pet.status !== "available") return "Status needs confirmation";
-  if (pet.verified_at || pet.verifiedAt) return "Provider-verified listing";
-  return "Confirm with the shelter";
-}
-
 function NavButton({ active, icon: Icon, children, onClick }) {
   return <button type="button" className={active ? "journey-nav-active" : ""} onClick={onClick} aria-current={active ? "page" : undefined}><Icon aria-hidden="true" /><span>{children}</span></button>;
 }
@@ -112,7 +107,7 @@ function Discovery({ pets, profile, saved, onSave, onOpen, onOpenMap, feed }) {
     : unavailable
       ? "Pawline could not load live shelter feeds just now. Please try again shortly."
       : "Pawline never fills empty results with pretend pets. Change the filters or check back after the shelter feeds refresh.";
-  return <section className="journey-content" aria-labelledby="discover-title"><header className="journey-page-heading"><div><p className="eyebrow">Discover</p><h1 id="discover-title">Current pets, shown with their evidence.</h1><p>Start with the map to plan a visit, or browse the evidence-backed list.</p></div><button type="button" className="outline-action" onClick={onOpenMap}><Map /> Open adoption map</button></header><div className="discovery-controls" role="group" aria-label="Pet type"><span>Show</span>{["All", "Dog", "Cat"].map(option => <button key={option} type="button" className={species === option ? "selected" : ""} onClick={() => { setSpecies(option); setVisibleCount(DISCOVERY_PAGE_SIZE); }} aria-pressed={species === option}>{option === "All" ? "All pets" : `${option}s`}</button>)}</div>{ranked.length ? <><p className="discovery-result-count" role="status" aria-live="polite">Showing {visibleRanked.length} of {ranked.length} current pets.</p><div id="current-pet-results" className="journey-pet-grid">{visibleRanked.map(match => <MatchCard key={match.pet.id} match={match} saved={saved.includes(match.pet.id)} onSave={onSave} onOpen={onOpen} />)}</div>{visibleRanked.length < ranked.length ? <div className="discovery-pagination"><button type="button" className="outline-action" onClick={() => setVisibleCount(count => Math.min(count + DISCOVERY_PAGE_SIZE, ranked.length))} aria-controls="current-pet-results">Load {Math.min(DISCOVERY_PAGE_SIZE, ranked.length - visibleRanked.length)} more pets</button></div> : null}</> : <div className="journey-empty" role={isLoading ? "status" : undefined}><PawPrint /><h2>{emptyHeading}</h2><p>{emptyMessage}</p></div>}</section>;
+  return <section className="journey-content" aria-labelledby="discover-title"><header className="journey-page-heading"><div><p className="eyebrow">Discover</p><h1 id="discover-title">Current pets, shown with their evidence.</h1><p>Start with the map to plan a visit, or browse the evidence-backed list.</p></div><button type="button" className="outline-action" onClick={onOpenMap}><Map /> Open adoption map</button></header><div className="discovery-controls" role="group" aria-label="Pet type"><span>Show</span>{["All", ...new Set(["Dog", "Cat", ...pets.map(pet => pet.species).filter(Boolean)])].map(option => <button key={option} type="button" className={species === option ? "selected" : ""} onClick={() => { setSpecies(option); setVisibleCount(DISCOVERY_PAGE_SIZE); }} aria-pressed={species === option}>{option === "All" ? "All pets" : `${option}s`}</button>)}</div>{ranked.length ? <><p className="discovery-result-count" role="status" aria-live="polite">Showing {visibleRanked.length} of {ranked.length} current pets.</p><div id="current-pet-results" className="journey-pet-grid">{visibleRanked.map(match => <MatchCard key={match.pet.id} match={match} saved={saved.includes(match.pet.id)} onSave={onSave} onOpen={onOpen} />)}</div>{visibleRanked.length < ranked.length ? <div className="discovery-pagination"><button type="button" className="outline-action" onClick={() => setVisibleCount(count => Math.min(count + DISCOVERY_PAGE_SIZE, ranked.length))} aria-controls="current-pet-results">Load {Math.min(DISCOVERY_PAGE_SIZE, ranked.length - visibleRanked.length)} more pets</button></div> : null}</> : <div className="journey-empty" role={isLoading ? "status" : undefined}><PawPrint /><h2>{emptyHeading}</h2><p>{emptyMessage}</p></div>}</section>;
 }
 
 function PetPage({ pet, profile, saved, onSave, onBack, onStartApplication }) {
@@ -123,7 +118,7 @@ function PetPage({ pet, profile, saved, onSave, onBack, onStartApplication }) {
     ? `https://www.google.com/maps/dir/?api=1&destination=${pet.latitude},${pet.longitude}` : null;
   return <section className="journey-pet-page" aria-labelledby="pet-page-title">
     <button type="button" className="back-action" onClick={onBack}><ArrowLeft /> Back to pets</button>
-    <div className="pet-page-sticky"><button type="button" onClick={() => onStartApplication(pet)}><ClipboardList /> Start application</button>{sourceUrl ? <a href={sourceUrl} target="_blank" rel="noreferrer">External route <ExternalLink /></a> : null}</div>
+    <div className="pet-page-sticky"><button type="button" onClick={() => onStartApplication(pet)}><ClipboardList /> Prepare private draft</button>{sourceUrl ? <a href={sourceUrl} target="_blank" rel="noreferrer">Contact shelter through official listing <ExternalLink /></a> : null}</div>
     <div className="journey-pet-layout"><div className="pet-page-image">
       <PetImage
         src={pet.image}
@@ -131,7 +126,7 @@ function PetPage({ pet, profile, saved, onSave, onBack, onStartApplication }) {
         className="pet-page-photo"
         fallbackText={`${pet.name} photo unavailable`}
       />
-    </div><div className="pet-page-main"><p className="eyebrow">{resultFreshness(pet)}</p><h1 id="pet-page-title">{pet.name}</h1><p className="pet-page-meta">{[pet.species, pet.breed, pet.age, pet.size, pet.sex].filter(Boolean).join(" · ")}</p><p className="pet-page-location"><MapPin /> {pet.address || pet.city || "Location available from the official listing"}</p><section className="fit-panel"><h2>What Pawline can explain</h2>{match?.reasons.length ? <ul>{match.reasons.map(reason => <li key={reason}><CheckCircle2 /> {reason}</li>)}</ul> : <p>There are not enough public listing facts to assess fit yet.</p>}{match?.considerations.length ? <ul className="considerations">{match.considerations.map(item => <li key={item}><Info /> {item}</li>)}</ul> : null}{match?.questions.length ? <div><h3>Questions to ask the shelter</h3><ul>{match.questions.map(question => <li key={question}>{question}</li>)}</ul></div> : null}</section><section className="shelter-facts"><h2>About this listing</h2><p><ShieldCheck /> {pet.shelter || "Listed organization"}</p><p><CalendarClock /> {suppliedHours(pet) || "Hours were not supplied by this listing. Confirm before visiting."}</p><p><Info /> Availability and adoption requirements should be confirmed with the shelter.</p></section><div className="pet-page-actions"><button type="button" className="outline-action" onClick={() => onSave(pet.id)}><Heart fill={saved ? "currentColor" : "none"} /> {saved ? "Saved" : "Save pet"}</button>{directionsUrl ? <a className="outline-action" href={directionsUrl} target="_blank" rel="noreferrer"><Compass /> Directions</a> : null}{sourceUrl ? <a className="outline-action" href={sourceUrl} target="_blank" rel="noreferrer">Official listing <ExternalLink /></a> : null}</div></div></div>
+    </div><div className="pet-page-main"><p className="eyebrow">{resultFreshness(pet)}</p><h1 id="pet-page-title">{pet.name}</h1><p className="pet-page-meta">{[pet.species, pet.breed, pet.age, pet.size, pet.sex].filter(Boolean).join(" · ")}</p><p className="pet-page-location"><MapPin /> {pet.address || pet.city || "Location available from the official listing"}</p><section className="fit-panel"><h2>What Pawline can explain</h2>{match?.reasons.length ? <ul>{match.reasons.map(reason => <li key={reason}><CheckCircle2 /> {reason}</li>)}</ul> : <p>There are not enough public listing facts to assess fit yet.</p>}{match?.considerations.length ? <ul className="considerations">{match.considerations.map(item => <li key={item}><Info /> {item}</li>)}</ul> : null}{match?.questions.length ? <div><h3>Questions to ask the shelter</h3><ul>{match.questions.map(question => <li key={question}>{question}</li>)}</ul></div> : null}</section><section className="shelter-facts"><h2>Your next steps</h2><ol><li>Confirm availability and household compatibility with the listed shelter.</li><li>Ask about fees, required documents, and whether a visit needs an appointment.</li><li>Use the official listing to contact the shelter. A private Pawline draft is shared only when you explicitly submit to a participating organization.</li></ol><h2>About this listing</h2><p><ShieldCheck /> {pet.shelter || "Listed organization"}</p><p><CalendarClock /> {suppliedHours(pet) || "Hours were not supplied by this listing. Confirm before visiting."}</p><p><Info /> Availability and adoption requirements should be confirmed with the shelter.</p></section><div className="pet-page-actions"><button type="button" className="outline-action" onClick={() => onSave(pet.id)}><Heart fill={saved ? "currentColor" : "none"} /> {saved ? "Saved" : "Save pet"}</button>{directionsUrl ? <a className="outline-action" href={directionsUrl} target="_blank" rel="noreferrer"><Compass /> Directions</a> : null}{sourceUrl ? <a className="outline-action" href={sourceUrl} target="_blank" rel="noreferrer">Official listing <ExternalLink /></a> : null}</div></div></div>
   </section>;
 }
 
@@ -257,7 +252,7 @@ export default function AdopterExperience({ pets, saved, onSave, isSignedIn = fa
       ...current,
       applications: (serverApplications || []).map(item => ({
         ...item,
-        sourceUrl: safeHttpUrl(current.applications.find(local => local.petId === item.petId)?.sourceUrl),
+        sourceUrl: safeHttpUrl(item.sourceUrl || current.applications.find(local => local.petId === item.petId)?.sourceUrl),
         organizationClaimed: Boolean(item.applicationEnabled),
       })),
     }));
@@ -299,7 +294,7 @@ export default function AdopterExperience({ pets, saved, onSave, isSignedIn = fa
         }) : current.profile,
         applications: (applicationResult.applications || []).map(item => ({
           ...item,
-          sourceUrl: safeHttpUrl(current.applications.find(local => local.petId === item.petId)?.sourceUrl),
+          sourceUrl: safeHttpUrl(item.sourceUrl || current.applications.find(local => local.petId === item.petId)?.sourceUrl),
           organizationClaimed: Boolean(item.applicationEnabled),
         })),
       }));
@@ -331,7 +326,7 @@ export default function AdopterExperience({ pets, saved, onSave, isSignedIn = fa
     window.addEventListener("popstate", syncPetRoute);
     return () => window.removeEventListener("popstate", syncPetRoute);
   }, [pets]);
-  const navigate = next => { if (selectedPet) closePet(); onNavigate(next === "discover" ? "explore" : next === "messages" ? "application-messages" : next); };
+  const navigate = next => { if (selectedPet) closePet(); onNavigate(next === "messages" ? "application-messages" : next); };
   const updateProfile = nextProfile => setLocalJourney(current => ({ ...current, profile: normalizeAdopterProfile(nextProfile) }));
   const updateApplication = next => setLocalJourney(current => ({ ...current, applications: current.applications.map(item => item.id === next.id ? next : item) }));
   const saveProfile = async () => {
@@ -357,7 +352,7 @@ export default function AdopterExperience({ pets, saved, onSave, isSignedIn = fa
         ? { petId: application.petId, coreAnswers: application.coreAnswers, heldDataConsent }
         : { id: application.id, coreAnswers: application.coreAnswers };
       const result = await authorizedJson(getToken, "/api/adoption-applications", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      const next = { ...result.application, sourceUrl: application.sourceUrl, organizationClaimed: Boolean(result.application.applicationEnabled) };
+      const next = { ...result.application, sourceUrl: safeHttpUrl(result.application.sourceUrl || application.sourceUrl), organizationClaimed: Boolean(result.application.applicationEnabled) };
       setLocalJourney(current => ({ ...current, applications: current.applications.map(item => item.id === application.id ? next : item) }));
       setSelectedApplicationId(next.id);
       return result;
@@ -370,7 +365,7 @@ export default function AdopterExperience({ pets, saved, onSave, isSignedIn = fa
         method: "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: application.id, submit: true, sharedFields }),
       });
-      const next = { ...result.application, sourceUrl: application.sourceUrl, organizationClaimed: Boolean(result.application.applicationEnabled) };
+      const next = { ...result.application, sourceUrl: safeHttpUrl(result.application.sourceUrl || application.sourceUrl), organizationClaimed: Boolean(result.application.applicationEnabled) };
       setLocalJourney(current => ({ ...current, applications: current.applications.map(item => item.id === application.id ? next : item) }));
       return result;
     } catch (error) { return { error: error.message }; }
