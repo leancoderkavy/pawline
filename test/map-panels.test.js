@@ -3,19 +3,19 @@ import test from "node:test";
 import { MAP_PANELS, panelFromHash, panelHash, claimTokenFromHash, claimMapLocation, landingPanel } from "../src/mapPanels.js";
 
 test("signed-out arrivals see onboarding while accounts and deep links keep their destination", () => {
-  for (const hash of ["", "#map", "#discover"]) {
+  for (const hash of ["", "#map"]) {
     assert.equal(landingPanel(hash, "", false), "onboarding");
     assert.equal(landingPanel(hash, "", true), "explore");
   }
-  for (const hash of ["#shelter?kind=foster", "#claim?token=invite", "#messages", "#guides"]) {
+  for (const hash of ["#discover", "#shelter?kind=foster", "#claim?token=invite", "#messages", "#guides"]) {
     assert.equal(landingPanel(hash, "", false), panelFromHash(hash));
   }
   assert.equal(landingPanel("", "?pet=123", false), "explore");
 });
 
-test("map panel links round-trip, including nested guides and legacy discovery links", () => {
+test("map panel links round-trip, including nested guides and pet list links", () => {
   for (const panel of MAP_PANELS) assert.equal(panelFromHash(panelHash(panel)), panel);
-  for (const hash of ["", "#map", "#discover", "#unknown"]) assert.equal(panelFromHash(hash), "explore");
+  for (const hash of ["", "#map", "#unknown"]) assert.equal(panelFromHash(hash), "explore");
   for (const hash of ["#guides", "#guides/nearby", "#guides/matching", "#how-pawline-works"]) assert.equal(panelFromHash(hash), "resources");
 });
 

@@ -55,13 +55,14 @@ function heldInvitationState(row, override = null) {
   return row.claim_outreach_status ? "invite_already_queued" : "manual_contact_required";
 }
 
-function applicationResponse(row, { invitationState = null } = {}) {
+export function applicationResponse(row, { invitationState = null } = {}) {
   return {
     id: row.id,
     petId: row.pet_id,
     organizationId: row.organization_id || null,
     applicationEnabled: intakeEnabled(row),
     petName: row.pet_name,
+    sourceUrl: row.source_url || null,
     shelter: row.organization_name || row.shelter || "Listed organization",
     status: row.status,
     coreAnswers: row.core_answers || {},
@@ -78,7 +79,7 @@ function applicationResponse(row, { invitationState = null } = {}) {
 async function ownApplication(database, id, userId) {
   if (!isUuid(id)) return null;
   const rows = await database`
-    SELECT a.*, p.name AS pet_name, p.shelter, o.name AS organization_name,
+    SELECT a.*, p.name AS pet_name, p.shelter, p.source_url, o.name AS organization_name,
       o.intake_capacity, o.policies,
       claim_outbox.status AS claim_outreach_status
     FROM adoption_applications a
@@ -112,7 +113,7 @@ export default async function handler(request, response) {
   }
   if (request.method === "GET") {
     const rows = await database`
-      SELECT a.*, p.name AS pet_name, p.shelter, o.name AS organization_name,
+      SELECT a.*, p.name AS pet_name, p.shelter, p.source_url, o.name AS organization_name,
         o.intake_capacity, o.policies,
         claim_outbox.status AS claim_outreach_status
       FROM adoption_applications a

@@ -317,3 +317,18 @@ test("stopping location sharing removes the dot state and ignores later readings
   await expect(page.locator(".map-location-accuracy")).toHaveCount(0);
   await expect(page.getByRole("combobox", { name: "Find pets near" })).toHaveValue("Your location");
 });
+
+test("pet list provides evidence, official next steps and a private draft on mobile", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await fixture(page); await open(page); await more(page, "Browse pet list");
+  await expect(page.getByRole("heading", { name: "Current pets, shown with their evidence." })).toBeVisible();
+  await page.getByRole("button", { name: "Cats", exact: true }).click();
+  await expect(page.locator(".journey-pet-card")).toHaveCount(1);
+  await page.getByRole("button", { name: "See fit details" }).click();
+  await expect(page.getByRole("heading", { name: "Your next steps" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Contact shelter through official listing" })).toHaveAttribute("href", "https://example.org/miso");
+  await expect(page.locator(".journey-pet-page")).not.toContainText("Provider-verified");
+  await page.getByRole("button", { name: "Prepare private draft" }).click();
+  await expect(page.locator(".share-review")).toContainText("has not enabled Pawline applications");
+  await expect(page.getByRole("button", { name: "Save private draft" })).toBeDisabled();
+});

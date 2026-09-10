@@ -1,4 +1,4 @@
-export const JOURNEY_PANELS = ["home", "profile", "applications", "application-messages"];
+export const JOURNEY_PANELS = ["home", "discover", "profile", "applications", "application-messages"];
 export const MAP_PANELS = ["network", "onboarding", "explore", "favorites", "match", "messages", "events", "community", "resources", "shelter", "claim", "moderation", ...JOURNEY_PANELS];
 
 export function panelFromHash(hash = "") {
