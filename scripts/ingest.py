@@ -411,15 +411,60 @@ def run(dry_run=False, source_id=None) -> list[dict[str, int | str]]:
 
 
 if __name__ == "__main__":
+    import argparse
+
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--dry-run", action="store_true", help="Validate all pages without writing records")
-    parser.add_argument("--source", help="Inspect or import one enabled source UUID")
+    parser.add_argument('--dry-run', action='store_true', help='Validate all pages without writing records')
+    parser.add_argument('--source', help='Inspect or import one enabled source UUID')
+    parser.add_argument('--discover', action='store_true',
+                        help='Check 25 shelter websites for adoption/feed links; no database writes')
+    parser.add_argument('--llm', action='store_true', help='Review discovered adoption pages with AI Gateway')
+    parser.add_argument('--review-url', action='append', default=[], help='Review an individual listing URL (repeatable)')
+    parser.add_argument('--max-review-pages', type=int, default=25, help='Maximum LLM page requests, 1-100 (default 25)')
     args = parser.parse_args()
-    results = run(dry_run=args.dry_run, source_id=args.source)
+    if (args.discover or args.review_url) and (args.dry_run or args.source):
+        parser.error("--dry-run and --source apply only to feed ingestion")
+    if args.llm or args.review_url or args.discover:
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+        from scripts.review_runtime import configure
+        configure()
+    if not 1 <= args.max_review_pages <= 100:
+        parser.error('--max-review-pages must be between 1 and 100')
+    if args.llm and not args.discover:
+        parser.error('--llm requires --discover; use --review-url for individual pages')
+    if args.review_url and args.discover:
+        parser.error('Use --review-url or --discover, not both')
+    if (args.llm or args.review_url) and not (os.environ.get('AI_GATEWAY_API_KEY') or os.environ.get('VERCEL_OIDC_TOKEN')):
+        parser.error('AI_GATEWAY_API_KEY or VERCEL_OIDC_TOKEN is required for LLM review')
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    if args.discover:
+        # Support both python scripts/ingest.py and python -m scripts.ingest.
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+        from scripts.discover import discover
+        results = discover()
+        if args.llm:
+            from scripts.review_listings import review_url
+            # Round-robin across shelters so one source cannot consume the budget.
+            queues = [list(site['adoption_links']) for site in results]
+            urls = []
+            while any(queues) and len(urls) < args.max_review_pages:
+                for queue in queues:
+                    if queue and len(urls) < args.max_review_pages:
+                        url = queue.pop(0)
+                        if url not in urls:
+                            urls.append(url)
+            results = {'sites': results, 'listing_reviews': [review_url(url) for url in urls],
+                       'review_page_limit': args.max_review_pages}
+    elif args.review_url:
+        from scripts.review_listings import review_url
+        results = [review_url(url) for url in dict.fromkeys(args.review_url[:args.max_review_pages])]
+    else:
+        results = run(dry_run=args.dry_run, source_id=args.source)
     json.dump(
         {"ranAt": datetime.now(timezone.utc).isoformat(), "dryRun": args.dry_run, "results": results},
         sys.stdout,
         indent=2,
     )
     print()
-    sys.exit(1 if any(result["status"] == "error" for result in results) else 0)
+    statuses = (results["sites"] + results["listing_reviews"]) if isinstance(results, dict) else results
+    sys.exit(1 if any(result["status"] in {"error", "review_error"} for result in statuses) else 0)
