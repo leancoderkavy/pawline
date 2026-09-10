@@ -182,7 +182,7 @@ test("profile fields, household controls and guest privacy survive navigation co
   await expect(page.getByLabel("Remove Alex")).toHaveCount(1);
   await page.getByLabel("Remove Alex").click();
   await expect(page.getByLabel("Remove Alex")).toHaveCount(0);
-  await page.getByRole("button", { name: "Save preferences" }).click();
+  await page.getByRole("button", { name: "Sign in to save private details" }).click();
   await expect(page.locator(".app [role=alert]")).toContainText("Sign in");
   await page.reload();
   await expect(page.getByLabel("Household name (optional)")).toHaveValue("");

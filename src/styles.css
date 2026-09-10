@@ -854,3 +854,7 @@ html:has(.adopter-experience),body:has(.adopter-experience) { min-width:0; }
   .map-rail.is-collapsed .rail-toggle { inset:4px;width:calc(100% - 8px);height:44px;gap:6px; }
   .map-rail.is-collapsed .rail-toggle-label { font-size:12px; }
 }
+
+/* Profile actions remain easy to target on touch screens. */
+.household-panel li button { min-width:44px;min-height:44px;padding:4px 8px;font-size:12px; }
+.profile-save > button:disabled { opacity:.65;cursor:wait; }
