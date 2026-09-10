@@ -5,6 +5,7 @@ export default function SearchPage({ title, path, children }) {
   const schema = searchPageSchema(title, path);
   const resource = searchResources.find(item => item.path === path);
   return <>
+    <a className="search-skip" href="#guide-content">Skip to guide content</a>
     <nav className="search-page-nav" aria-label="Pawline navigation">
       <a href="/#map">Pawline adoption map</a>
       <a href="/guides">Adoption guides</a>
@@ -16,7 +17,7 @@ export default function SearchPage({ title, path, children }) {
         </li>)}</ol>
       </nav>
       {resource && <p className="search-breadcrumbs">{resource.description}</p>}
-      {children}
+      <div id="guide-content" tabIndex={-1}>{children}</div>
       {path !== "/guides" && <aside className="search-related" aria-label="Related adoption guides">
         <h2>Keep planning your adoption</h2>
         <ul>{searchResources.filter(resource => resource.path !== path && resource.path !== "/guides").map(resource =>

@@ -28,7 +28,8 @@ test("guides have crawlable canonical pages and share content with map panels", 
   ];
   for (const [route, , component, content] of targets) {
     const page = await read(`app/${route}/page.jsx`);
-    assert.ok(page.includes(`canonical: "/${route}"`));
+    assert.ok(page.includes(`"/${route}"`));
+    assert.match(page, /export const metadata = searchMetadata\(/);
     assert.ok(page.includes("<Content standalone />"));
     assert.doesNotMatch(page, /redirect\(/);
     assert.ok((await read(`src/resources/${component}.jsx`)).includes(content));
@@ -85,4 +86,17 @@ test("AI SEO drafts remain private review artifacts and are not added to the pub
   assert.doesNotMatch(sitemap, /seo_content|seo-pipeline|\/api\/seo-pipeline/i);
   assert.match(cron, /runNextSeoJob/);
   assert.match(routes, /"seo-pipeline"/);
+});
+
+
+test("shared guide metadata preserves canonical and accessible social previews", async () => {
+  const { searchMetadata } = await import("../src/resources/searchMetadata.js");
+  const result = searchMetadata("Guide", "Description", "/guides");
+  assert.equal(result.alternates.canonical, "/guides");
+  assert.equal(result.openGraph.url, "/guides");
+  assert.equal(result.openGraph.title, "Guide | Pawline");
+  assert.equal(result.openGraph.images[0].width, 1200);
+  assert.equal(result.openGraph.images[0].height, 630);
+  assert.ok(result.openGraph.images[0].alt);
+  assert.equal(result.twitter.images[0].alt, result.openGraph.images[0].alt);
 });

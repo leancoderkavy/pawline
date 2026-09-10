@@ -72,6 +72,14 @@ def summarize(current, previous=None, current_context=None, previous_context=Non
                      "opportunity": "not_observed_current" if not metrics else "review_title_and_intent" if metrics["impressions"] >= 100 and position is not None and 4 <= position <= 20 else "monitor"})
     return {"source": "Google Search Console query export",
             "comparison": "validated" if comparable else "context_required" if previous is not None else "single_period",
+            "coverage": {
+                "currentQueries": len(current),
+                "previousQueries": len(previous) if previous is not None else None,
+                "sharedQueries": len(set(current) & set(previous)) if previous is not None else None,
+                "currentOnlyQueries": len(set(current) - set(previous)) if previous is not None else None,
+                "previousOnlyQueries": len(set(previous) - set(current)) if previous is not None else None,
+                "positionDeltaQueries": sum(row["positionImprovement"] is not None for row in rows),
+            },
             "currentContext": current_context, "previousContext": previous_context,
             "interpretation": "Average position across impressions, not a fixed rank. Missing queries are unknown, not zero or unranked. Query exports omit some data; observed totals are not property totals. Deltas require matching filters and equal, non-overlapping periods.",
             "observedCurrentTotals": {"queries": len(current), "clicks": sum(row["clicks"] for row in current.values()), "impressions": sum(row["impressions"] for row in current.values())},
