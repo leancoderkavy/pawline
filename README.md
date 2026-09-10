@@ -17,6 +17,86 @@ linked shelter.
 
 ## Database and ingestion
 
+Check 25 shelter websites for adoption pages and potential feed links:
+
+```bash
+python scripts/ingest.py --discover > discovery-results.json
+```
+
+Discovery needs no database credentials and does not import pets. It checks each
+homepage, respects robots.txt, bounds page size and request time, and reports
+errors per site so one unavailable website does not stop the others. The site
+list is in `scripts/discover.py`. Results include deduplicated `adoption_links`
+and `feed_links`; feed candidates may be calendars or embedded listing services,
+not usable pet feeds. Review permission, content, and field mappings before
+enabling an import. This is a manual command; scheduled ingestion is unchanged.
+
+### LLM listing review
+
+Install `python -m pip install -r requirements.txt`. The CLI loads the ignored
+`.vercel/.env.listing-review` and `.env.local` files, preserving shell overrides.
+It accepts `AI_GATEWAY_API_KEY` or the project's `VERCEL_OIDC_TOKEN` and uses
+the operating system certificate store for HTTPS. On Windows, refresh the
+short-lived project token and run a review with:
+
+```powershell
+./scripts/review-pets.ps1 -MaxPages 25
+./scripts/review-pets.ps1 -ListingUrl https://your-shelter.example/adopt/pet-id
+```
+
+The wrapper requires an authenticated Vercel CLI account and Node.js with
+`--use-system-ca` support. It refreshes credentials without changing `.env.local`.
+Alternatively, with a current token or API key configured, run Python directly:
+
+```bash
+python scripts/ingest.py --discover --llm --max-review-pages 25 > listing-reviews.json
+python scripts/ingest.py --review-url https://your-shelter.example/adopt/pet-id
+```
+
+The first command reviews discovered adoption pages across shelters in round-robin
+order. The second checks a specific pet page; repeat `--review-url` for more pets.
+These commands make billable AI Gateway requests, capped at 25 pages by default
+(configurable from 1 to 100). Override the model with `PAWLINE_LISTING_REVIEW_MODEL`.
+Project OIDC tokens expire after 12 hours; rerun the PowerShell wrapper to refresh.
+
+Each review reports pet name, listing validity, legitimacy signals, pet status,
+and an explicit source last-updated date, with supporting page quotes. Missing
+status is `unknown`; missing dates are null. `checked_at` is the scraper's check
+time, not the shelter's update time. Quotes and names are checked against the
+supplied text; this cannot establish that a model interpreted them correctly.
+Legitimacy is an on-page assessment, not independent verification. All results
+require review and never automatically change a pet's database status.
+
+Reviews honor robots rules, validate redirect destinations, limit page text to
+12,000 characters, and exclude scripts/styles. JavaScript-only listings may not
+be visible. At most 30 pets are extracted per page; this is a bounded review,
+not a complete shelter inventory. Fetch/model failures are `review_error`, never
+evidence that a pet was adopted. The model has no browser or action tools.
+
+#### Rate and usage controls
+
+LLM reviews share a persistent local ledger at
+`.vercel/listing-review-usage.sqlite3` across CLI runs in this checkout:
+
+- At least 30 seconds between request starts; no automatic retries.
+- Maximum 25 attempted calls per UTC day and 200 per calendar month, including
+  failed calls. A page limit cannot override these caps.
+- Requests are also capped at 600,000 reserved units daily and 4,000,000 monthly.
+  Units are serialized request bytes plus the 2,000-token output allowance;
+  they are a conservative workload budget, not measured tokens or a dollar cap.
+- Validated reviews of identical URL, text, model, prompt, and schema are reused
+  for 24 hours. Pages are fetched again to detect changes. Cached results retain
+  their original `reviewed_at`; `checked_at` records the current page check.
+- HTTP 429/503 responses pause new model requests for at least 15 minutes,
+  honoring longer `Retry-After` values. Limits and cooldowns return `deferred`.
+- Identical in-flight or failed requests are suppressed for five minutes.
+
+Keep the ledger to preserve limits. These controls cover this local checkout,
+not other projects or machines using the same Gateway account, and cannot
+guarantee the provider never returns 429. Historical calls made before the
+ledger was introduced are not included. Control constants live in
+`scripts/review_usage.py`. No paid calls are needed to run the usage tests.
+
 1. Run `npm run db:migrate:dry-run` to parse the local schema and verify required migration artifacts without opening a database connection, then create a Postgres database and run `db/schema.sql`.
 2. Optionally run `db/public_sources.sql` to install the reviewed Montgomery
    County and King County definitions. Reviewed public feeds are enabled by
