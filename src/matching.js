@@ -1,7 +1,6 @@
 export const ANY_LIFESTYLE = "Any lifestyle";
 
 const normalize = (value) => String(value || "").trim().toLowerCase();
-const includesAny = (text, terms) => terms.some((term) => text.includes(term));
 
 const TRAITS = {
   active: ["active", "energetic", "hiking", "runner", "high energy", "playful"],
@@ -81,7 +80,7 @@ export function scorePet(pet, answers = {}) {
       "Ask the shelter about daily exercise needs.");
   } else if (answers.energy === "Calm") {
     add(18, calm === null && active === true ? false : calm, "The listing describes a calm, lower-key companion.",
-      active ? "This pet may need more daily activity than you selected." : null,
+      "The listing may not support the calmer pace you selected.",
       "Ask the shelter about daily exercise needs.");
   } else if (answers.energy) {
     add(12, active || calm || null, "The listing includes useful energy-level information.", null,
