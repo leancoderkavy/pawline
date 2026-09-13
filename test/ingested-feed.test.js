@@ -1,39 +1,179 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { normalizePetQuery } from "../api/pets.js";
 
-test("Request path does not call Montgomery, King County, LA, or RescueGroups", () => {
-  // Track what fetch would be called
-  const providerPatterns = [
-    "data.montgomerycountymd.gov",
-    "data.kingcounty.gov",
-    "laanimalservices.com",
-    "api.rescuegroups.org",
+test("GET /api/pets serves from database without calling live providers", async (t) => {
+  // Stub fetch to track and block provider URLs
+  const originalFetch = globalThis.fetch;
+  const fetchCalls = [];
+  
+  globalThis.fetch = async (url, options) => {
+    const urlString = String(url);
+    fetchCalls.push(urlString);
+    
+    const providerPatterns = [
+      "data.montgomerycountymd.gov",
+      "data.kingcounty.gov", 
+      "laanimalservices.com",
+      "api.rescuegroups.org",
+      "api.mapbox.com",
+    ];
+    
+    if (providerPatterns.some(pattern => urlString.includes(pattern))) {
+      throw new Error(`FAIL: Live provider call detected: ${urlString}`);
+    }
+    
+    return originalFetch(url, options);
+  };
+
+  // Create mock database
+  const mockDatabase = function(...args) {
+    const query = args[0];
+    const queryStr = Array.isArray(query) ? query.join('') : String(query);
+    
+    if (queryStr.includes("COUNT(*)") || queryStr.includes("count")) {
+      return Promise.resolve([{ count: "0" }]);
+    }
+    
+    return Promise.resolve([]);
+  };
+  
+  mockDatabase.transaction = async (statements) => {
+    return Promise.all(statements.map(() => Promise.resolve([])));
+  };
+
+  // Inject mock database via global
+  globalThis.__TEST_MOCK_DATABASE__ = mockDatabase;
+
+  try {
+    const { default: handler } = await import("../api/pets.js");
+    
+    const request = {
+      method: "GET",
+      query: { species: "Dog", limit: "24", page: "1" },
+      headers: {},
+    };
+
+    const response = {
+      statusCode: null,
+      headers: {},
+      body: null,
+      status(code) {
+        this.statusCode = code;
+        return this;
+      },
+      setHeader(key, value) {
+        this.headers[key] = value;
+        return this;
+      },
+      json(data) {
+        this.body = data;
+        return this;
+      },
+    };
+
+    // Call the actual handler
+    await handler(request, response);
+
+    // REAL ASSERTIONS
+    assert.equal(fetchCalls.length, 0, "No fetch calls to provider URLs should be made");
+    assert.equal(response.statusCode, 200, "Should return 200 status");
+    assert.ok(response.body, "Should return a response body");
+    assert.equal(response.body.pagination, "limit-offset", "Should use limit-offset pagination");
+    assert.ok("uniqueCurrentPets" in response.body, "Should have uniqueCurrentPets field");
+    assert.ok(!("providerCount" in response.body), "Should NOT have providerCount field");
+
+  } finally {
+    globalThis.fetch = originalFetch;
+    delete globalThis.__TEST_MOCK_DATABASE__;
+  }
+});
+
+test("GET /api/pets returns correct count and uniqueCurrentPets", async (t) => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => {
+    throw new Error("FAIL: No fetches should occur");
+  };
+
+  const mockPets = [
+    {
+      id: "123e4567-e89b-12d3-a456-426614174000",
+      source_id: "4eec9ba1-1f85-4e6f-a21b-772f84bb0021",
+      verified_at: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+      external_id: "A001",
+      name: "Buddy",
+      species: "Dog",
+      breed: "Labrador",
+      age: "2 years",
+      sex: "Male",
+      size: "Large",
+      city: "Derwood",
+      country: "United States",
+      shelter: "Montgomery County Animal Services",
+      image_url: "https://example.com/buddy.jpg",
+      source_url: "https://example.com/adopt/buddy",
+      latitude: null,
+      longitude: null,
+      claimed_by_clerk_user_id: null,
+      organization_id: null,
+      organization_has_members: false,
+    },
   ];
-  
-  // ASSERTION 1: If these patterns appear in GET /api/pets handler, test fails
-  // The handler now queries database only - no fetch calls to these URLs
-  assert.ok(true, "GET /api/pets serves from Neon (verified by code inspection)");
-});
 
-test("Response has uniqueCurrentPets inventory count, not providerCount", async () => {
-  const { normalizePetQuery } = await import("../api/pets.js");
+  const mockDatabase = function(...args) {
+    const query = args[0];
+    const queryStr = Array.isArray(query) ? query.join('') : String(query);
+    
+    if (queryStr.includes("COUNT(*)") || queryStr.includes("count")) {
+      return Promise.resolve([{ count: "42" }]);
+    }
+    
+    return Promise.resolve(mockPets);
+  };
   
-  // ASSERTION 2: Verify query normalization works
-  const normalized = normalizePetQuery({ species: "Dog", limit: "50", page: "2" });
-  assert.deepEqual(normalized.species, ["Dog"]);
-  assert.equal(normalized.limit, 50);
-  assert.equal(normalized.page, 2);
-  
-  // ASSERTION 3: Response structure verified (see GET /api/pets handler)
-  // Returns: { count, uniqueCurrentPets, pagination: "limit-offset" }
-  // NOT: { providerCount } (was RescueGroups meta.count)
-  assert.ok(true, "Response structure verified by code inspection");
-});
+  mockDatabase.transaction = async (statements) => {
+    return Promise.all(statements.map(() => Promise.resolve([])));
+  };
 
-test("Pagination is limit-offset, not federated-provider-pages", () => {
-  // ASSERTION 4: GET /api/pets uses SQL LIMIT/OFFSET
-  // Old: federated-provider-pages (all providers advance together)
-  // New: limit-offset (single database query with proper pagination)
-  assert.ok(true, "Pagination verified by code inspection");
+  globalThis.__TEST_MOCK_DATABASE__ = mockDatabase;
+
+  try {
+    const { default: handler } = await import("../api/pets.js");
+    
+    const request = {
+      method: "GET",
+      query: { species: "Dog", limit: "10", page: "1" },
+      headers: {},
+    };
+
+    const response = {
+      statusCode: null,
+      headers: {},
+      body: null,
+      status(code) {
+        this.statusCode = code;
+        return this;
+      },
+      setHeader(key, value) {
+        this.headers[key] = value;
+        return this;
+      },
+      json(data) {
+        this.body = data;
+        return this;
+      },
+    };
+
+    await handler(request, response);
+
+    // REAL ASSERTIONS
+    assert.equal(response.statusCode, 200, "Should return 200");
+    assert.equal(response.body.count, 1, "count should be pets in this result (1)");
+    assert.equal(response.body.uniqueCurrentPets, 42, "uniqueCurrentPets should be total inventory (42)");
+    assert.ok(!response.body.providerCount, "Should NOT have providerCount (RescueGroups meta.count)");
+
+  } finally {
+    globalThis.fetch = originalFetch;
+    delete globalThis.__TEST_MOCK_DATABASE__;
+  }
 });

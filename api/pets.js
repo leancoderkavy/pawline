@@ -562,39 +562,49 @@ export default async function handler(request, response) {
     const longitude = request.query.longitude ? Number(request.query.longitude) : null;
     const radius = request.query.radius ? Number(request.query.radius) : null;
     
-    // Build query with optional geo filtering
-    let petsQuery;
+    let rows;
+    let geoSearchAttempted = false;
+    
+    // Try geo filtering if params provided
     if (latitude != null && longitude != null && radius != null && 
         Number.isFinite(latitude) && Number.isFinite(longitude) && Number.isFinite(radius) &&
         Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180 && radius >= 1 && radius <= 3000) {
-      // Query with geo filtering (radius in miles, convert to meters for ST_DWithin)
-      const radiusMeters = radius * 1609.34;
-      petsQuery = database`
-        SELECT id, source_id, verified_at, external_id, name, species, breed, age, sex, size, city, country,
-               shelter, image_url, source_url, latitude, longitude, claimed_by_clerk_user_id, organization_id,
-               EXISTS (SELECT 1 FROM organization_memberships m WHERE m.organization_id = pets.organization_id) AS organization_has_members,
-               ST_Distance(
-                 ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
-                 ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)::geography
-               ) / 1609.34 AS distance_miles
-        FROM pets
-        WHERE status = 'available' 
-          AND verified_at IS NOT NULL
-          AND species = ANY(${species})
-          AND latitude IS NOT NULL 
-          AND longitude IS NOT NULL
-          AND ST_DWithin(
-            ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
-            ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)::geography,
-            ${radiusMeters}
-          )
-        ORDER BY distance_miles ASC, id ASC
-        LIMIT ${limit + 1}
-        OFFSET ${offset}
-      `;
-    } else {
-      // Query without geo filtering
-      petsQuery = database`
+      try {
+        geoSearchAttempted = true;
+        const radiusMeters = radius * 1609.34;
+        rows = await database`
+          SELECT id, source_id, verified_at, external_id, name, species, breed, age, sex, size, city, country,
+                 shelter, image_url, source_url, latitude, longitude, claimed_by_clerk_user_id, organization_id,
+                 EXISTS (SELECT 1 FROM organization_memberships m WHERE m.organization_id = pets.organization_id) AS organization_has_members,
+                 ST_Distance(
+                   ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
+                   ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)::geography
+                 ) / 1609.34 AS distance_miles
+          FROM pets
+          WHERE status = 'available' 
+            AND verified_at IS NOT NULL
+            AND species = ANY(${species})
+            AND latitude IS NOT NULL 
+            AND longitude IS NOT NULL
+            AND ST_DWithin(
+              ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
+              ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)::geography,
+              ${radiusMeters}
+            )
+          ORDER BY distance_miles ASC, id ASC
+          LIMIT ${limit + 1}
+          OFFSET ${offset}
+        `;
+      } catch (geoError) {
+        // PostGIS not available or query failed - fall back to non-geo search
+        console.warn("Geo search unavailable, falling back to non-geo:", geoError.message);
+        rows = null;
+      }
+    }
+    
+    // Fall back to non-geo query if geo search wasn't attempted or failed
+    if (!rows) {
+      rows = await database`
         SELECT id, source_id, verified_at, external_id, name, species, breed, age, sex, size, city, country,
                shelter, image_url, source_url, latitude, longitude, claimed_by_clerk_user_id, organization_id,
                EXISTS (SELECT 1 FROM organization_memberships m WHERE m.organization_id = pets.organization_id) AS organization_has_members
@@ -607,8 +617,6 @@ export default async function handler(request, response) {
         OFFSET ${offset}
       `;
     }
-    
-    const rows = await petsQuery;
     const hasMore = rows.length > limit;
     const pets = rows.slice(0, limit).map(normalizeDatabasePet);
     
