@@ -1,12 +1,7 @@
 import { createHash } from "node:crypto";
 import { getDatabase } from "../_db.js";
 import {
-  fetchMontgomeryPets,
-  fetchKingCountyPets,
   fetchLosAngelesPets,
-  normalizeMontgomeryPet,
-  normalizeKingCountyPet,
-  normalizeLosAngelesPet,
   fetchSpecies,
   normalizeAnimal,
   geocodeRescueGroupsPets,
@@ -14,10 +9,9 @@ import {
 } from "../pets.js";
 import { PET_SPECIES } from "../../config/species.js";
 
-const MONTGOMERY_SOURCE_ID = "4eec9ba1-1f85-4e6f-a21b-772f84bb0021";
-const KING_COUNTY_SOURCE_ID = "d7fbc275-cf13-40c1-976e-31df071b25c8";
 const LA_SOURCE_ID = "b8f3c2a1-4d5e-6f7a-8b9c-0d1e2f3a4b5c";
 const RESCUEGROUPS_SOURCE_ID = "c9d4e3b2-5f6a-7b8c-9d0e-1f2a3b4c5d6e";
+const RESCUEGROUPS_MAX_PAGES = 20; // Bound pagination to avoid timeout
 
 function createFingerprint(sourceId, externalId) {
   return createHash("sha256")
@@ -31,25 +25,8 @@ async function ingestProvider(database, sourceId, pets, providerName) {
     return { upserted: 0, marked_unavailable: 0 };
   }
 
-  const externalIds = pets.map(p => p.externalId);
+  const syncStartedAt = new Date();
   const fingerprints = pets.map(p => createFingerprint(sourceId, p.externalId));
-
-  // Mark pets from this source that are no longer in the feed as unavailable
-  const missingPets = await database`
-    UPDATE pets
-    SET 
-      missed_syncs = missed_syncs + 1,
-      status = CASE 
-        WHEN missed_syncs + 1 >= 3 THEN 'unavailable'
-        ELSE status
-      END,
-      updated_at = now()
-    WHERE source_id = ${sourceId}
-      AND external_id = ANY(${externalIds})
-      AND fingerprint != ANY(${fingerprints})
-      AND status = 'available'
-    RETURNING id
-  `;
 
   // Upsert the current pets
   const upsertStatements = pets.map(pet => {
@@ -93,80 +70,25 @@ async function ingestProvider(database, sourceId, pets, providerName) {
 
   await database.transaction(upsertStatements);
 
+  // Mark pets from this source that were NOT in this snapshot as missed
+  // (pets that ARE in the snapshot were just updated above with verified_at=now())
+  const missingPets = await database`
+    UPDATE pets
+    SET 
+      missed_syncs = missed_syncs + 1,
+      status = CASE 
+        WHEN missed_syncs + 1 >= 2 THEN 'unavailable'
+        ELSE status
+      END,
+      updated_at = now()
+    WHERE source_id = ${sourceId}
+      AND status = 'available'
+      AND verified_at < ${syncStartedAt.toISOString()}
+    RETURNING id
+  `;
+
   console.log(`${providerName}: upserted ${pets.length} pets, marked ${missingPets.length} as unavailable`);
   return { upserted: pets.length, marked_unavailable: missingPets.length };
-}
-
-async function fetchAllMontgomeryPets() {
-  const allPets = [];
-  for (const species of PET_SPECIES) {
-    let page = 1;
-    let hasMore = true;
-    while (hasMore && page <= 20) {
-      try {
-        const pets = await fetchMontgomeryPets([species], { limit: 1000, page });
-        allPets.push(...pets);
-        hasMore = pets.hasMore && pets.length === 1000;
-        page++;
-      } catch (error) {
-        console.error(`Montgomery County ${species} page ${page} failed:`, error);
-        break;
-      }
-    }
-  }
-  return allPets.map((pet, index) => ({
-    externalId: pet.externalId,
-    name: pet.name,
-    species: pet.species,
-    breed: pet.breed,
-    age: pet.age,
-    sex: pet.sex,
-    size: pet.size,
-    city: "Derwood",
-    country: "United States",
-    postalCode: "20855",
-    latitude: null,
-    longitude: null,
-    shelter: pet.shelter,
-    image: pet.image,
-    sourceUrl: pet.sourceUrl,
-  }));
-}
-
-async function fetchAllKingCountyPets() {
-  const allPets = [];
-  for (const species of PET_SPECIES) {
-    let page = 1;
-    let hasMore = true;
-    while (hasMore && page <= 20) {
-      try {
-        const pets = await fetchKingCountyPets([species], { limit: 1000, page });
-        allPets.push(...pets);
-        hasMore = pets.hasMore && pets.length === 1000;
-        page++;
-      } catch (error) {
-        console.error(`King County ${species} page ${page} failed:`, error);
-        break;
-      }
-    }
-  }
-  return allPets.map(pet => ({
-    externalId: pet.externalId,
-    name: pet.name,
-    species: pet.species,
-    breed: pet.breed,
-    age: pet.age,
-    sex: pet.sex,
-    size: pet.size,
-    description: pet.description,
-    city: pet.city?.split(',')[0]?.trim() || null,
-    country: "United States",
-    latitude: pet.latitude,
-    longitude: pet.longitude,
-    shelter: pet.shelter,
-    image: pet.image,
-    sourceUrl: pet.sourceUrl,
-  }));
 }
 
 async function fetchAllLosAngelesPets() {
@@ -213,7 +135,7 @@ async function fetchAllRescueGroupsPets(apiKey) {
   for (const species of PET_SPECIES) {
     let page = 1;
     let hasMore = true;
-    while (hasMore && page <= 100) {
+    while (hasMore && page <= RESCUEGROUPS_MAX_PAGES) {
       try {
         const payload = await fetchSpecies([species], { limit: 250, page, query: {} }, apiKey);
         const pets = (payload.data || [])
@@ -223,6 +145,11 @@ async function fetchAllRescueGroupsPets(apiKey) {
         allPets.push(...pets);
         hasMore = pets.length === 250;
         page++;
+        
+        // Log progress every 5 pages
+        if (page % 5 === 0) {
+          console.log(`RescueGroups ${species}: fetched ${page} pages, ${allPets.length} pets so far`);
+        }
       } catch (error) {
         console.error(`RescueGroups ${species} page ${page} failed:`, error);
         break;
@@ -294,36 +221,6 @@ export default async function handler(request, response) {
   const results = {};
 
   try {
-    // Fetch from Montgomery County
-    console.log("Fetching Montgomery County pets...");
-    const montgomeryPets = await fetchAllMontgomeryPets();
-    results.montgomery = await ingestProvider(
-      database,
-      MONTGOMERY_SOURCE_ID,
-      montgomeryPets,
-      "Montgomery County"
-    );
-  } catch (error) {
-    console.error("Montgomery County ingestion failed:", error);
-    results.montgomery = { error: error.message };
-  }
-
-  try {
-    // Fetch from King County
-    console.log("Fetching King County pets...");
-    const kingCountyPets = await fetchAllKingCountyPets();
-    results.kingCounty = await ingestProvider(
-      database,
-      KING_COUNTY_SOURCE_ID,
-      kingCountyPets,
-      "King County"
-    );
-  } catch (error) {
-    console.error("King County ingestion failed:", error);
-    results.kingCounty = { error: error.message };
-  }
-
-  try {
     // Fetch from LA Animal Services
     console.log("Fetching LA Animal Services pets...");
     const laPets = await fetchAllLosAngelesPets();
@@ -356,11 +253,14 @@ export default async function handler(request, response) {
   const finishedAt = new Date();
   const elapsedMs = finishedAt - startedAt;
 
+  console.log(`Ingestion completed in ${elapsedMs}ms`);
+
   return response.status(200).json({
     status: "completed",
     startedAt: startedAt.toISOString(),
     finishedAt: finishedAt.toISOString(),
     elapsedMs,
     results,
+    note: "Montgomery County and King County are ingested via Python scripts/ingest.py",
   });
 }
