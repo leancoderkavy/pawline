@@ -1473,8 +1473,18 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
     window.addEventListener("popstate", syncPanel);
     return () => { window.removeEventListener("hashchange", syncPanel); window.removeEventListener("popstate", syncPanel); };
   }, [isSignedIn]);
+  const handleRecenter = useCallback((suggestedCenter) => {
+    if (suggestedCenter?.latitude != null && suggestedCenter?.longitude != null) {
+      setCoordinates({
+        latitude: suggestedCenter.latitude,
+        longitude: suggestedCenter.longitude,
+        name: suggestedCenter.city || "Suggested location",
+      });
+      setLivePage(1);
+    }
+  }, []);
   const journeyProps = { pets: remotePets, nearbyPets: nearbyJourneyPets, searchLocation: location, searchDistance: mapDistance, feed, saved, onSave: toggleSave, view: journeyView, active: JOURNEY_PANELS.includes(activePanel), onNavigate: openPanel,
-    applicationPet, onApplicationHandled: () => setApplicationPet(null), onOpenMap: () => openPanel("explore") };
+    applicationPet, onApplicationHandled: () => setApplicationPet(null), onOpenMap: () => openPanel("explore"), onRecenter: handleRecenter };
   return <div className="app map-app">
     <a className="skip-link" href="#discover">Skip to main content</a>
     {clerkConfigured && savedHydrated ? <Suspense fallback={null}><FavoritesSyncWithAuth key={favoriteSyncVersion} publishableKey={clerkPublishableKey} localFavorites={saved} onLoad={loadAccountFavorites} onSessionChange={setFavoriteSession} onError={setFavoriteError} /></Suspense> : null}
