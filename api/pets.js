@@ -564,6 +564,7 @@ export default async function handler(request, response) {
     
     let rows;
     let geoSearchAttempted = false;
+    let suggestedCenter = null;
     
     // Try geo filtering if params provided
     if (latitude != null && longitude != null && radius != null && 
@@ -573,9 +574,8 @@ export default async function handler(request, response) {
         geoSearchAttempted = true;
         const radiusMeters = radius * 1609.34;
         
-        // Geo search: get pets with coordinates within radius AND pets without coordinates
-        // This ensures inventory without coords still appears in search results
-        const geoRows = await database`
+        // Geo search: ONLY pets with coordinates within radius
+        rows = await database`
           SELECT id, source_id, verified_at, external_id, name, species, breed, age, sex, size, city, country,
                  shelter, image_url, source_url, latitude, longitude, claimed_by_clerk_user_id, organization_id,
                  EXISTS (SELECT 1 FROM organization_memberships m WHERE m.organization_id = pets.organization_id) AS organization_has_members,
@@ -595,26 +595,37 @@ export default async function handler(request, response) {
               ${radiusMeters}
             )
           ORDER BY distance_miles ASC, id ASC
+          LIMIT ${limit + 1}
+          OFFSET ${offset}
         `;
         
-        // Also get pets without coordinates (up to limit to avoid overwhelming results)
-        const noCoordRows = await database`
-          SELECT id, source_id, verified_at, external_id, name, species, breed, age, sex, size, city, country,
-                 shelter, image_url, source_url, latitude, longitude, claimed_by_clerk_user_id, organization_id,
-                 EXISTS (SELECT 1 FROM organization_memberships m WHERE m.organization_id = pets.organization_id) AS organization_has_members,
-                 NULL::double precision AS distance_miles
-          FROM pets
-          WHERE status = 'available' 
-            AND verified_at IS NOT NULL
-            AND species = ANY(${species})
-            AND (latitude IS NULL OR longitude IS NULL)
-          ORDER BY verified_at DESC, id ASC
-          LIMIT ${Math.min(limit, 20)}
-        `;
-        
-        // Merge: geo-sorted pets first, then no-coord pets, apply offset and limit
-        const merged = [...geoRows, ...noCoordRows];
-        rows = merged.slice(offset, offset + limit + 1);
+        // If geo search returned 0 results, find nearest located pet cluster for recenter suggestion
+        if (rows.length === 0 && offset === 0) {
+          const nearest = await database`
+            SELECT latitude, longitude, city, COUNT(*) as count
+            FROM pets
+            WHERE status = 'available'
+              AND verified_at IS NOT NULL
+              AND species = ANY(${species})
+              AND latitude IS NOT NULL
+              AND longitude IS NOT NULL
+            GROUP BY latitude, longitude, city
+            ORDER BY ST_Distance(
+              ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
+              ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)::geography
+            ) ASC
+            LIMIT 1
+          `;
+          
+          if (nearest.length > 0) {
+            suggestedCenter = {
+              latitude: Number(nearest[0].latitude),
+              longitude: Number(nearest[0].longitude),
+              city: nearest[0].city,
+              count: Number(nearest[0].count),
+            };
+          }
+        }
       } catch (geoError) {
         // PostGIS not available or query failed - fall back to non-geo search
         console.warn("Geo search unavailable, falling back to non-geo:", geoError.message);
@@ -654,7 +665,7 @@ export default async function handler(request, response) {
       "public, s-maxage=300, stale-while-revalidate=900",
     );
     
-    return response.status(200).json({
+    const responseBody = {
       mode: pets.length ? "live" : "empty",
       pets,
       count: pets.length,
@@ -665,7 +676,15 @@ export default async function handler(request, response) {
       pagination: "limit-offset",
       fetchedAt: new Date().toISOString(),
       message: pets.length ? undefined : "No verified listings are available yet.",
-    });
+    };
+    
+    // Add recenter suggestion when geo search returned 0 results but inventory exists elsewhere
+    if (suggestedCenter && pets.length === 0) {
+      responseBody.suggestedCenter = suggestedCenter;
+      responseBody.message = `No pets found within ${radius} miles. Try searching near ${suggestedCenter.city || "a different location"}.`;
+    }
+    
+    return response.status(200).json(responseBody);
   } catch (error) {
     console.error("Pet feed request failed", error);
     return response.status(500).json({
