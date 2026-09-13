@@ -97,6 +97,30 @@ function socrataUrl(base, { limit, page, where }) {
   return url;
 }
 
+/**
+ * Calculate distance between two points using Haversine formula
+ * @param {number} lat1 - Latitude of point 1 in degrees
+ * @param {number} lon1 - Longitude of point 1 in degrees
+ * @param {number} lat2 - Latitude of point 2 in degrees
+ * @param {number} lon2 - Longitude of point 2 in degrees
+ * @returns {number} Distance in miles
+ */
+function haversineDistance(lat1, lon1, lat2, lon2) {
+  const R = 3959; // Earth's radius in miles
+  const toRad = (deg) => (deg * Math.PI) / 180;
+  
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
 async function fetchSocrata(url, provider) {
   return coalescePublicFeed(url.toString(), async () => {
     const upstream = await fetch(url.toString(), {
@@ -628,42 +652,85 @@ export default async function handler(request, response) {
         }
       } catch (geoError) {
         // PostGIS not available or query failed
-        // When geo params are present, fail closed: don't show unlocated pets as local results
-        console.warn("Geo search unavailable:", geoError.message);
-        rows = []; // Empty results, not null (to skip non-geo fallback)
+        // Fall back to non-PostGIS distance calculation (haversine)
+        console.warn("PostGIS unavailable, using haversine fallback:", geoError.message);
         
-        // Try to find a suggestedCenter using non-PostGIS query
         try {
-          const located = await database`
-            SELECT latitude, longitude, city, COUNT(*) as count
+          // Fetch ALL located pets (can't filter by radius in SQL without PostGIS)
+          const allLocated = await database`
+            SELECT id, source_id, verified_at, external_id, name, species, breed, age, sex, size, city, country,
+                   shelter, image_url, source_url, latitude, longitude, claimed_by_clerk_user_id, organization_id,
+                   EXISTS (SELECT 1 FROM organization_memberships m WHERE m.organization_id = pets.organization_id) AS organization_has_members
             FROM pets
-            WHERE status = 'available'
+            WHERE status = 'available' 
               AND verified_at IS NOT NULL
               AND species = ANY(${species})
               AND latitude IS NOT NULL
               AND longitude IS NOT NULL
-            GROUP BY latitude, longitude, city
-            ORDER BY city ASC
-            LIMIT 1
+            ORDER BY verified_at DESC, id ASC
           `;
           
-          if (located.length > 0) {
-            suggestedCenter = {
-              latitude: Number(located[0].latitude),
-              longitude: Number(located[0].longitude),
-              city: located[0].city,
-              count: Number(located[0].count),
-              geoUnavailable: true, // Flag that this is from fallback
-            };
+          // Calculate distance for each pet using haversine
+          const petsWithDistance = allLocated.map(pet => ({
+            ...pet,
+            distance_miles: haversineDistance(
+              latitude,
+              longitude,
+              Number(pet.latitude),
+              Number(pet.longitude)
+            ),
+          }));
+          
+          // Filter by radius and sort by distance
+          const inRadius = petsWithDistance
+            .filter(pet => pet.distance_miles <= radius)
+            .sort((a, b) => a.distance_miles - b.distance_miles || a.id - b.id);
+          
+          // Apply pagination
+          rows = inRadius.slice(offset, offset + limit + 1);
+          
+          // If empty results on first page, find nearest cluster using haversine
+          if (rows.length === 0 && offset === 0) {
+            // Group pets by location and calculate distance to each cluster
+            const clusters = new Map();
+            for (const pet of petsWithDistance) {
+              const key = `${pet.latitude},${pet.longitude}`;
+              if (!clusters.has(key)) {
+                clusters.set(key, {
+                  latitude: Number(pet.latitude),
+                  longitude: Number(pet.longitude),
+                  city: pet.city,
+                  count: 0,
+                  distance: pet.distance_miles,
+                });
+              }
+              clusters.get(key).count++;
+            }
+            
+            // Find nearest cluster
+            const nearestCluster = Array.from(clusters.values())
+              .sort((a, b) => a.distance - b.distance)
+              [0];
+            
+            if (nearestCluster) {
+              suggestedCenter = {
+                latitude: nearestCluster.latitude,
+                longitude: nearestCluster.longitude,
+                city: nearestCluster.city,
+                count: nearestCluster.count,
+                geoUnavailable: true, // Flag that PostGIS was unavailable
+              };
+            }
           }
         } catch (fallbackError) {
-          console.warn("Could not fetch suggestedCenter fallback:", fallbackError.message);
+          console.error("Haversine fallback also failed:", fallbackError.message);
+          rows = []; // Fail closed: empty results
         }
       }
     }
     
     // Fall back to non-geo query ONLY if geo search wasn't attempted
-    // If geo was attempted but failed, rows is already [] (fail closed)
+    // If geo was attempted (even if it failed), rows is already set
     if (rows === null) {
       rows = await database`
         SELECT id, source_id, verified_at, external_id, name, species, breed, age, sex, size, city, country,
