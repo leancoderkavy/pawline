@@ -262,3 +262,333 @@ test("GET /api/pets pagination works correctly with geo filter", async (t) => {
   assert.equal(responseBody1.hasMore, true, "Page 1 should have hasMore=true");
   assert.equal(responseBody1.page, 1, "Should be page 1");
 });
+
+test("GET /api/pets uses haversine fallback when PostGIS unavailable", async (t) => {
+  // Mock database that simulates PostGIS failure on geo query but returns located pets
+  const allLocatedPets = [
+    // Pet within 50 miles of Pasadena (34.1478, -118.1445)
+    {
+      id: 1,
+      external_id: 'nearby-1',
+      name: 'Nearby Dog LA',
+      species: 'Dog',
+      breed: 'Labrador',
+      age: 'Adult',
+      sex: 'Male',
+      size: 'Large',
+      status: 'available',
+      verified_at: new Date().toISOString(),
+      city: 'Los Angeles, CA',
+      country: 'United States',
+      latitude: 34.0522, // ~7 miles from Pasadena
+      longitude: -118.2437,
+      shelter: 'LA Shelter',
+      source_url: 'https://example.com/1',
+      source_id: null,
+      image_url: null,
+      claimed_by_clerk_user_id: null,
+      organization_id: null,
+      organization_has_members: false,
+    },
+    // Pet far from Pasadena (Seattle)
+    {
+      id: 2,
+      external_id: 'far-1',
+      name: 'Seattle Dog',
+      species: 'Dog',
+      breed: 'Retriever',
+      age: 'Young',
+      sex: 'Female',
+      size: 'Medium',
+      status: 'available',
+      verified_at: new Date().toISOString(),
+      city: 'Seattle, WA',
+      country: 'United States',
+      latitude: 47.6062, // ~960 miles from Pasadena
+      longitude: -122.3321,
+      shelter: 'Seattle Rescue',
+      source_url: 'https://example.com/2',
+      source_id: null,
+      image_url: null,
+      claimed_by_clerk_user_id: null,
+      organization_id: null,
+      organization_has_members: false,
+    },
+  ];
+
+  const mockDatabase = function(query) {
+    const queryStr = Array.isArray(query) ? query.join('') : String(query);
+    
+    // PostGIS geo query - throw error to simulate PostGIS unavailable
+    if (queryStr.includes("ST_Distance") || queryStr.includes("ST_DWithin")) {
+      return Promise.reject(new Error("function st_distance(geometry, geography) does not exist"));
+    }
+    
+    // Fallback query for ALL located pets (haversine will filter client-side)
+    if (queryStr.includes("latitude IS NOT NULL") && queryStr.includes("ORDER BY verified_at DESC")) {
+      return Promise.resolve(allLocatedPets);
+    }
+    
+    // Count query
+    if (queryStr.includes("COUNT(*)")) {
+      return Promise.resolve([{ count: "2" }]);
+    }
+    
+    return Promise.resolve([]);
+  };
+
+  globalThis.__TEST_MOCK_DATABASE__ = mockDatabase;
+
+  t.after(() => {
+    delete globalThis.__TEST_MOCK_DATABASE__;
+  });
+
+  const { default: handler } = await import("../api/pets.js");
+  const request = {
+    method: "GET",
+    query: {
+      species: "Dog",
+      latitude: "34.1478",  // Pasadena
+      longitude: "-118.1445",
+      radius: "50",  // 50 miles radius
+      limit: "3",
+      page: "1",
+    },
+    headers: {},
+  };
+  let statusCode;
+  let responseBody;
+  const response = {
+    status: (code) => {
+      statusCode = code;
+      return response;
+    },
+    json: (body) => {
+      responseBody = body;
+      return response;
+    },
+    setHeader: () => response,
+  };
+
+  await handler(request, response);
+
+  assert.equal(statusCode, 200, "Should return 200 OK");
+  assert.ok(responseBody, "Should have response body");
+  
+  // Should return ONLY the nearby pet (within 50 miles), using haversine
+  assert.equal(responseBody.pets.length, 1, "Should return 1 pet within 50 miles using haversine");
+  assert.equal(responseBody.pets[0].name, "Nearby Dog LA", "Should return the LA pet (within radius)");
+  
+  // Should NOT include the Seattle pet (outside radius)
+  const seattlePet = responseBody.pets.find(p => p.name === "Seattle Dog");
+  assert.equal(seattlePet, undefined, "Should NOT include Seattle pet (outside 50 mile radius)");
+  
+  // Should NOT have suggestedCenter since we got results
+  assert.equal(responseBody.suggestedCenter, undefined, "Should not have suggestedCenter when results found");
+  
+  // Should report total inventory
+  assert.ok(responseBody.uniqueCurrentPets > 0, "Should report total inventory count");
+});
+
+test("GET /api/pets haversine fallback finds nearest cluster when radius empty", async (t) => {
+  // All pets are far from search point - should return empty + nearest suggestedCenter
+  const allLocatedPets = [
+    {
+      id: 1,
+      external_id: 'seattle-1',
+      name: 'Seattle Dog 1',
+      species: 'Dog',
+      breed: 'Mixed',
+      age: 'Adult',
+      sex: 'Male',
+      size: 'Medium',
+      status: 'available',
+      verified_at: new Date().toISOString(),
+      city: 'Seattle, WA',
+      country: 'United States',
+      latitude: 47.6062, // ~960 miles from Pasadena
+      longitude: -122.3321,
+      shelter: 'Seattle Rescue',
+      source_url: 'https://example.com/1',
+      source_id: null,
+      image_url: null,
+      claimed_by_clerk_user_id: null,
+      organization_id: null,
+      organization_has_members: false,
+    },
+    {
+      id: 2,
+      external_id: 'portland-1',
+      name: 'Portland Dog',
+      species: 'Dog',
+      breed: 'Retriever',
+      age: 'Young',
+      sex: 'Female',
+      size: 'Large',
+      status: 'available',
+      verified_at: new Date().toISOString(),
+      city: 'Portland, OR',
+      country: 'United States',
+      latitude: 45.5152, // ~835 miles from Pasadena
+      longitude: -122.6784,
+      shelter: 'Portland Shelter',
+      source_url: 'https://example.com/2',
+      source_id: null,
+      image_url: null,
+      claimed_by_clerk_user_id: null,
+      organization_id: null,
+      organization_has_members: false,
+    },
+  ];
+
+  const mockDatabase = function(query) {
+    const queryStr = Array.isArray(query) ? query.join('') : String(query);
+    
+    // PostGIS queries fail
+    if (queryStr.includes("ST_Distance") || queryStr.includes("ST_DWithin")) {
+      return Promise.reject(new Error("PostGIS unavailable"));
+    }
+    
+    // Fallback query for located pets
+    if (queryStr.includes("latitude IS NOT NULL") && queryStr.includes("ORDER BY verified_at DESC")) {
+      return Promise.resolve(allLocatedPets);
+    }
+    
+    // Count query
+    if (queryStr.includes("COUNT(*)")) {
+      return Promise.resolve([{ count: "2" }]);
+    }
+    
+    return Promise.resolve([]);
+  };
+
+  globalThis.__TEST_MOCK_DATABASE__ = mockDatabase;
+
+  t.after(() => {
+    delete globalThis.__TEST_MOCK_DATABASE__;
+  });
+
+  const { default: handler } = await import("../api/pets.js");
+  const request = {
+    method: "GET",
+    query: {
+      species: "Dog",
+      latitude: "34.1478",  // Pasadena
+      longitude: "-118.1445",
+      radius: "50",
+      limit: "3",
+      page: "1",
+    },
+    headers: {},
+  };
+  let statusCode;
+  let responseBody;
+  const response = {
+    status: (code) => {
+      statusCode = code;
+      return response;
+    },
+    json: (body) => {
+      responseBody = body;
+      return response;
+    },
+    setHeader: () => response,
+  };
+
+  await handler(request, response);
+
+  assert.equal(statusCode, 200, "Should return 200 OK");
+  
+  // Should return 0 pets (none within 50 miles)
+  assert.equal(responseBody.pets.length, 0, "Should return 0 pets when none in radius");
+  assert.equal(responseBody.mode, "empty", "Mode should be empty");
+  
+  // Should have suggestedCenter pointing to nearest cluster (Portland is closer than Seattle)
+  assert.ok(responseBody.suggestedCenter, "Should have suggestedCenter");
+  assert.ok(Number.isFinite(responseBody.suggestedCenter.latitude), "Should have latitude");
+  assert.ok(Number.isFinite(responseBody.suggestedCenter.longitude), "Should have longitude");
+  assert.ok(responseBody.suggestedCenter.city, "Should have city");
+  assert.equal(responseBody.suggestedCenter.city, "Portland, OR", "Should suggest nearest cluster (Portland is closer)");
+  
+  // Message should use honest empty copy (haversine worked, just found nothing nearby)
+  assert.ok(responseBody.message, "Should have message");
+  assert.match(responseBody.message, /no pets found.*within.*miles/i, "Message should use honest empty copy");
+  assert.doesNotMatch(responseBody.message, /temporarily unavailable/i, "Should NOT say temporarily unavailable when haversine works");
+});
+
+test("GET /api/pets fails completely when both PostGIS and haversine throw", async (t) => {
+  // Mock database that fails for BOTH PostGIS AND haversine fallback queries
+  const mockDatabase = function(query) {
+    const queryStr = Array.isArray(query) ? query.join('') : String(query);
+    
+    // PostGIS geo query - throw error
+    if (queryStr.includes("ST_Distance") || queryStr.includes("ST_DWithin")) {
+      return Promise.reject(new Error("PostGIS unavailable"));
+    }
+    
+    // Haversine fallback query (fetch all located pets) - ALSO throw error
+    if (queryStr.includes("latitude IS NOT NULL") && queryStr.includes("ORDER BY verified_at DESC")) {
+      return Promise.reject(new Error("Database connection lost during fallback"));
+    }
+    
+    // Count query still works
+    if (queryStr.includes("COUNT(*)")) {
+      return Promise.resolve([{ count: "10" }]);
+    }
+    
+    return Promise.resolve([]);
+  };
+
+  globalThis.__TEST_MOCK_DATABASE__ = mockDatabase;
+
+  t.after(() => {
+    delete globalThis.__TEST_MOCK_DATABASE__;
+  });
+
+  const { default: handler } = await import("../api/pets.js");
+  const request = {
+    method: "GET",
+    query: {
+      species: "Dog",
+      latitude: "34.1478",
+      longitude: "-118.1445",
+      radius: "50",
+      limit: "3",
+      page: "1",
+    },
+    headers: {},
+  };
+  let statusCode;
+  let responseBody;
+  const response = {
+    status: (code) => {
+      statusCode = code;
+      return response;
+    },
+    json: (body) => {
+      responseBody = body;
+      return response;
+    },
+    setHeader: () => response,
+  };
+
+  await handler(request, response);
+
+  assert.equal(statusCode, 200, "Should still return 200 OK (fail closed, not error)");
+  assert.ok(responseBody, "Should have response body");
+  
+  // CRITICAL: When both PostGIS and haversine fail, return empty (fail closed)
+  // NOT unfiltered/unlocated pets as local results
+  assert.equal(responseBody.pets.length, 0, "Should return 0 pets when both geo methods fail (fail closed)");
+  assert.equal(responseBody.mode, "empty", "Mode should be empty");
+  
+  // Should NOT have suggestedCenter (couldn't calculate it)
+  assert.equal(responseBody.suggestedCenter, undefined, "Should not have suggestedCenter when haversine fails");
+  
+  // Message should indicate ACTUAL failure (not honest empty)
+  assert.ok(responseBody.message, "Should have a message");
+  assert.match(responseBody.message, /geographic search.*temporarily unavailable/i, "Message should say temporarily unavailable when both methods fail");
+  
+  // Should still report correct total inventory
+  assert.ok(responseBody.uniqueCurrentPets > 0, "Should report total inventory count");
+});
