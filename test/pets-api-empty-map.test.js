@@ -262,3 +262,122 @@ test("GET /api/pets pagination works correctly with geo filter", async (t) => {
   assert.equal(responseBody1.hasMore, true, "Page 1 should have hasMore=true");
   assert.equal(responseBody1.page, 1, "Should be page 1");
 });
+
+test("GET /api/pets fails closed when PostGIS unavailable: no unlocated pets as local results", async (t) => {
+  // Mock database that simulates PostGIS failure on geo query but succeeds on non-geo queries
+  const mockDatabase = function(query) {
+    const queryStr = Array.isArray(query) ? query.join('') : String(query);
+    
+    // PostGIS geo query - throw error to simulate PostGIS unavailable
+    if (queryStr.includes("ST_Distance") || queryStr.includes("ST_DWithin")) {
+      return Promise.reject(new Error("function st_distance(geometry, geography) does not exist"));
+    }
+    
+    // Non-PostGIS fallback query for suggestedCenter (located pets)
+    if (queryStr.includes("GROUP BY latitude, longitude, city")) {
+      return Promise.resolve([{
+        latitude: 47.6062,
+        longitude: -122.3321,
+        city: 'Seattle, WA',
+        count: "5",
+      }]);
+    }
+    
+    // Count query
+    if (queryStr.includes("COUNT(*)") && !queryStr.includes("GROUP BY")) {
+      return Promise.resolve([{ count: "10" }]);
+    }
+    
+    // Non-geo query (should NOT be reached when geo params are present)
+    // This would return unlocated pets - the broken behavior we're fixing
+    if (queryStr.includes("ORDER BY verified_at DESC")) {
+      // If this is called when geo params are present, the test should fail
+      return Promise.resolve([
+        {
+          id: 999,
+          external_id: 'should-not-appear',
+          name: 'Unlocated Pet',
+          species: 'Dog',
+          breed: 'Unknown',
+          age: 'Adult',
+          sex: 'Male',
+          size: 'Medium',
+          status: 'available',
+          verified_at: new Date().toISOString(),
+          city: 'United States',
+          country: 'United States',
+          latitude: null,
+          longitude: null,
+          shelter: 'Unknown Shelter',
+          source_url: 'https://example.com/999',
+          source_id: null,
+          image_url: null,
+          claimed_by_clerk_user_id: null,
+          organization_id: null,
+          organization_has_members: false,
+        }
+      ]);
+    }
+    
+    return Promise.resolve([]);
+  };
+
+  globalThis.__TEST_MOCK_DATABASE__ = mockDatabase;
+
+  t.after(() => {
+    delete globalThis.__TEST_MOCK_DATABASE__;
+  });
+
+  const { default: handler } = await import("../api/pets.js");
+  const request = {
+    method: "GET",
+    query: {
+      species: "Dog",
+      latitude: "34.1478",  // Geo params are present
+      longitude: "-118.1445",
+      radius: "50",
+      limit: "3",
+      page: "1",
+    },
+    headers: {},
+  };
+  let statusCode;
+  let responseBody;
+  const response = {
+    status: (code) => {
+      statusCode = code;
+      return response;
+    },
+    json: (body) => {
+      responseBody = body;
+      return response;
+    },
+    setHeader: () => response,
+  };
+
+  await handler(request, response);
+
+  assert.equal(statusCode, 200, "Should return 200 OK even when PostGIS fails");
+  assert.ok(responseBody, "Should have response body");
+  
+  // CRITICAL: When geo params are present but PostGIS fails, should return 0 pets (fail closed)
+  // NOT fall back to unlocated pets as local results
+  assert.equal(responseBody.pets.length, 0, "Should return 0 pets when PostGIS unavailable (fail closed)");
+  assert.equal(responseBody.mode, "empty", "Mode should be empty when geo fails");
+  
+  // Should NOT include unlocated pets
+  const unlocatedPet = responseBody.pets.find(p => p.name === "Unlocated Pet");
+  assert.equal(unlocatedPet, undefined, "Should NOT return unlocated pets as local results when geo params present");
+  
+  // Should still provide suggestedCenter if possible (using non-PostGIS query)
+  assert.ok(responseBody.suggestedCenter, "Should have suggestedCenter from fallback query");
+  assert.ok(Number.isFinite(responseBody.suggestedCenter.latitude), "suggestedCenter should have latitude");
+  assert.ok(Number.isFinite(responseBody.suggestedCenter.longitude), "suggestedCenter should have longitude");
+  
+  // Message should indicate geo is unavailable
+  assert.ok(responseBody.message, "Should have a message");
+  assert.match(responseBody.message, /geographic search.*unavailable/i, "Message should mention geo unavailable");
+  
+  // Should still report correct total inventory
+  assert.ok(responseBody.uniqueCurrentPets > 0, "Should report total inventory count");
+});

@@ -627,14 +627,44 @@ export default async function handler(request, response) {
           }
         }
       } catch (geoError) {
-        // PostGIS not available or query failed - fall back to non-geo search
-        console.warn("Geo search unavailable, falling back to non-geo:", geoError.message);
-        rows = null;
+        // PostGIS not available or query failed
+        // When geo params are present, fail closed: don't show unlocated pets as local results
+        console.warn("Geo search unavailable:", geoError.message);
+        rows = []; // Empty results, not null (to skip non-geo fallback)
+        
+        // Try to find a suggestedCenter using non-PostGIS query
+        try {
+          const located = await database`
+            SELECT latitude, longitude, city, COUNT(*) as count
+            FROM pets
+            WHERE status = 'available'
+              AND verified_at IS NOT NULL
+              AND species = ANY(${species})
+              AND latitude IS NOT NULL
+              AND longitude IS NOT NULL
+            GROUP BY latitude, longitude, city
+            ORDER BY city ASC
+            LIMIT 1
+          `;
+          
+          if (located.length > 0) {
+            suggestedCenter = {
+              latitude: Number(located[0].latitude),
+              longitude: Number(located[0].longitude),
+              city: located[0].city,
+              count: Number(located[0].count),
+              geoUnavailable: true, // Flag that this is from fallback
+            };
+          }
+        } catch (fallbackError) {
+          console.warn("Could not fetch suggestedCenter fallback:", fallbackError.message);
+        }
       }
     }
     
-    // Fall back to non-geo query if geo search wasn't attempted or failed
-    if (!rows) {
+    // Fall back to non-geo query ONLY if geo search wasn't attempted
+    // If geo was attempted but failed, rows is already [] (fail closed)
+    if (rows === null) {
       rows = await database`
         SELECT id, source_id, verified_at, external_id, name, species, breed, age, sex, size, city, country,
                shelter, image_url, source_url, latitude, longitude, claimed_by_clerk_user_id, organization_id,
@@ -681,7 +711,16 @@ export default async function handler(request, response) {
     // Add recenter suggestion when geo search returned 0 results but inventory exists elsewhere
     if (suggestedCenter && pets.length === 0) {
       responseBody.suggestedCenter = suggestedCenter;
-      responseBody.message = `No pets found within ${radius} miles. Try searching near ${suggestedCenter.city || "a different location"}.`;
+      if (suggestedCenter.geoUnavailable) {
+        // PostGIS failed, but we found located pets
+        responseBody.message = `Geographic search temporarily unavailable. Try searching near ${suggestedCenter.city || "a different location"}.`;
+      } else {
+        // Normal case: geo search worked but returned 0 results
+        responseBody.message = `No pets found within ${radius} miles. Try searching near ${suggestedCenter.city || "a different location"}.`;
+      }
+    } else if (geoSearchAttempted && pets.length === 0 && !suggestedCenter) {
+      // Geo search was attempted but failed, and we couldn't find a suggestedCenter either
+      responseBody.message = "Geographic search temporarily unavailable. Please try again or search without location filters.";
     }
     
     return response.status(200).json(responseBody);
