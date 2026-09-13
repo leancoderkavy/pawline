@@ -586,7 +586,7 @@ export default async function handler(request, response) {
     const longitude = request.query.longitude ? Number(request.query.longitude) : null;
     const radius = request.query.radius ? Number(request.query.radius) : null;
     
-    let rows;
+    let rows = null;
     let geoSearchAttempted = false;
     let suggestedCenter = null;
     let geoSearchFailed = false; // Track if both PostGIS AND haversine failed
