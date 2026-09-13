@@ -63,6 +63,7 @@ test("GET /api/pets geo search returns ONLY pets with coordinates", async (t) =>
       limit: "24",
       page: "1",
     },
+    headers: {},
   };
   let statusCode;
   let responseBody;
@@ -140,6 +141,7 @@ test("GET /api/pets suggests recenter when geo search returns 0 results", async 
       limit: "24",
       page: "1",
     },
+    headers: {},
   };
   let statusCode;
   let responseBody;
@@ -244,6 +246,7 @@ test("GET /api/pets pagination works correctly with geo filter", async (t) => {
       limit: "10",
       page: "1",
     },
+    headers: {},
   };
   let responseBody1;
   const response1 = {
