@@ -101,17 +101,7 @@ test("GET /api/pets suggests recenter when geo search returns 0 results", async 
   const mockDatabase = function(query) {
     const queryStr = Array.isArray(query) ? query.join('') : String(query);
     
-    // Count query
-    if (queryStr.includes("COUNT(*)")) {
-      return Promise.resolve([{ count: "2" }]);
-    }
-    
-    // Geo search query (empty results)
-    if (queryStr.includes("ST_Distance") && queryStr.includes("ST_DWithin")) {
-      return Promise.resolve([]);
-    }
-    
-    // Nearest cluster query (for suggestedCenter)
+    // Nearest cluster query (for suggestedCenter) - check BEFORE generic COUNT(*) check
     if (queryStr.includes("GROUP BY latitude, longitude") && queryStr.includes("ORDER BY ST_Distance")) {
       return Promise.resolve([{
         latitude: 47.6062,
@@ -119,6 +109,16 @@ test("GET /api/pets suggests recenter when geo search returns 0 results", async 
         city: 'Seattle, WA',
         count: "2",
       }]);
+    }
+    
+    // Count query (pure count, not the cluster query)
+    if (queryStr.includes("COUNT(*)") && !queryStr.includes("GROUP BY")) {
+      return Promise.resolve([{ count: "2" }]);
+    }
+    
+    // Geo search query (empty results)
+    if (queryStr.includes("ST_Distance") && queryStr.includes("ST_DWithin")) {
+      return Promise.resolve([]);
     }
     
     return Promise.resolve([]);
