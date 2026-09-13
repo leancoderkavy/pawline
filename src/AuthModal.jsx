@@ -130,7 +130,16 @@ export default function AuthModal({
     showStatus("Creating your account…");
     try {
       const { error } = await signUp.password({ emailAddress: normalizedEmail, password });
-      if (error) throw error;
+      if (error) {
+        // Handle bot protection / CAPTCHA errors with helpful message
+        const errorMsg = readErrorMessage(error);
+        if (errorMsg.toLowerCase().includes("captcha") || 
+            error.code === "captcha_invalid" || 
+            error.code === "captcha_unavailable") {
+          throw new Error("Account creation temporarily unavailable. This is a configuration issue we're working on. Please try again later or contact support.");
+        }
+        throw error;
+      }
       if (signUp.status === "complete") {
         await finalizeAuth(signUp, "Your Pawline account is ready.");
         return;

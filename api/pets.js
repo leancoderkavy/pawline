@@ -572,7 +572,10 @@ export default async function handler(request, response) {
       try {
         geoSearchAttempted = true;
         const radiusMeters = radius * 1609.34;
-        rows = await database`
+        
+        // Geo search: get pets with coordinates within radius AND pets without coordinates
+        // This ensures inventory without coords still appears in search results
+        const geoRows = await database`
           SELECT id, source_id, verified_at, external_id, name, species, breed, age, sex, size, city, country,
                  shelter, image_url, source_url, latitude, longitude, claimed_by_clerk_user_id, organization_id,
                  EXISTS (SELECT 1 FROM organization_memberships m WHERE m.organization_id = pets.organization_id) AS organization_has_members,
@@ -592,9 +595,26 @@ export default async function handler(request, response) {
               ${radiusMeters}
             )
           ORDER BY distance_miles ASC, id ASC
-          LIMIT ${limit + 1}
-          OFFSET ${offset}
         `;
+        
+        // Also get pets without coordinates (up to limit to avoid overwhelming results)
+        const noCoordRows = await database`
+          SELECT id, source_id, verified_at, external_id, name, species, breed, age, sex, size, city, country,
+                 shelter, image_url, source_url, latitude, longitude, claimed_by_clerk_user_id, organization_id,
+                 EXISTS (SELECT 1 FROM organization_memberships m WHERE m.organization_id = pets.organization_id) AS organization_has_members,
+                 NULL::double precision AS distance_miles
+          FROM pets
+          WHERE status = 'available' 
+            AND verified_at IS NOT NULL
+            AND species = ANY(${species})
+            AND (latitude IS NULL OR longitude IS NULL)
+          ORDER BY verified_at DESC, id ASC
+          LIMIT ${Math.min(limit, 20)}
+        `;
+        
+        // Merge: geo-sorted pets first, then no-coord pets, apply offset and limit
+        const merged = [...geoRows, ...noCoordRows];
+        rows = merged.slice(offset, offset + limit + 1);
       } catch (geoError) {
         // PostGIS not available or query failed - fall back to non-geo search
         console.warn("Geo search unavailable, falling back to non-geo:", geoError.message);

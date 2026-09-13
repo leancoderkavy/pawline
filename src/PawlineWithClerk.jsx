@@ -20,7 +20,13 @@ function AuthenticatedLanding({ publishableKey }) {
 }
 
 export default function PawlineWithClerk({ publishableKey }) {
-  return <ClerkProvider publishableKey={publishableKey}>
+  return <ClerkProvider 
+    publishableKey={publishableKey}
+    appearance={{
+      variables: { colorPrimary: "#17382f" }
+    }}
+    telemetry={false}
+  >
     <AuthenticatedLanding publishableKey={publishableKey} />
   </ClerkProvider>;
 }
