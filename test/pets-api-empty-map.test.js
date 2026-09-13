@@ -515,3 +515,80 @@ test("GET /api/pets haversine fallback finds nearest cluster when radius empty",
   assert.match(responseBody.message, /no pets found.*within.*miles/i, "Message should use honest empty copy");
   assert.doesNotMatch(responseBody.message, /temporarily unavailable/i, "Should NOT say temporarily unavailable when haversine works");
 });
+
+test("GET /api/pets fails completely when both PostGIS and haversine throw", async (t) => {
+  // Mock database that fails for BOTH PostGIS AND haversine fallback queries
+  const mockDatabase = function(query) {
+    const queryStr = Array.isArray(query) ? query.join('') : String(query);
+    
+    // PostGIS geo query - throw error
+    if (queryStr.includes("ST_Distance") || queryStr.includes("ST_DWithin")) {
+      return Promise.reject(new Error("PostGIS unavailable"));
+    }
+    
+    // Haversine fallback query (fetch all located pets) - ALSO throw error
+    if (queryStr.includes("latitude IS NOT NULL") && queryStr.includes("ORDER BY verified_at DESC")) {
+      return Promise.reject(new Error("Database connection lost during fallback"));
+    }
+    
+    // Count query still works
+    if (queryStr.includes("COUNT(*)")) {
+      return Promise.resolve([{ count: "10" }]);
+    }
+    
+    return Promise.resolve([]);
+  };
+
+  globalThis.__TEST_MOCK_DATABASE__ = mockDatabase;
+
+  t.after(() => {
+    delete globalThis.__TEST_MOCK_DATABASE__;
+  });
+
+  const { default: handler } = await import("../api/pets.js");
+  const request = {
+    method: "GET",
+    query: {
+      species: "Dog",
+      latitude: "34.1478",
+      longitude: "-118.1445",
+      radius: "50",
+      limit: "3",
+      page: "1",
+    },
+    headers: {},
+  };
+  let statusCode;
+  let responseBody;
+  const response = {
+    status: (code) => {
+      statusCode = code;
+      return response;
+    },
+    json: (body) => {
+      responseBody = body;
+      return response;
+    },
+    setHeader: () => response,
+  };
+
+  await handler(request, response);
+
+  assert.equal(statusCode, 200, "Should still return 200 OK (fail closed, not error)");
+  assert.ok(responseBody, "Should have response body");
+  
+  // CRITICAL: When both PostGIS and haversine fail, return empty (fail closed)
+  // NOT unfiltered/unlocated pets as local results
+  assert.equal(responseBody.pets.length, 0, "Should return 0 pets when both geo methods fail (fail closed)");
+  assert.equal(responseBody.mode, "empty", "Mode should be empty");
+  
+  // Should NOT have suggestedCenter (couldn't calculate it)
+  assert.equal(responseBody.suggestedCenter, undefined, "Should not have suggestedCenter when haversine fails");
+  
+  // Message should indicate ACTUAL failure (not honest empty)
+  assert.ok(responseBody.message, "Should have a message");
+  assert.match(responseBody.message, /geographic search.*temporarily unavailable/i, "Message should say temporarily unavailable when both methods fail");
+  
+  // Should still report correct total inventory
+  assert.ok(responseBody.uniqueCurrentPets > 0, "Should report total inventory count");
+});
