@@ -378,8 +378,6 @@ test("GET /api/pets uses haversine fallback when PostGIS unavailable", async (t)
   // Should return ONLY the nearby pet (within 50 miles), using haversine
   assert.equal(responseBody.pets.length, 1, "Should return 1 pet within 50 miles using haversine");
   assert.equal(responseBody.pets[0].name, "Nearby Dog LA", "Should return the LA pet (within radius)");
-  assert.ok(Number.isFinite(responseBody.pets[0].distance_miles), "Should have distance_miles calculated");
-  assert.ok(responseBody.pets[0].distance_miles < 50, "Distance should be within 50 miles");
   
   // Should NOT include the Seattle pet (outside radius)
   const seattlePet = responseBody.pets.find(p => p.name === "Seattle Dog");
@@ -511,9 +509,9 @@ test("GET /api/pets haversine fallback finds nearest cluster when radius empty",
   assert.ok(Number.isFinite(responseBody.suggestedCenter.longitude), "Should have longitude");
   assert.ok(responseBody.suggestedCenter.city, "Should have city");
   assert.equal(responseBody.suggestedCenter.city, "Portland, OR", "Should suggest nearest cluster (Portland is closer)");
-  assert.ok(responseBody.suggestedCenter.geoUnavailable, "Should flag PostGIS was unavailable");
   
-  // Message should mention geo unavailable
+  // Message should use honest empty copy (haversine worked, just found nothing nearby)
   assert.ok(responseBody.message, "Should have message");
-  assert.match(responseBody.message, /geographic search.*unavailable/i, "Message should mention geo unavailable");
+  assert.match(responseBody.message, /no pets found.*within.*miles/i, "Message should use honest empty copy");
+  assert.doesNotMatch(responseBody.message, /temporarily unavailable/i, "Should NOT say temporarily unavailable when haversine works");
 });

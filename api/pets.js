@@ -589,6 +589,7 @@ export default async function handler(request, response) {
     let rows;
     let geoSearchAttempted = false;
     let suggestedCenter = null;
+    let geoSearchFailed = false; // Track if both PostGIS AND haversine failed
     
     // Try geo filtering if params provided
     if (latitude != null && longitude != null && radius != null && 
@@ -718,13 +719,13 @@ export default async function handler(request, response) {
                 longitude: nearestCluster.longitude,
                 city: nearestCluster.city,
                 count: nearestCluster.count,
-                geoUnavailable: true, // Flag that PostGIS was unavailable
               };
             }
           }
         } catch (fallbackError) {
           console.error("Haversine fallback also failed:", fallbackError.message);
           rows = []; // Fail closed: empty results
+          geoSearchFailed = true; // Both PostGIS and haversine failed
         }
       }
     }
@@ -778,15 +779,10 @@ export default async function handler(request, response) {
     // Add recenter suggestion when geo search returned 0 results but inventory exists elsewhere
     if (suggestedCenter && pets.length === 0) {
       responseBody.suggestedCenter = suggestedCenter;
-      if (suggestedCenter.geoUnavailable) {
-        // PostGIS failed, but we found located pets
-        responseBody.message = `Geographic search temporarily unavailable. Try searching near ${suggestedCenter.city || "a different location"}.`;
-      } else {
-        // Normal case: geo search worked but returned 0 results
-        responseBody.message = `No pets found within ${radius} miles. Try searching near ${suggestedCenter.city || "a different location"}.`;
-      }
-    } else if (geoSearchAttempted && pets.length === 0 && !suggestedCenter) {
-      // Geo search was attempted but failed, and we couldn't find a suggestedCenter either
+      // Use honest empty copy (haversine worked, just found nothing nearby)
+      responseBody.message = `No pets found within ${radius} miles. Try searching near ${suggestedCenter.city || "a different location"}.`;
+    } else if (geoSearchAttempted && pets.length === 0 && geoSearchFailed) {
+      // Both PostGIS and haversine failed completely
       responseBody.message = "Geographic search temporarily unavailable. Please try again or search without location filters.";
     }
     
