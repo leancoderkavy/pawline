@@ -16,6 +16,10 @@
       "schedule": "0 */6 * * *"
     },
     {
+      "path": "/api/cron/ingest-providers",
+      "schedule": "15 */6 * * *"
+    },
+    {
       "path": "/api/cron/discover",
       "schedule": "17 5 * * 1,4"
     },
