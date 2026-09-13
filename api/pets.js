@@ -182,7 +182,7 @@ export function normalizeKingCountyPet(pet, index) {
   };
 }
 
-async function fetchMontgomeryPets(species, options) {
+export async function fetchMontgomeryPets(species, options) {
   const type = species.length === 1 ? species[0].toUpperCase() : null;
   const where = type ? `upper(animaltype)='${type}'` : null;
   const rows = await fetchSocrata(
@@ -192,7 +192,7 @@ async function fetchMontgomeryPets(species, options) {
   return Object.assign(rows.map(normalizeMontgomeryPet).filter(Boolean), { hasMore: rows.length >= options.limit });
 }
 
-async function fetchKingCountyPets(species, options) {
+export async function fetchKingCountyPets(species, options) {
   const clauses = ["upper(record_type)='ADOPTABLE'"];
   if (species.length === 1) {
     clauses.push(`upper(animal_type)='${species[0].toUpperCase()}'`);
@@ -251,7 +251,7 @@ export function parseLosAngelesPets(html) {
   }).filter(Boolean);
 }
 
-async function fetchLosAngelesPets(species, { limit, page }) {
+export async function fetchLosAngelesPets(species, { limit, page }) {
   if (!species.some(item => ["Dog", "Cat"].includes(item))) return [];
   const url = new URL(LOS_ANGELES_PETS_URL);
   url.searchParams.set("items_per_page", String(Math.min(limit, 48)));
@@ -426,7 +426,7 @@ async function fetchDatabasePets({ limit, page, species }) {
   return rows.map(normalizeDatabasePet);
 }
 
-function normalizeAnimal(animal, included, index) {
+export function normalizeAnimal(animal, included, index) {
   const attributes = animal.attributes || {};
   const pictures = findRelated(included, animal.relationships?.pictures) || [];
   const breeds = findRelated(included, animal.relationships?.breeds) || [];
@@ -496,7 +496,7 @@ export function rescueSearchBody(species, query = {}) {
   if (query.latitude != null && query.longitude != null && Number.isFinite(lat) && Math.abs(lat) <= 90 && Number.isFinite(lon) && Math.abs(lon) <= 180 && Number.isFinite(radius) && radius >= 1 && radius <= 3000) body.data.filterRadius = { lat, lon, miles: radius };
   return body;
 }
-async function fetchSpecies(species, { limit, page, query }, apiKey) {
+export async function fetchSpecies(species, { limit, page, query }, apiKey) {
   const url = buildRescueGroupsUrl(
     API_BASE,
     "public/animals/search/",
@@ -533,117 +533,118 @@ export default async function handler(request, response) {
     return response.status(405).json({ error: "Method not allowed" });
   }
 
-  const apiKey = process.env.RESCUEGROUPS_API_KEY;
-
   const { species, limit, page } = normalizePetQuery(request.query);
   const database = getDatabase();
+  
+  if (!database) {
+    return response.status(500).json({
+      mode: "error",
+      pets: [],
+      count: 0,
+      message: "Database unavailable",
+    });
+  }
+
   if (!await reservePetFeedUsage(database, request)) {
-    return response.status(429).json({ mode: "error", pets: [], message: "Live adoption feed request limit reached. Try again later." });
+    return response.status(429).json({ 
+      mode: "error", 
+      pets: [], 
+      count: 0,
+      message: "Adoption feed request limit reached. Try again later." 
+    });
   }
 
   try {
-    const requests = [
-      { id: "Pawline", promise: fetchDatabasePets({ limit, page, species }) },
-      {
-        id: "Montgomery County",
-        promise: fetchMontgomeryPets(species, { limit, page }),
-      },
-      {
-        id: "King County",
-        promise: fetchKingCountyPets(species, { limit, page }),
-      },
-      {
-        id: "LA Animal Services",
-        promise: fetchLosAngelesPets(species, { limit, page }),
-      },
-    ];
-    if (apiKey) {
-      requests.push({ id: "RescueGroups", promise: fetchSpecies(species, { limit, page, query: request.query }, apiKey) });
+    const offset = (page - 1) * limit;
+    
+    // Parse geo filters if provided
+    const latitude = request.query.latitude ? Number(request.query.latitude) : null;
+    const longitude = request.query.longitude ? Number(request.query.longitude) : null;
+    const radius = request.query.radius ? Number(request.query.radius) : null;
+    
+    // Build query with optional geo filtering
+    let petsQuery;
+    if (latitude != null && longitude != null && radius != null && 
+        Number.isFinite(latitude) && Number.isFinite(longitude) && Number.isFinite(radius) &&
+        Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180 && radius >= 1 && radius <= 3000) {
+      // Query with geo filtering (radius in miles, convert to meters for ST_DWithin)
+      const radiusMeters = radius * 1609.34;
+      petsQuery = database`
+        SELECT id, source_id, verified_at, external_id, name, species, breed, age, sex, size, city, country,
+               shelter, image_url, source_url, latitude, longitude, claimed_by_clerk_user_id, organization_id,
+               EXISTS (SELECT 1 FROM organization_memberships m WHERE m.organization_id = pets.organization_id) AS organization_has_members,
+               ST_Distance(
+                 ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
+                 ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)::geography
+               ) / 1609.34 AS distance_miles
+        FROM pets
+        WHERE status = 'available' 
+          AND verified_at IS NOT NULL
+          AND species = ANY(${species})
+          AND latitude IS NOT NULL 
+          AND longitude IS NOT NULL
+          AND ST_DWithin(
+            ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
+            ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)::geography,
+            ${radiusMeters}
+          )
+        ORDER BY distance_miles ASC, id ASC
+        LIMIT ${limit + 1}
+        OFFSET ${offset}
+      `;
+    } else {
+      // Query without geo filtering
+      petsQuery = database`
+        SELECT id, source_id, verified_at, external_id, name, species, breed, age, sex, size, city, country,
+               shelter, image_url, source_url, latitude, longitude, claimed_by_clerk_user_id, organization_id,
+               EXISTS (SELECT 1 FROM organization_memberships m WHERE m.organization_id = pets.organization_id) AS organization_has_members
+        FROM pets
+        WHERE status = 'available' 
+          AND verified_at IS NOT NULL
+          AND species = ANY(${species})
+        ORDER BY verified_at DESC, id ASC
+        LIMIT ${limit + 1}
+        OFFSET ${offset}
+      `;
     }
-    const results = await Promise.allSettled(requests.map((item) => item.promise));
-    const databasePets = results[0]?.status === "fulfilled"
-      ? results[0].value.filter((pet) => species.includes(pet.species))
-      : [];
-    const montgomeryPets = results[1]?.status === "fulfilled" ? results[1].value : [];
-    const kingCountyPets = results[2]?.status === "fulfilled" ? results[2].value : [];
-    const losAngelesPets = results[3]?.status === "fulfilled" ? results[3].value : [];
-    const rescueGroupsStart = 4;
-    const payloads = results.slice(rescueGroupsStart)
-      .filter((result) => result.status === "fulfilled")
-      .map((result) => result.value);
-    const normalizedProviderPets = payloads.flatMap((payload) =>
-      (payload.data || []).map((animal, index) =>
-        normalizeAnimal(animal, payload.included || [], index),
-      ),
-    ).filter(isCurrentProviderListing);
-    let providerPets = normalizedProviderPets;
-    try {
-      providerPets = await geocodeRescueGroupsPets(
-        normalizedProviderPets,
-        process.env.MAPBOX_ACCESS_TOKEN,
-      );
-    } catch (error) {
-      console.error("RescueGroups shelter geocoding unavailable", error);
-    }
-    const mergedPets = deduplicatePets([
-      ...montgomeryPets,
-      ...kingCountyPets,
-      ...losAngelesPets,
-      ...providerPets,
-      ...databasePets,
-    ]);
-    // Every provider page is returned: truncating this union silently skipped
-    // animals when the next request advanced all providers together.
-    const pets = mergedPets;
-    const providerCount = payloads.reduce(
-      (total, payload) => total + Number(payload.meta?.count || 0),
-      0,
-    );
-    const expectedProviderFeeds = 3 + Number(Boolean(apiKey));
-    const successfulProviderFeeds =
-      Number(results[1]?.status === "fulfilled") +
-      Number(results[2]?.status === "fulfilled") +
-      Number(results[3]?.status === "fulfilled") +
-      payloads.length;
-    const isPartial = successfulProviderFeeds !== expectedProviderFeeds;
-    const providerUnavailable = successfulProviderFeeds === 0 && databasePets.length === 0;
-    const providerNames = [
-      databasePets.length && "Pawline",
-      montgomeryPets.length && "Montgomery County",
-      kingCountyPets.length && "King County",
-      losAngelesPets.length && "LA Animal Services",
-      payloads.length && "RescueGroups",
-    ].filter(Boolean);
+    
+    const rows = await petsQuery;
+    const hasMore = rows.length > limit;
+    const pets = rows.slice(0, limit).map(normalizeDatabasePet);
+    
+    // Get total unique current pets count for inventory
+    const [{ count: uniqueCurrentPets }] = await database`
+      SELECT COUNT(*) as count
+      FROM pets
+      WHERE status = 'available' 
+        AND verified_at IS NOT NULL
+        AND species = ANY(${species})
+    `;
+    
     response.setHeader(
       "Cache-Control",
       "public, s-maxage=300, stale-while-revalidate=900",
     );
+    
     return response.status(200).json({
-      mode: providerUnavailable ? "error" : pets.length ? "live" : "empty",
-      provider: providerNames.join(" + ") || null,
+      mode: pets.length ? "live" : "empty",
       pets,
       count: pets.length,
-      providerCount,
+      uniqueCurrentPets: Number(uniqueCurrentPets),
       page,
       limit,
-      hasMore: page < 10000 && (databasePets.length >= limit || montgomeryPets.hasMore || kingCountyPets.hasMore || losAngelesPets.hasMore || payloads.some(payload => (payload.data || []).length >= limit)) || false,
-      pagination: "federated-provider-pages",
-      sourceStatus: results.map((result, index) => ({ name: requests[index].id, status: result.status === "fulfilled" ? "responded" : "unavailable" })),
-      partial: isPartial,
+      hasMore,
+      pagination: "limit-offset",
       fetchedAt: new Date().toISOString(),
-      message: providerUnavailable
-        ? "Live adoption feeds are temporarily unavailable."
-        : isPartial
-        ? "One or more live provider feeds are temporarily unavailable."
-        : pets.length ? undefined : "No verified live listings are available yet.",
+      message: pets.length ? undefined : "No verified listings are available yet.",
     });
   } catch (error) {
     console.error("Pet feed request failed", error);
-    return response.status(200).json({
+    return response.status(500).json({
       mode: "error",
-      provider: null,
       pets: [],
-      message: "Live adoption feeds are temporarily unavailable.",
+      count: 0,
+      message: "Pet feed temporarily unavailable.",
     });
   }
 }

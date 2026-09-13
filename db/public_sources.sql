@@ -75,6 +75,39 @@ INSERT INTO sources (
   }'::jsonb
 ),
 (
+  'b8f3c2a1-4d5e-6f7a-8b9c-0d1e2f3a4b5c',
+  'LA Animal Services adoptable pets',
+  'json',
+  'https://www.laanimalservices.com/search/pets',
+  'US',
+  'LA Animal Services',
+  'https://www.laanimalservices.com/',
+  true,
+  '{
+    "pagination": {"page_size": 48, "max_pages": 20},
+    "constants": {
+      "country": "United States",
+      "source_url": "https://www.laanimalservices.com/"
+    }
+  }'::jsonb
+),
+(
+  'c9d4e3b2-5f6a-7b8c-9d0e-1f2a3b4c5d6e',
+  'RescueGroups.org partner listings',
+  'json',
+  'https://api.rescuegroups.org/v5/public/animals/search/',
+  'US',
+  'RescueGroups.org',
+  'https://rescuegroups.org/',
+  true,
+  '{
+    "pagination": {"page_size": 250, "max_pages": 100},
+    "constants": {
+      "country": "United States"
+    }
+  }'::jsonb
+),
+(
   '9321672f-badc-4a23-93a1-53c5d25e9844',
   'Pasadena Humane dog adoption events',
   'json',
