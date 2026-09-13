@@ -35,7 +35,7 @@ test("production uses the verified Clerk custom domain without the broken fronte
 
   assert.doesNotMatch(page, /proxyUrl/);
   assert.doesNotMatch(provider, /proxyUrl/);
-  assert.match(provider, /<ClerkProvider publishableKey=\{publishableKey\}>/);
+  assert.match(provider, /<ClerkProvider\s+publishableKey=\{publishableKey\}/);
 });
 
 test("mobile search controls preserve a 44px touch target", async () => {
