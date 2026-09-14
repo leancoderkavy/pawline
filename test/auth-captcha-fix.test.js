@@ -77,3 +77,22 @@ test("signup flow documentation exists", async () => {
     "AuthModal should have user-friendly error messages for signup issues"
   );
 });
+
+test("AuthModal signup form includes clerk-captcha mount element", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const authModalSource = await readFile("src/AuthModal.jsx", "utf-8");
+
+  // Verify the #clerk-captcha element exists in signup mode
+  assert.match(
+    authModalSource,
+    /id="clerk-captcha"/,
+    "AuthModal signup form must include <div id=\"clerk-captcha\" /> for Turnstile widget"
+  );
+
+  // Verify it's conditionally rendered only in signup mode
+  assert.match(
+    authModalSource,
+    /mode === "signup".*id="clerk-captcha"/s,
+    "clerk-captcha element should only render in signup mode"
+  );
+});
