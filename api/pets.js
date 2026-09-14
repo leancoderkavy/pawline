@@ -206,27 +206,6 @@ export function normalizeKingCountyPet(pet, index) {
   };
 }
 
-export async function fetchMontgomeryPets(species, options) {
-  const type = species.length === 1 ? species[0].toUpperCase() : null;
-  const where = type ? `upper(animaltype)='${type}'` : null;
-  const rows = await fetchSocrata(
-    socrataUrl(MONTGOMERY_API, { ...options, where }),
-    "Montgomery County",
-  );
-  return Object.assign(rows.map(normalizeMontgomeryPet).filter(Boolean), { hasMore: rows.length >= options.limit });
-}
-
-export async function fetchKingCountyPets(species, options) {
-  const clauses = ["upper(record_type)='ADOPTABLE'"];
-  if (species.length === 1) {
-    clauses.push(`upper(animal_type)='${species[0].toUpperCase()}'`);
-  }
-  const rows = await fetchSocrata(
-    socrataUrl(KING_COUNTY_API, { ...options, where: clauses.join(" AND ") }),
-    "King County",
-  );
-  return Object.assign(rows.map(normalizeKingCountyPet).filter(Boolean), { hasMore: rows.length >= options.limit });
-}
 
 export function normalizeLosAngelesPet(record) {
   const center = LOS_ANGELES_CENTERS[record.locationCode];
@@ -797,5 +776,3 @@ export default async function handler(request, response) {
     });
   }
 }
-
-export { safeHttpUrl, safeImageUrl };
