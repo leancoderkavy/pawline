@@ -202,6 +202,7 @@ export default function AuthModal({
       </label> : <label>Verification code
         <input type="text" name="code" required value={code} onChange={(event) => setCode(event.target.value)} placeholder="123456" maxLength={8} inputMode="numeric" />
       </label>}
+      {mode === "signup" ? <div id="clerk-captcha" /> : null}
       <button type="submit" className="button" disabled={isBusy}>
         {isBusy ? <LoaderCircle className="community-spinner" /> : submitLabel}
       </button>
