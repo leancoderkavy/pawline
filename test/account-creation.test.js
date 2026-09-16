@@ -52,6 +52,40 @@ test("the custom account modal uses the current Clerk signal flow without a load
   assert.match(modal, /signUp\.verifications\.verifyEmailCode\(\{ code: cleanCode \}\)/);
   assert.match(modal, /resource\.finalize\(\)/);
   assert.match(modal, /<form onSubmit=\{submitHandler\}>/);
+  assert.match(modal, /id="clerk-captcha"/);
+  assert.match(modal, /captcha_invalid/);
   assert.doesNotMatch(modal, /Preparing your account form/);
   assert.doesNotMatch(modal, /\.isLoaded|\.setActive\(|prepareEmailAddressVerification|attemptEmailAddressVerification/);
+});
+
+test("the account modal offers Google, Apple, Facebook, and phone OTP flows", async () => {
+  const modal = await read("src/AuthModal.jsx");
+
+  assert.match(modal, /oauth_google/);
+  assert.match(modal, /oauth_apple/);
+  assert.match(modal, /oauth_facebook/);
+  assert.match(modal, /signIn\.sso\(\{/);
+  assert.match(modal, /signUp\.sso\(\{/);
+  assert.match(modal, /redirectCallbackUrl:\s*["']\/sso-callback["']/);
+  assert.match(modal, /aria-label="Sign-in method"/);
+  assert.match(modal, />Phone<\/button>/);
+  assert.match(modal, /signUp\.create\(\{ phoneNumber:/);
+  assert.match(modal, /signUp\.verifications\.sendPhoneCode\(\)/);
+  assert.match(modal, /signUp\.verifications\.verifyPhoneCode\(\{ code:/);
+  assert.match(modal, /signIn\.create\(\{ identifier:/);
+  assert.match(modal, /signIn\.phoneCode\.sendCode\(/);
+  assert.match(modal, /signIn\.phoneCode\.verifyCode\(\{ code:/);
+  assert.match(modal, /type="tel"/);
+});
+
+test("OAuth returns through a Clerk SSO callback page", async () => {
+  const page = await read("app/sso-callback/page.jsx");
+  const callback = await read("src/SsoCallback.jsx");
+
+  assert.match(page, /<ClerkProvider publishableKey=\{publishableKey\}>/);
+  assert.match(page, /<SsoCallback/);
+  assert.match(callback, /signIn\.finalize\(/);
+  assert.match(callback, /signUp\.finalize\(/);
+  assert.match(callback, /id="clerk-captcha"/);
+  assert.match(callback, /signUp\.isTransferable|signIn\.isTransferable/);
 });

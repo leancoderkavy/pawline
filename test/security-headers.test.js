@@ -11,6 +11,28 @@ test("production CSP permits the configured Clerk custom domain", async () => {
   }
 });
 
+test("production CSP permits Clerk bot protection hosts required for sign-up", async () => {
+  const config = await readFile(new URL("../next.config.mjs", import.meta.url), "utf8");
+  const scriptSrc = config.split("\n").find((entry) => entry.includes('"script-src '));
+  const connectSrc = config.split("\n").find((entry) => entry.includes('"connect-src '));
+  const frameSrc = config.split("\n").find((entry) => entry.includes('"frame-src '));
+
+  assert.match(scriptSrc || "", /https:\/\/challenges\.cloudflare\.com/);
+  assert.match(scriptSrc || "", /https:\/\/\*\.protect\.clerk\.com/);
+  assert.match(connectSrc || "", /https:\/\/\*\.protect\.clerk\.com:\*/);
+  assert.match(frameSrc || "", /https:\/\/challenges\.cloudflare\.com/);
+  assert.match(frameSrc || "", /https:\/\/\*\.protect\.clerk\.com/);
+});
+
+test("production CSP permits Google, Apple, and Facebook OAuth redirects", async () => {
+  const config = await readFile(new URL("../next.config.mjs", import.meta.url), "utf8");
+  const formAction = config.split("\n").find((entry) => entry.includes('"form-action '));
+
+  assert.match(formAction || "", /https:\/\/accounts\.google\.com/);
+  assert.match(formAction || "", /https:\/\/appleid\.apple\.com/);
+  assert.match(formAction || "", /https:\/\/www\.facebook\.com/);
+});
+
 test("production uses the verified Clerk custom domain without the broken frontend proxy", async () => {
   const page = await readFile(new URL("../app/page.jsx", import.meta.url), "utf8");
   const provider = await readFile(new URL("../src/PawlineWithClerk.jsx", import.meta.url), "utf8");
