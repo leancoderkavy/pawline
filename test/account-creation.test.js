@@ -52,6 +52,7 @@ test("the custom account modal uses the current Clerk signal flow without a load
   assert.match(modal, /signUp\.verifications\.verifyEmailCode\(\{ code: cleanCode \}\)/);
   assert.match(modal, /resource\.finalize\(\)/);
   assert.match(modal, /<form onSubmit=\{submitHandler\}>/);
+  assert.match(modal, /code === "signed_out"/);
   assert.doesNotMatch(modal, /Preparing your account form/);
   assert.doesNotMatch(modal, /\.isLoaded|\.setActive\(|prepareEmailAddressVerification|attemptEmailAddressVerification/);
 });

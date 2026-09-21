@@ -10,7 +10,12 @@ function normalizeEmail(value) {
 }
 
 function readErrorMessage(error) {
-  const raw = error?.errors?.[0]?.message || error?.message || "That request could not be completed.";
+  const first = error?.errors?.[0];
+  const code = first?.code || error?.code;
+  if (code === "signed_out") {
+    return "The sign-in session was lost before the request finished. Refresh the page and try again.";
+  }
+  const raw = first?.message || error?.message || "That request could not be completed.";
   return String(raw);
 }
 
