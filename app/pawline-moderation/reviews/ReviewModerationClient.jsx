@@ -3,6 +3,7 @@
 import { ClerkProvider, useAuth } from "@clerk/nextjs";
 import { useCallback, useEffect, useState } from "react";
 import AuthModal from "../../../src/AuthModal";
+import { clerkBrowserOptions } from "../../../src/clerkBrowserOptions";
 
 async function readResponse(response) {
   const payload = await response.json().catch(() => ({}));
@@ -62,7 +63,7 @@ export default function ReviewModerationPage({ embedded = false }) {
   const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || "";
   if (!publishableKey) return <main style={styles.shell}><section style={styles.card}><h1 style={styles.title}>Review moderation is unavailable</h1><p>Identity services are not configured for this environment.</p></section></main>;
   if (embedded) return <ReviewModerationGate />;
-  return <ClerkProvider publishableKey={publishableKey}><ReviewModerationGate /></ClerkProvider>;
+  return <ClerkProvider {...clerkBrowserOptions(publishableKey)}><ReviewModerationGate /></ClerkProvider>;
 }
 
 const styles = {

@@ -3,6 +3,7 @@ import { requireUser } from "./_auth.js";
 import { consumeUsage } from "./_usage-limit.js";
 import { ensureAdoptionPlatformSchema, isUuid } from "./_adoption-platform.js";
 import { queueHeldApplicationInvitation } from "./_organization-outreach.js";
+import { captureServerEvent } from "./_analytics.js";
 
 const coreKeys = new Set(["household", "carePlan", "schedule", "notes"]);
 const cleanText = (value, limit) => typeof value === "string"
@@ -212,6 +213,11 @@ export default async function handler(request, response) {
         invitationState = "manual_contact_required";
       }
     }
+    await captureServerEvent(request, {
+      distinctId: user.id,
+      event: requestedSubmit ? "adoption_application_submitted" : "adoption_application_started",
+      properties: { status, participating },
+    });
     return response.status(201).json({ application: applicationResponse(
       await ownApplication(database, applicationId, user.id), { invitationState },
     ) });
@@ -246,6 +252,11 @@ export default async function handler(request, response) {
         SELECT id, 'submitted', 'adopter', ${user.id}, ${JSON.stringify({ sharedFields })} FROM submitted
       ) SELECT id FROM submitted
     `;
+    await captureServerEvent(request, {
+      distinctId: user.id,
+      event: "adoption_application_submitted",
+      properties: { status: "submitted", source: "draft" },
+    });
     return response.status(200).json({ application: applicationResponse(await ownApplication(database, rows[0].id, user.id)) });
   }
   const coreAnswers = cleanAnswerMap(body.coreAnswers);

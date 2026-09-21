@@ -54,6 +54,7 @@ test("the custom account modal uses the current Clerk signal flow without a load
   assert.match(modal, /<form onSubmit=\{submitHandler\}>/);
   assert.match(modal, /id="clerk-captcha"/);
   assert.match(modal, /captcha_invalid/);
+  assert.match(modal, /code === "signed_out"/);
   assert.doesNotMatch(modal, /Preparing your account form/);
   assert.doesNotMatch(modal, /\.isLoaded|\.setActive\(|prepareEmailAddressVerification|attemptEmailAddressVerification/);
 });
@@ -82,7 +83,7 @@ test("OAuth returns through a Clerk SSO callback page", async () => {
   const page = await read("app/sso-callback/page.jsx");
   const callback = await read("src/SsoCallback.jsx");
 
-  assert.match(page, /<ClerkProvider publishableKey=\{publishableKey\}>/);
+  assert.match(page, /clerkBrowserOptions\(publishableKey\)/);
   assert.match(page, /<SsoCallback/);
   assert.match(callback, /signIn\.finalize\(/);
   assert.match(callback, /signUp\.finalize\(/);

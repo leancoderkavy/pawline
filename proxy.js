@@ -2,7 +2,11 @@ import { clerkMiddleware } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 const clerkConfigured = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
-const withClerk = clerkConfigured ? clerkMiddleware() : null;
+const withClerk = clerkConfigured
+  ? clerkMiddleware({
+      frontendApiProxy: { enabled: true },
+    })
+  : null;
 
 export default function proxy(request, event) {
   const forwardedHost = request.headers.get("x-forwarded-host") || request.headers.get("host") || request.nextUrl.hostname;
@@ -18,5 +22,6 @@ export const config = {
   matcher: [
     "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
     "/(api|trpc)(.*)",
+    "/__clerk/(.*)",
   ],
 };

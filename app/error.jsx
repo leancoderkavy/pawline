@@ -1,6 +1,13 @@
 "use client";
 
-export default function GlobalError({ reset }) {
+import { useEffect } from "react";
+import { captureException } from "../src/analytics";
+
+export default function GlobalError({ error, reset }) {
+  useEffect(() => {
+    captureException(error);
+  }, [error]);
+
   return <main className="next-error">
     <span aria-hidden="true">🐾</span>
     <h1>Pawline needs a moment</h1>

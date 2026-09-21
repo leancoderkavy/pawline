@@ -1,6 +1,7 @@
 import { getDatabase } from "./_db.js";
 import { requireUser } from "./_auth.js";
 import { consumeUsage } from "./_usage-limit.js";
+import { captureServerEvent } from "./_analytics.js";
 
 const validListingId = value => {
   const id = String(value || "").trim();
@@ -62,6 +63,11 @@ export default async function handler(request, response) {
       WHERE clerk_user_id=${user.id} AND listing_id=${listingId}
     `;
   }
+  await captureServerEvent(request, {
+    distinctId: user.id,
+    event: request.body.favorite ? "favorite_saved" : "favorite_removed",
+    properties: { listing_id: listingId },
+  });
   return response.status(200).json({ listingId, favorite: request.body.favorite });
 }
 

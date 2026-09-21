@@ -1,7 +1,34 @@
 "use client";
 
-import { ClerkProvider, useAuth } from "@clerk/nextjs";
+import { useEffect, useRef } from "react";
+import { ClerkProvider, useAuth, useUser } from "@clerk/nextjs";
 import PawlineApp from "./App";
+import { capture, identifyUser, resetAnalytics } from "./analytics";
+import { clerkBrowserOptions } from "./clerkBrowserOptions";
+
+function PostHogIdentity() {
+  const { isLoaded, isSignedIn, userId } = useAuth();
+  const { user } = useUser();
+  const identifiedId = useRef(null);
+  const email = user?.primaryEmailAddress?.emailAddress || "";
+  const name = user?.fullName || "";
+
+  useEffect(() => {
+    if (!isLoaded) return;
+    if (isSignedIn && userId) {
+      identifyUser(userId, { email, name });
+      identifiedId.current = userId;
+      return;
+    }
+    if (identifiedId.current) {
+      capture("user_signed_out");
+      resetAnalytics();
+      identifiedId.current = null;
+    }
+  }, [email, isLoaded, isSignedIn, name, userId]);
+
+  return null;
+}
 
 function AuthenticatedLanding({ publishableKey }) {
   const { isLoaded, isSignedIn } = useAuth();
@@ -10,7 +37,8 @@ function AuthenticatedLanding({ publishableKey }) {
 }
 
 export default function PawlineWithClerk({ publishableKey }) {
-  return <ClerkProvider publishableKey={publishableKey}>
+  return <ClerkProvider {...clerkBrowserOptions(publishableKey)}>
+    <PostHogIdentity />
     <AuthenticatedLanding publishableKey={publishableKey} />
   </ClerkProvider>;
 }

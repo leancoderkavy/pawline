@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Building2, Heart, House, Check } from "lucide-react";
+import { capture } from "./analytics";
 import "./onboarding.css";
 
 const paths = [
@@ -20,6 +21,7 @@ export default function Onboarding({ onNavigate }) {
     previous.current = selected;
   }, [selected]);
   const continuePath = () => {
+    capture("onboarding_continued", { path: selected });
     if (selected === "adopter") onNavigate("explore");
     else window.location.hash = `shelter?kind=${selected}`;
   };

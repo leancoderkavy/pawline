@@ -1,6 +1,7 @@
 import { directEndpoint, directError, parseConversationId, publicDirectMessage, requireConversation, requireWritable } from "./_direct.js";
 import { moderateMessage } from "./_community.js";
 import { consumeUsageChain } from "./_usage-limit.js";
+import { captureServerEvent } from "./_analytics.js";
 
 export function createMessagesHandler(dependencies) {
   return directEndpoint(["GET", "POST"], async ({ request, response, database, user, notify }) => {
@@ -46,6 +47,10 @@ export function createMessagesHandler(dependencies) {
       ) SELECT * FROM message
     `;
     await notify(conversation);
+    await captureServerEvent(request, {
+      distinctId: user.id,
+      event: "direct_message_sent",
+    });
     return response.status(201).json({ message: publicDirectMessage(rows[0], user.id) });
   }, dependencies);
 }

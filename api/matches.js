@@ -1,6 +1,7 @@
 import { generateText, jsonSchema, Output } from "ai";
 import { getDatabase } from "./_db.js";
 import { consumeUsageChain, requestClientKey } from "./_usage-limit.js";
+import { captureServerEvent } from "./_analytics.js";
 
 const MODEL = process.env.PAWLINE_AI_MODEL || "google/gemini-2.5-flash-lite";
 const MAX_PETS = 10;
@@ -169,6 +170,10 @@ export default async function handler(request, response) {
       abortSignal: AbortSignal.timeout(20000),
     });
     const matches = validateModelResult(output, pets.map((pet) => pet.id));
+    await captureServerEvent(request, {
+      event: "match_completed",
+      properties: { pet_count: pets.length },
+    });
     response.setHeader("Cache-Control", "no-store");
     return response.status(200).json({
       mode: "ai",

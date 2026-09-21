@@ -20,6 +20,7 @@ import { discoveryDisplayLocation } from "./discoveryLocation";
 import Onboarding from "./Onboarding";
 import MapNavigation from "./MapNavigation";
 import { JOURNEY_PANELS, panelFromHash, panelHash, landingPanel } from "./mapPanels";
+import { capture } from "./analytics";
 
 const CommunityWithAuth = lazy(() => import("./CommunityWithAuth"));
 const DirectMessages = lazy(() => import("./DirectMessages"));
@@ -1394,6 +1395,7 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
     }
     setLocation(match.name);
     setCoordinates({ ...match, longitude, latitude });
+    capture("location_search_completed");
     setMapSearchMoved(false);
     setLocationState({ status: "success", message: `Map centered on ${match.name}.` });
     document.getElementById("map")?.scrollIntoView({ behavior: "smooth" });
@@ -1437,6 +1439,7 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
         setUserCoordinates(next);
         setCoordinates({ ...next, name: "Your location" });
         setLocation("Your location");
+        capture("device_location_used");
         setMapSearchMoved(false);
         setLocationState({ status: "success", message: "Your location is shown on the map." });
         setLocationPrompt({ status: "hidden", message: "" });

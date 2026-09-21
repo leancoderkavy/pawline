@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { LoaderCircle, RefreshCcw } from "lucide-react";
 import { useSignIn, useSignUp } from "@clerk/nextjs";
+import { capture } from "./analytics";
 import Dialog from "./Dialog";
 
 const SOCIAL_PROVIDERS = [
@@ -34,6 +35,9 @@ function readErrorMessage(error) {
   if (code === "captcha_invalid" || code === "captcha_unavailable") {
     return first?.longMessage || first?.long_message
       || "Account creation could not complete the security check. Refresh and try again, or disable blockers for challenges.cloudflare.com.";
+  }
+  if (code === "signed_out") {
+    return "Account creation lost the browser security session before email verification. Turn off tracking protection for pawlineadopt.com, or try another browser, then sign up again.";
   }
   const raw = first?.longMessage || first?.message || error?.message || "That request could not be completed.";
   return String(raw);
@@ -93,12 +97,13 @@ export default function AuthModal({
     onClose?.();
   };
 
-  const finalizeAuth = async (resource, successMessage) => {
+  const finalizeAuth = async (resource, successMessage, analytics) => {
     const { error } = await resource.finalize();
     if (error) {
       showError(readErrorMessage(error));
       return false;
     }
+    if (analytics) capture(analytics.event, { method: analytics.method });
     await onAuthDone(successMessage);
     return true;
   };
@@ -147,7 +152,7 @@ export default function AuthModal({
       });
       if (error) throw error;
       if (signIn.status !== "complete") throw new Error("This account needs an additional step before sign-in.");
-      await finalizeAuth(signIn, "Welcome back. You are signed in.");
+      await finalizeAuth(signIn, "Welcome back. You are signed in.", { event: "user_signed_in", method: "email" });
     } catch (error) {
       showError(readErrorMessage(error));
     } finally {
@@ -248,7 +253,7 @@ export default function AuthModal({
       const { error } = await signUp.create({ phoneNumber: normalizedPhone });
       if (error) throw error;
       if (signUp.status === "complete") {
-        await finalizeAuth(signUp, "Your Pawline account is ready.");
+        await finalizeAuth(signUp, "Your Pawline account is ready.", { event: "user_signed_up", method: "phone" });
         return;
       }
       if (signUp.status === "missing_requirements" && signUp.unverifiedFields.includes("phone_number")) {
@@ -292,7 +297,7 @@ export default function AuthModal({
       const { error } = await signUp.password({ emailAddress: normalizedEmail, password });
       if (error) throw error;
       if (signUp.status === "complete") {
-        await finalizeAuth(signUp, "Your Pawline account is ready.");
+        await finalizeAuth(signUp, "Your Pawline account is ready.", { event: "user_signed_up", method: "email" });
         return;
       }
       if (signUp.status === "missing_requirements" && signUp.unverifiedFields.includes("email_address")) {
@@ -329,7 +334,7 @@ export default function AuthModal({
         const { error } = await signIn.phoneCode.verifyCode({ code: cleanCode });
         if (error) throw error;
         if (signIn.status !== "complete") throw new Error("The code was accepted, but sign-in could not be finished.");
-        await finalizeAuth(signIn, "Welcome back. You are signed in.");
+        await finalizeAuth(signIn, "Welcome back. You are signed in.", { event: "user_signed_in", method: "phone" });
         return;
       }
       if (!signUp) throw new Error("The account service is not ready. Please try again.");
@@ -338,7 +343,7 @@ export default function AuthModal({
         : await signUp.verifications.verifyEmailCode({ code: cleanCode });
       if (verified?.error) throw verified.error;
       if (signUp.status !== "complete") throw new Error("The code was accepted, but sign-in could not be finished.");
-      await finalizeAuth(signUp, "Your Pawline account is ready.");
+      await finalizeAuth(signUp, "Your Pawline account is ready.", { event: "user_signed_up", method: verifyKind === "phone" ? "phone" : "email" });
     } catch (error) {
       showError(readErrorMessage(error));
     } finally {

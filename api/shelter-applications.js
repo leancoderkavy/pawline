@@ -2,6 +2,7 @@ import { getDatabase } from "./_db.js";
 import { requireUser } from "./_auth.js";
 import { adoptionError, cleanText, ensureAdoptionPlatformSchema, isUuid, organizationMembership } from "./_adoption-platform.js";
 import { SHELTER_NEXT_STATUSES, validShelterTransition as isValidShelterTransition } from "../src/shelterWorkflow.js";
+import { captureServerEvent } from "./_analytics.js";
 
 const SHELTER_STATUSES = new Set(Object.values(SHELTER_NEXT_STATUSES).flat());
 const OUTCOMES = new Set(["adopted", "not_adopted", "placement_changed"]);
@@ -159,6 +160,15 @@ export default async function handler(request, response) {
       return response.status(422).json({ error: "Choose a valid shelter application action." });
     }
     const updated = await applicationForOrganization(database, application.id, organizationId);
+    await captureServerEvent(request, {
+      distinctId: user.id,
+      event: "shelter_application_updated",
+      properties: {
+        action,
+        ...(action === "status" ? { status: String(request.body?.status || "") } : {}),
+        ...(action === "outcome" ? { outcome: String(request.body?.outcome || "") } : {}),
+      },
+    });
     return response.status(200).json({ application: publicApplication(updated) });
   } catch (error) {
     console.error("Shelter applications API failed", error.message);

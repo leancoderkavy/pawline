@@ -3,6 +3,7 @@
 import { ClerkProvider, useAuth } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
 import AuthModal from "../../../src/AuthModal";
+import { clerkBrowserOptions } from "../../../src/clerkBrowserOptions";
 import { claimTokenFromHash } from "../../../src/mapPanels";
 
 function ClaimForm({ token, onConsumed }) {
@@ -65,7 +66,7 @@ export default function ClaimOrganizationPage({ embedded = false }) {
   const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || "";
   if (!publishableKey) return <main style={styles.shell}><section style={styles.card}><h1 style={styles.title}>Organization claiming is unavailable</h1><p>Pawline identity services are not configured for this environment.</p></section></main>;
   if (embedded) return <ClaimFlow />;
-  return <ClerkProvider publishableKey={publishableKey}><ClaimFlow /></ClerkProvider>;
+  return <ClerkProvider {...clerkBrowserOptions(publishableKey)}><ClaimFlow /></ClerkProvider>;
 }
 
 const styles = {

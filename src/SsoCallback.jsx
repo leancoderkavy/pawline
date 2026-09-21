@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useClerk, useSignIn, useSignUp } from "@clerk/nextjs";
+import { capture } from "./analytics";
 
 function goHome() {
   window.location.replace("/");
@@ -22,6 +23,7 @@ export default function SsoCallback() {
         if (signIn.status === "complete") {
           const { error } = await signIn.finalize();
           if (error) throw error;
+          capture("user_signed_in", { method: "sso" });
           if (!cancelled) goHome();
           return;
         }
@@ -31,6 +33,7 @@ export default function SsoCallback() {
           if (signIn.status === "complete") {
             const { error } = await signIn.finalize();
             if (error) throw error;
+            capture("user_signed_in", { method: "sso" });
             if (!cancelled) goHome();
             return;
           }
@@ -41,6 +44,7 @@ export default function SsoCallback() {
           if (signUp.status === "complete") {
             const { error } = await signUp.finalize();
             if (error) throw error;
+            capture("user_signed_up", { method: "sso" });
             if (!cancelled) goHome();
             return;
           }
@@ -49,6 +53,7 @@ export default function SsoCallback() {
         if (signUp.status === "complete") {
           const { error } = await signUp.finalize();
           if (error) throw error;
+          capture("user_signed_up", { method: "sso" });
           if (!cancelled) goHome();
           return;
         }

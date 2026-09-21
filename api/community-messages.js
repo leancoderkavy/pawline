@@ -3,6 +3,7 @@ import { getDatabase } from "./_db.js";
 import { requireUser } from "./_auth.js";
 import { ensureCommunityTables, moderateMessage, publicMessage } from "./_community.js";
 import { consumeUsageChain } from "./_usage-limit.js";
+import { captureServerEvent } from "./_analytics.js";
 
 const buckets = new Map();
 function limited(userId) {
@@ -83,5 +84,10 @@ export default async function handler(request, response) {
   `;
   const message = publicMessage(rows[0]);
   await publish(message).catch((error) => console.error("Community realtime publish failed", error.message));
+  await captureServerEvent(request, {
+    distinctId: user.id,
+    event: "community_message_sent",
+    properties: { has_link: Boolean(safePreview) },
+  });
   return response.status(201).json({ message });
 }

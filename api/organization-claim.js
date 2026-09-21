@@ -1,6 +1,7 @@
 import { getDatabase } from "./_db.js";
 import { requireUser } from "./_auth.js";
 import { ensureAdoptionPlatformSchema, redeemOrganizationClaim } from "./_adoption-platform.js";
+import { captureServerEvent } from "./_analytics.js";
 
 export default async function handler(request, response) {
   response.setHeader("Cache-Control", "no-store");
@@ -17,6 +18,11 @@ export default async function handler(request, response) {
   try {
     await ensureAdoptionPlatformSchema(database);
     const organizationId = await redeemOrganizationClaim(database, request.body?.token, user);
+    await captureServerEvent(request, {
+      distinctId: user.id,
+      event: "organization_claim_completed",
+      properties: { role: "administrator" },
+    });
     return response.status(200).json({ organizationId, role: "administrator" });
   } catch (error) {
     console.error("Organization claim failed", error.message);
