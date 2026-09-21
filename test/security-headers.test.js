@@ -40,7 +40,7 @@ test("production proxies Clerk Frontend API on the canonical host so auth cookie
   assert.doesNotMatch(page, /proxyUrl/);
   assert.match(provider, /clerkBrowserOptions\(publishableKey\)/);
   assert.match(options, /NEXT_PUBLIC_CLERK_PROXY_URL/);
-  assert.match(proxy, /requestedHost === "www\.pawlineadopt\.com" && request\.nextUrl\.pathname\.startsWith\("\/__clerk"\)/);
+  assert.match(proxy, /requestedHost === "pawlineadopt\.com" \|\| requestedHost === "www\.pawlineadopt\.com"/);
   assert.match(proxy, /pathname\.startsWith\("\/__clerk"\)/);
   assert.match(proxy, /frontendApiProxy:\s*\{/);
   assert.match(proxy, /"\/__clerk\/\(\.\*\)"/);

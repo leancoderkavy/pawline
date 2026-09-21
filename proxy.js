@@ -20,12 +20,15 @@ function requestedHostname(request) {
 
 export default function proxy(request, event) {
   const requestedHost = requestedHostname(request);
+  const clerkProxyPath = request.nextUrl.pathname.startsWith("/__clerk");
+  // Clerk's saved proxy URL is the apex host. Redirecting /__clerk would make
+  // Clerk reject the request as the wrong host.
+  if (withClerkProxy && clerkProxyPath && (requestedHost === "pawlineadopt.com" || requestedHost === "www.pawlineadopt.com")) {
+    return withClerkProxy(request, event);
+  }
   if (requestedHost === "pawlineadopt.com") {
     const canonical = new URL(`${request.nextUrl.pathname}${request.nextUrl.search}`, "https://www.pawlineadopt.com");
     return NextResponse.redirect(canonical, 308);
-  }
-  if (withClerkProxy && requestedHost === "www.pawlineadopt.com" && request.nextUrl.pathname.startsWith("/__clerk")) {
-    return withClerkProxy(request, event);
   }
   return withClerk ? withClerk(request, event) : NextResponse.next();
 }
