@@ -29,13 +29,21 @@ test('Daily iframe and camera access are restricted to the configured origin', a
   } finally { if (previous === undefined) delete process.env.DAILY_DOMAIN; else process.env.DAILY_DOMAIN = previous; }
 });
 
-test("production uses the verified Clerk custom domain without the broken frontend proxy", async () => {
-  const page = await readFile(new URL("../app/page.jsx", import.meta.url), "utf8");
-  const provider = await readFile(new URL("../src/PawlineWithClerk.jsx", import.meta.url), "utf8");
+test("production proxies Clerk Frontend API on the canonical host so auth cookies stay first-party", async () => {
+  const [page, provider, options, proxy] = await Promise.all([
+    readFile(new URL("../app/page.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/PawlineWithClerk.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/clerkBrowserOptions.js", import.meta.url), "utf8"),
+    readFile(new URL("../proxy.js", import.meta.url), "utf8"),
+  ]);
 
   assert.doesNotMatch(page, /proxyUrl/);
-  assert.doesNotMatch(provider, /proxyUrl/);
-  assert.match(provider, /<ClerkProvider\s+publishableKey=\{publishableKey\}/);
+  assert.match(provider, /clerkBrowserOptions\(publishableKey\)/);
+  assert.match(options, /NEXT_PUBLIC_CLERK_PROXY_URL/);
+  assert.match(proxy, /requestedHost === "www\.pawlineadopt\.com" && request\.nextUrl\.pathname\.startsWith\("\/__clerk"\)/);
+  assert.match(proxy, /pathname\.startsWith\("\/__clerk"\)/);
+  assert.match(proxy, /frontendApiProxy:\s*\{/);
+  assert.match(proxy, /"\/__clerk\/\(\.\*\)"/);
 });
 
 test("mobile search controls preserve a 44px touch target", async () => {
