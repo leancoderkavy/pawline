@@ -9,6 +9,8 @@ test("production CSP permits the configured Clerk custom domain", async () => {
   for (const directive of ["script-src", "connect-src", "frame-src", "form-action"]) {
     const line = policy.split('; ').find(entry => entry.startsWith(`${directive} `));
     assert.match(line || "", /https:\/\/clerk\.pawlineadopt\.com/);
+    assert.equal(line.split(" ").some(source => source === "https://pawlineadopt.com/__clerk/"), true, `${directive} permits the configured proxy path`);
+    assert.equal(line.split(" ").some(source => source === "https://pawlineadopt.com"), false, "Do not allow unrelated apex paths");
   }
 });
 
@@ -22,7 +24,7 @@ test('Daily iframe and camera access are restricted to the configured origin', a
       const csp = headers.find(header => header.key === 'Content-Security-Policy').value;
       const permissions = headers.find(header => header.key === 'Permissions-Policy').value;
       const frameSources = csp.split('; ').find(directive => directive.startsWith('frame-src ')).split(' ').slice(1);
-      assert.deepEqual(frameSources, ['https://clerk.pawlineadopt.com', 'https://*.clerk.accounts.dev', 'https://*.clerk.com', 'https://challenges.cloudflare.com', 'https://*.protect.clerk.com', ...(allowed ? ['https://pawline-test.daily.co'] : [])]);
+      assert.deepEqual(frameSources, ['https://pawlineadopt.com/__clerk/', 'https://clerk.pawlineadopt.com', 'https://*.clerk.accounts.dev', 'https://*.clerk.com', 'https://challenges.cloudflare.com', 'https://*.protect.clerk.com', ...(allowed ? ['https://pawline-test.daily.co'] : [])]);
       assert.equal(permissions, allowed ? 'camera=(self "https://pawline-test.daily.co"), microphone=(self "https://pawline-test.daily.co"), geolocation=(self)' : 'camera=(self), microphone=(self), geolocation=(self)');
       assert.ok(!csp.includes('evil.test')); assert.ok(!csp.includes('*.daily.co'));
     }
