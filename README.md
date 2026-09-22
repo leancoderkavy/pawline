@@ -133,6 +133,12 @@ Vercel calls `/api/cron/ingest` four times daily (00:00, 06:00, 12:00, and
 authorized HTTPS JSON, CSV, and published Google Sheet CSV feeds; it does not
 scrape HTML. It sends conditional requests, limits response size, rejects local
 network destinations, records each run, and upserts duplicate records.
+Pet imports require an explicit, valid image URL. Missing, blank, malformed, and
+non-web image values are skipped before database writes in both scheduled feed
+importers; shelter CSV imports report those rows as errors. Legacy HTTP image
+links are normalized to HTTPS for the production image policy. Events are
+unaffected. This validates supplied photo URLs, not remote image availability;
+an upstream host can still remove a photo later. Existing records are not purged.
 Listings missing from two consecutive successful, non-empty snapshots are
 marked `unavailable`; disappearance is never treated as proof of adoption.
 
