@@ -96,7 +96,7 @@ async function more(page, name) {
 }
 async function quiz(page, species = "Cat") {
   await more(page, "Match quiz");
-  await page.getByRole("button", { name: "Start the match quiz" }).click();
+  await page.getByRole("button", { name: "Try the match quiz" }).click();
   for (const name of ["House", "Balanced", "No", "None", "Sometimes", "Some experience", species]) {
     await page.locator(".quiz-options").getByRole("button", { name, exact: true }).click();
   }
@@ -246,9 +246,9 @@ test("profile fields, household controls and guest privacy survive navigation co
 
 test("quiz back, restart, AI consent and unavailable provider controls", async ({ page }) => {
   await fixture(page); await open(page); await more(page, "Match quiz");
-  await page.getByRole("button", { name: "Start the match quiz" }).click();
+  await page.getByRole("button", { name: "Try the match quiz" }).click();
   await page.getByRole("button", { name: "Back", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Start the match quiz" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Try the match quiz" })).toBeVisible();
   await page.getByRole("button", { name: "Find pets", exact: true }).click();
   await quiz(page);
   await expect(page.getByRole("button", { name: "Analyze with AI" })).toBeDisabled();
