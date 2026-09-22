@@ -2,6 +2,7 @@
 
 import { ClerkProvider, useAuth } from "@clerk/nextjs";
 import PawlineApp from "./App";
+import { clerkBrowserOptions } from "./clerkBrowserOptions";
 
 function AuthenticatedLanding({ publishableKey }) {
   const { isLoaded, isSignedIn } = useAuth();
@@ -20,8 +21,8 @@ function AuthenticatedLanding({ publishableKey }) {
 }
 
 export default function PawlineWithClerk({ publishableKey }) {
-  return <ClerkProvider 
-    publishableKey={publishableKey}
+  return <ClerkProvider
+    {...clerkBrowserOptions(publishableKey)}
     appearance={{
       variables: { colorPrimary: "#17382f" }
     }}

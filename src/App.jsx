@@ -17,6 +17,7 @@ import { rankPets } from "./matching";
 import { buildMapView, distanceInMiles, mapResultBounds, petCountLabel, petResultDetail } from "./mapView";
 import { parseStoredFavorites, restoreFavoriteAfterFailure } from "./favoritesState";
 import Dialog from "./Dialog";
+import AuthModal from "./AuthModal";
 import { startFeedRefresh } from "./feedRefresh";
 import { createMapSearchInteraction } from "./mapSearchInteraction";
 import AdopterExperience from "./AdopterExperience";
@@ -25,9 +26,9 @@ import Onboarding from "./Onboarding";
 import MapNavigation from "./MapNavigation";
 import { JOURNEY_PANELS, panelFromHash, panelHash, landingPanel } from "./mapPanels";
 
-const CommunityWithAuth = lazy(() => import("./CommunityWithAuth"));
+const Community = lazy(() => import("./Community"));
 const DirectMessages = lazy(() => import("./DirectMessages"));
-const FavoritesSyncWithAuth = lazy(() => import("./FavoritesSyncWithAuth"));
+const FavoritesSync = lazy(() => import("./FavoritesSync"));
 const SubmissionWithAuth = lazy(() => import("./SubmissionWithAuth"));
 const AdopterExperienceWithAuth = lazy(() => import("./AdopterExperienceWithAuth"));
 const CaregiverHubWithAuth = lazy(() => import("./CaregiverHubWithAuth"));
@@ -1012,6 +1013,8 @@ function Matchmaker({ pets, feed, location, onLocationChange, onSpeciesChange, o
   const [answers, setAnswers] = useState({});
   const [complete, setComplete] = useState(false);
   const [consent, setConsent] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authMode, setAuthMode] = useState("signup");
   const [aiState, setAiState] = useState({ status: "idle", matches: [], message: "" });
   const question = QUIZ_QUESTIONS[step];
   const rulesRanked = useMemo(() => rankPets(pets, answers).slice(0, 10), [pets, answers]);
@@ -1060,10 +1063,13 @@ function Matchmaker({ pets, feed, location, onLocationChange, onSpeciesChange, o
     <div className="matchmaker-quiz">
       {!started ? <div className="match-intro">
         <div className="match-portrait"><img src={heroImage} alt="A dog and cat resting together" /></div>
-        <h1 id="matchmaker-title">Find a pet who fits <em>your real life.</em></h1>
-        <p>Share your home, routine, household, and pet experience, and we’ll rank current shelter listings with clear reasons—not guesswork.</p>
-        <Button onClick={() => setStarted(true)}>Start the match quiz <ChevronRight /></Button>
-        <span><Clock3 /> About 2 minutes</span>
+        <h1 id="matchmaker-title">Find adoptable dogs and cats &mdash; <em>Pawline Adopt</em></h1>
+        <p>A pet adoption app for browsing shelter listings and discovering pets ready for a home. Create your free account to save favorites, get matched recommendations, and start your adoption journey.</p>
+        <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+          <Button onClick={() => { setAuthMode("signup"); setShowAuthModal(true); }}>Get started — it's free <ChevronRight /></Button>
+          <Button variant="outline" onClick={() => setStarted(true)}>Try the match quiz</Button>
+        </div>
+        <span style={{ marginTop: "8px" }}><Clock3 /> Match quiz takes about 2 minutes</span>
       </div> : !complete ? <>
         <div className="quiz-topline">
           <button className="quiz-back" onClick={() => step ? setStep(step - 1) : setStarted(false)}><ArrowLeft /> Back</button>
@@ -1098,6 +1104,7 @@ function Matchmaker({ pets, feed, location, onLocationChange, onSpeciesChange, o
         </div><div className="match-list">{ranked.map((match, index) => <MatchResult key={match.pet.id} match={match} rank={index + 1} />)}</div></>
         : <div className="results-placeholder"><PawPrint /><h3>No verified matches available</h3><p>{feed.message || "Try adjusting your answers or check back when more shelter listings are available."}</p></div>}
     </div>
+    {showAuthModal ? <AuthModal initialMode={authMode} onClose={() => setShowAuthModal(false)} onSuccess={() => setShowAuthModal(false)} /> : null}
   </section>;
 }
 
@@ -1487,7 +1494,7 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
     applicationPet, onApplicationHandled: () => setApplicationPet(null), onOpenMap: () => openPanel("explore"), onRecenter: handleRecenter };
   return <div className="app map-app">
     <a className="skip-link" href="#discover">Skip to main content</a>
-    {clerkConfigured && savedHydrated ? <Suspense fallback={null}><FavoritesSyncWithAuth key={favoriteSyncVersion} publishableKey={clerkPublishableKey} localFavorites={saved} onLoad={loadAccountFavorites} onSessionChange={setFavoriteSession} onError={setFavoriteError} /></Suspense> : null}
+    {clerkConfigured && savedHydrated ? <Suspense fallback={null}><FavoritesSync key={favoriteSyncVersion} localFavorites={saved} onLoad={loadAccountFavorites} onSessionChange={setFavoriteSession} onError={setFavoriteError} /></Suspense> : null}
     {favoriteError ? <div className="favorites-sync-alert" role="alert"><span>{favoriteError}</span><button type="button" onClick={retryFavoriteSync}>Retry favorites</button></div> : null}
     <MapNavigation activePanel={activePanel} savedCount={saved.length} onNavigate={openPanel} onSubmit={() => { setListingCaregiver(null); setSubmitOpen(true); }}
       accountAction={clerkConfigured ? <Suspense fallback={null}><MapAccountActions onProfile={() => openPanel("profile")} /></Suspense> : null} />
@@ -1567,7 +1574,7 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
             : <div className="community-auth-state"><span><MessageCircle /></span><h2>Messaging is temporarily unavailable</h2><p>You can still explore pets and contact the shelter through its official listing. Please try Messages again later.</p><div className="auth-safety"><ShieldCheck /><span><strong>Your conversations stay private</strong>Sign-in must be available before messages or video calls can open.</span></div></div>
           : null}
           {activePanel === "community" ? clerkConfigured
-            ? <Suspense fallback={<div className="community-auth-state" role="status"><span><MessageCircle /></span><h2>Opening the community…</h2></div>}><CommunityWithAuth publishableKey={clerkPublishableKey} onLeadsChange={setCommunityLeads} /></Suspense>
+            ? <Suspense fallback={<div className="community-auth-state" role="status"><span><MessageCircle /></span><h2>Opening the community…</h2></div>}><Community onLeadsChange={setCommunityLeads} /></Suspense>
             : <div className="community-auth-state"><span><MessageCircle /></span><h2>Community needs Clerk</h2><p>Add the Pawline Clerk publishable key to enable account creation and sign-in. Chat stays closed until identity is configured.</p><div className="auth-safety"><ShieldCheck /><span><strong>Failing closed</strong>No anonymous or unverified chat access is allowed.</span></div></div>
           : null}
         </div>
