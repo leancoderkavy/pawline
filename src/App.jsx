@@ -26,9 +26,9 @@ import Onboarding from "./Onboarding";
 import MapNavigation from "./MapNavigation";
 import { JOURNEY_PANELS, panelFromHash, panelHash, landingPanel } from "./mapPanels";
 
-const CommunityWithAuth = lazy(() => import("./CommunityWithAuth"));
+const Community = lazy(() => import("./Community"));
 const DirectMessages = lazy(() => import("./DirectMessages"));
-const FavoritesSyncWithAuth = lazy(() => import("./FavoritesSyncWithAuth"));
+const FavoritesSync = lazy(() => import("./FavoritesSync"));
 const SubmissionWithAuth = lazy(() => import("./SubmissionWithAuth"));
 const AdopterExperienceWithAuth = lazy(() => import("./AdopterExperienceWithAuth"));
 const CaregiverHubWithAuth = lazy(() => import("./CaregiverHubWithAuth"));
@@ -1494,7 +1494,7 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
     applicationPet, onApplicationHandled: () => setApplicationPet(null), onOpenMap: () => openPanel("explore"), onRecenter: handleRecenter };
   return <div className="app map-app">
     <a className="skip-link" href="#discover">Skip to main content</a>
-    {clerkConfigured && savedHydrated ? <Suspense fallback={null}><FavoritesSyncWithAuth key={favoriteSyncVersion} publishableKey={clerkPublishableKey} localFavorites={saved} onLoad={loadAccountFavorites} onSessionChange={setFavoriteSession} onError={setFavoriteError} /></Suspense> : null}
+    {clerkConfigured && savedHydrated ? <Suspense fallback={null}><FavoritesSync key={favoriteSyncVersion} localFavorites={saved} onLoad={loadAccountFavorites} onSessionChange={setFavoriteSession} onError={setFavoriteError} /></Suspense> : null}
     {favoriteError ? <div className="favorites-sync-alert" role="alert"><span>{favoriteError}</span><button type="button" onClick={retryFavoriteSync}>Retry favorites</button></div> : null}
     <MapNavigation activePanel={activePanel} savedCount={saved.length} onNavigate={openPanel} onSubmit={() => { setListingCaregiver(null); setSubmitOpen(true); }}
       accountAction={clerkConfigured ? <Suspense fallback={null}><MapAccountActions onProfile={() => openPanel("profile")} /></Suspense> : null} />
@@ -1574,7 +1574,7 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
             : <div className="community-auth-state"><span><MessageCircle /></span><h2>Messaging is temporarily unavailable</h2><p>You can still explore pets and contact the shelter through its official listing. Please try Messages again later.</p><div className="auth-safety"><ShieldCheck /><span><strong>Your conversations stay private</strong>Sign-in must be available before messages or video calls can open.</span></div></div>
           : null}
           {activePanel === "community" ? clerkConfigured
-            ? <Suspense fallback={<div className="community-auth-state" role="status"><span><MessageCircle /></span><h2>Opening the community…</h2></div>}><CommunityWithAuth publishableKey={clerkPublishableKey} onLeadsChange={setCommunityLeads} /></Suspense>
+            ? <Suspense fallback={<div className="community-auth-state" role="status"><span><MessageCircle /></span><h2>Opening the community…</h2></div>}><Community onLeadsChange={setCommunityLeads} /></Suspense>
             : <div className="community-auth-state"><span><MessageCircle /></span><h2>Community needs Clerk</h2><p>Add the Pawline Clerk publishable key to enable account creation and sign-in. Chat stays closed until identity is configured.</p><div className="auth-safety"><ShieldCheck /><span><strong>Failing closed</strong>No anonymous or unverified chat access is allowed.</span></div></div>
           : null}
         </div>
