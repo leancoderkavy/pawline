@@ -43,6 +43,7 @@ export default function ShelterImport({ organizationId, request }) {
       <p>
         Import up to 200 pets. Keep external_id stable to update the same animal
         on later imports. Every import is held for review before publication.
+        Each pet needs an image_url containing a photo link; rows without one cannot be imported.
       </p>
       <ol className="import-steps" aria-label="Import steps"><li>Choose your CSV</li><li>Preview and fix any errors</li><li>Confirm and submit for review</li></ol>
       <a href="/shelter-pets-template.csv" download>

@@ -6,10 +6,28 @@ from scripts.ingest import (
     clean_text,
     nested,
     normalize,
+    snapshot_records,
 )
 
 
 class IngestNormalizationTests(unittest.TestCase):
+    def test_every_imported_species_requires_a_valid_photo(self):
+        source = {"id": "source-id", "parser_config": {"mapping": {
+            "external_id": "id", "name": "name", "species": "species", "image_url": "photo",
+        }}}
+        for species in ["Dog", "Cat", "Rabbit", "Bird", "Horse", "Reptile", "Barnyard", "Small animal"]:
+            base = {"id": species, "name": "Photo QA", "species": species}
+            for photo in [None, "", "  ", False, {}, "null", "/photo.jpg", "data:image/png;base64,abc", "javascript:alert(1)", "https://", "https://user:pass@example.com/photo.jpg"]:
+                with self.subTest(species=species, photo=photo):
+                    self.assertIsNone(normalize({**base, "photo": photo}, source))
+            pet = normalize({**base, "photo": "  http://example.com/pet.jpg  "}, source)
+            self.assertEqual(pet["image_url"], "https://example.com/pet.jpg")
+        rows = [
+            {"id": "1", "name": "With photo", "species": "Dog", "photo": "https://example.com/1.jpg"},
+            {"id": "2", "name": "No photo", "species": "Cat"},
+        ]
+        self.assertEqual([pet["external_id"] for pet in snapshot_records(rows, source)], ["1"])
+
     def test_reviewed_sources_are_enabled_for_scheduled_imports(self):
         sql = REVIEWED_SOURCES_SQL.read_text(encoding="utf-8")
         self.assertRegex(
