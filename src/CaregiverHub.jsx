@@ -50,6 +50,13 @@ export default function CaregiverHub({ getToken, onListPet, onOpenMessages, chil
     request("/api/caregivers").then(body => { if (active) { setData(body); setSelectedId(body.registeredOrganizationId || body.organizations[0]?.id || ""); setError(""); } }).catch(reason => { if (active) setError(reason.message); });
     return () => { active = false; };
   }, [getToken, retry]);
+  useEffect(() => {
+    if (!data) return;
+    const urlKind = new URLSearchParams(window.location.hash.split("?")[1]).get("kind");
+    if (urlKind === "foster" && data.canRegister && data.organizations.length > 0 && !data.organizations.some(org => org.kind === "foster")) {
+      setRegistrationOpen(true);
+    }
+  }, [data]);
   const register = async form => {
     setBusy(true); setError("");
     try { const body = await request("/api/caregivers", { method: "POST", body: JSON.stringify(form) }); setData(body); setSelectedId(body.registeredOrganizationId || body.organizations[0]?.id || ""); setRegistrationOpen(false); }

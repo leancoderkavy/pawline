@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Building2, CalendarDays, ChevronDown, ClipboardList, FileText, Heart, House, Map, MessageCircle, PawPrint, UserRound, UsersRound } from "lucide-react";
+import { Building2, CalendarDays, ChevronDown, ClipboardList, FileText, Heart, House, LogOut, Map, MessageCircle, PawPrint, UserRound, UsersRound } from "lucide-react";
 
 const primary = [["explore", Map, "Find pets"], ["favorites", Heart, "Saved"], ["applications", ClipboardList, "Applications"], ["messages", MessageCircle, "Messages"]];
 const more = [["discover", PawPrint, "Browse pet list"], ["network", Map, "Search & lost pets"], ["onboarding", PawPrint, "Get started"], ["profile", UserRound, "My profile"], ["home", House, "Adoption plan"], ["match", PawPrint, "Match quiz"], ["events", CalendarDays, "Adoption events"], ["community", UsersRound, "Community"], ["resources", FileText, "Adoption guides"], ["shelter", Building2, "Shelters & fosters"]];
 
-export default function MapNavigation({ activePanel, savedCount, onNavigate, onSubmit, accountAction }) {
+export default function MapNavigation({ activePanel, savedCount, onNavigate, onSubmit, accountAction, onSignOut, isSignedIn }) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef(null);
   const triggerRef = useRef(null);
@@ -31,6 +31,7 @@ export default function MapNavigation({ activePanel, savedCount, onNavigate, onS
         {open ? <div id="map-more-menu" className="map-more-menu">
           {more.map(([key, Icon, label]) => <button key={key} type="button" aria-current={activePanel === key ? "page" : undefined} onClick={() => navigate(key)}><Icon />{label}</button>)}
           <button type="button" onClick={() => { setOpen(false); onSubmit(); }}><PawPrint />List a pet</button>
+          {isSignedIn && onSignOut ? <button type="button" onClick={() => { setOpen(false); onSignOut(); }}><LogOut />Sign out</button> : null}
         </div> : null}
       </div>
     </nav>

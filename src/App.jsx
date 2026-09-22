@@ -7,6 +7,7 @@ import NetworkTools from "./NetworkTools.jsx";
 const NetworkToolsWithAuth = React.lazy(() => import("./NetworkToolsWithAuth.jsx"));
 
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useClerk } from "@clerk/nextjs";
 import {
   AlertTriangle, ArrowLeft, CalendarDays, CheckCircle2, ChevronRight, Clock3,
   Building2, CalendarClock, Check, Compass, ExternalLink, FileText, Fullscreen, Globe2, Heart, House, Info, Layers3, ListChecks, LocateFixed, LockKeyhole, MapPin, Menu, PawPrint, Pencil,
@@ -1110,6 +1111,10 @@ function Matchmaker({ pets, feed, location, onLocationChange, onSpeciesChange, o
 
 export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
   const clerkConfigured = Boolean(clerkPublishableKey);
+  const clerk = clerkConfigured ? useClerk() : null;
+  const handleSignOut = useCallback(() => {
+    if (clerk) clerk.signOut();
+  }, [clerk]);
   const [saved, setSaved] = useState([]);
   const savedRef = useRef([]);
   const [savedHydrated, setSavedHydrated] = useState(false);
@@ -1497,6 +1502,7 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
     {clerkConfigured && savedHydrated ? <Suspense fallback={null}><FavoritesSync key={favoriteSyncVersion} localFavorites={saved} onLoad={loadAccountFavorites} onSessionChange={setFavoriteSession} onError={setFavoriteError} /></Suspense> : null}
     {favoriteError ? <div className="favorites-sync-alert" role="alert"><span>{favoriteError}</span><button type="button" onClick={retryFavoriteSync}>Retry favorites</button></div> : null}
     <MapNavigation activePanel={activePanel} savedCount={saved.length} onNavigate={openPanel} onSubmit={() => { setListingCaregiver(null); setSubmitOpen(true); }}
+      isSignedIn={isSignedIn} onSignOut={handleSignOut}
       accountAction={clerkConfigured ? <Suspense fallback={null}><MapAccountActions onProfile={() => openPanel("profile")} /></Suspense> : null} />
 
   <main id="discover" tabIndex={-1} className={`map-workspace panel-${activePanel} ${railCollapsed ? "rail-collapsed" : ""} ${selectedPet ? "detail-open" : ""}`}>
