@@ -241,7 +241,7 @@ export default function AuthModal({
     {!isVerifying ? <div className="auth-method" aria-label="Authentication method">
       <button type="button" className={authMethod === "email-code" ? "selected" : ""} onClick={() => selectMethod("email-code")}>Email code</button>
       <button type="button" className={authMethod === "email-password" ? "selected" : ""} onClick={() => selectMethod("email-password")}>Email + password</button>
-      {isSignInMode ? <button type="button" className={authMethod === "phone-code" ? "selected" : ""} onClick={() => selectMethod("phone-code")}>Phone code</button> : null}
+      {isSignInMode && process.env.NEXT_PUBLIC_CLERK_PHONE_SIGN_IN_ENABLED === "true" ? <button type="button" className={authMethod === "phone-code" ? "selected" : ""} onClick={() => selectMethod("phone-code")}>Phone code</button> : null}
     </div> : null}
     <form onSubmit={submitHandler}>
       {!isVerifying && authMethod !== "phone-code" ? <label>Email
