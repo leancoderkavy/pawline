@@ -600,6 +600,11 @@ html:has(.adopter-experience),body:has(.adopter-experience) { min-width:0; }
 
 .form-success { color:#285b47;background:#e6f4e8;padding:10px;border-radius:7px;font-size:11px; }
 .auth-modal-note { margin: 6px 0 0; color:#556a60; font-size:11px; }
+.auth-method { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:14px 0 18px; }
+.auth-method button { min-height:44px;padding:7px 9px;border:1px solid #d2cabd;border-radius:9px;background:#fffdf9;color:#496157;font-size:11px;font-weight:900;line-height:1.25;cursor:pointer; }
+.auth-method button:hover,.auth-method button:focus-visible { border-color:var(--green);outline:2px solid #cde0d1;outline-offset:1px; }
+.auth-method button.selected { border-color:var(--green);background:var(--green);color:#fffdf9; }
+.field-help { color:#65776f;font-size:10px;font-weight:600;line-height:1.4; }
 .auth-mode-switch { display:flex; align-items:center; justify-content:center; gap:6px; flex-wrap:wrap; margin-top:10px; }
 .auth-mode-switch button { min-height:40px; padding:0 12px; border:1px solid #d9d1c0; border-radius:8px; background:#fffdf9; color:var(--green); }
 .auth-mode-switch button:hover { border-color:var(--green); }
@@ -609,6 +614,7 @@ html:has(.adopter-experience),body:has(.adopter-experience) { min-width:0; }
 .journey-heart { min-width:44px;flex:none; }
 
 @media (max-width:560px) {
+  .auth-method { grid-template-columns:1fr; }
   .journey-pet-card .text-action { min-width:44px; }
 }
 
