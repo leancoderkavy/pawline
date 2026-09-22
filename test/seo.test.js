@@ -8,7 +8,9 @@ test("homepage publishes canonical search and social metadata", async () => {
   const layout = await read("app/layout.jsx");
   assert.match(layout, /alternates: \{ canonical: "\/"/);
   assert.match(layout, /robots: \{ index: true, follow: true/);
-  assert.match(layout, /Find Adoptable Dogs & Cats Near You \| Pawline/);
+  assert.match(layout, /Pawline Adopt \| Pet Adoption App for Dogs & Cats/);
+  assert.match(layout, /Shelter dog finder — not a pet-health product/);
+  assert.match(layout, /start your adoption journey/);
   assert.match(layout, /home, routine, household, and pet experience/);
   assert.match(layout, /card: "summary_large_image"/);
   assert.match(layout, /locale: "en_US"/);
