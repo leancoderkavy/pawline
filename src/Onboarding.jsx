@@ -20,6 +20,8 @@ export default function Onboarding({ onNavigate }) {
     previous.current = selected;
   }, [selected]);
   const continuePath = () => {
+    // Both shelter and foster routes go to the "shelter" panel (caregiver registration).
+    // The kind parameter differentiates them - CaregiverHub reads it to initialize the form.
     window.location.hash = `shelter?kind=${selected}`;
   };
   return <section className="onboarding" aria-labelledby="onboarding-title">

@@ -22,20 +22,28 @@ test('Daily iframe and camera access are restricted to the configured origin', a
       const csp = headers.find(header => header.key === 'Content-Security-Policy').value;
       const permissions = headers.find(header => header.key === 'Permissions-Policy').value;
       const frameSources = csp.split('; ').find(directive => directive.startsWith('frame-src ')).split(' ').slice(1);
-      assert.deepEqual(frameSources, ['https://clerk.pawlineadopt.com', 'https://*.clerk.accounts.dev', 'https://*.clerk.com', ...(allowed ? ['https://pawline-test.daily.co'] : [])]);
+      assert.deepEqual(frameSources, ['https://clerk.pawlineadopt.com', 'https://*.clerk.accounts.dev', 'https://*.clerk.com', 'https://challenges.cloudflare.com', 'https://*.protect.clerk.com', ...(allowed ? ['https://pawline-test.daily.co'] : [])]);
       assert.equal(permissions, allowed ? 'camera=(self "https://pawline-test.daily.co"), microphone=(self "https://pawline-test.daily.co"), geolocation=(self)' : 'camera=(self), microphone=(self), geolocation=(self)');
       assert.ok(!csp.includes('evil.test')); assert.ok(!csp.includes('*.daily.co'));
     }
   } finally { if (previous === undefined) delete process.env.DAILY_DOMAIN; else process.env.DAILY_DOMAIN = previous; }
 });
 
-test("production uses the verified Clerk custom domain without the broken frontend proxy", async () => {
-  const page = await readFile(new URL("../app/page.jsx", import.meta.url), "utf8");
-  const provider = await readFile(new URL("../src/PawlineWithClerk.jsx", import.meta.url), "utf8");
+test("production proxies Clerk Frontend API on the canonical host so auth cookies stay first-party", async () => {
+  const [page, provider, options, proxy] = await Promise.all([
+    readFile(new URL("../app/page.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/PawlineWithClerk.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/clerkBrowserOptions.js", import.meta.url), "utf8"),
+    readFile(new URL("../proxy.js", import.meta.url), "utf8"),
+  ]);
 
   assert.doesNotMatch(page, /proxyUrl/);
-  assert.doesNotMatch(provider, /proxyUrl/);
-  assert.match(provider, /<ClerkProvider publishableKey=\{publishableKey\}>/);
+  assert.match(provider, /clerkBrowserOptions\(publishableKey\)/);
+  assert.match(options, /NEXT_PUBLIC_CLERK_PROXY_URL/);
+  assert.match(proxy, /requestedHost === "pawlineadopt\.com" \|\| requestedHost === "www\.pawlineadopt\.com"/);
+  assert.match(proxy, /pathname\.startsWith\("\/__clerk"\)/);
+  assert.match(proxy, /frontendApiProxy:\s*\{/);
+  assert.match(proxy, /"\/__clerk\/\(\.\*\)"/);
 });
 
 test("mobile search controls preserve a 44px touch target", async () => {
