@@ -236,7 +236,7 @@ export default function AuthModal({
       }
       const { error } = await signUp.verifications.verifyEmailCode({ code: cleanCode });
       if (error) throw error;
-      if (signUp.status !== "complete") throw new Error("The code was accepted, but sign-in could not be finished.");
+      if (signUp.status !== "complete") throw new Error("The code was accepted, but account creation could not be finished.");
       await finalizeAuth(signUp, "Your Pawline account is ready.");
     } catch (error) {
       showError(readErrorMessage(error));
@@ -253,12 +253,14 @@ export default function AuthModal({
   const submitLabel = mode === "verify"
     ? "Verify code"
     : mode === "signup"
-      ? "Send code"
+      ? "Create account"
       : "Send code";
   const submitHandler = mode === "verify" ? verifyEmail : mode === "signup" ? handleSignUp : handleSignIn;
   const dialogCopy = mode === "verify"
     ? "Enter the one-time code from your email to finish."
-    : "We’ll email you a one-time code — no password needed.";
+    : mode === "signup"
+      ? "We'll email you a verification code to confirm your new account — no password needed."
+      : "We'll email you a one-time code — no password needed.";
 
   return <Dialog title={title} onClose={onClose} centered>
     <p className="dialog-copy">{dialogCopy}</p>
