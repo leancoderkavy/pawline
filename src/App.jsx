@@ -1111,10 +1111,10 @@ function Matchmaker({ pets, feed, location, onLocationChange, onSpeciesChange, o
 
 export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
   const clerkConfigured = Boolean(clerkPublishableKey);
-  const clerk = clerkConfigured ? useClerk() : null;
+  const { signOut } = useClerk();
   const handleSignOut = useCallback(() => {
-    if (clerk) clerk.signOut();
-  }, [clerk]);
+    signOut();
+  }, [signOut]);
   const [saved, setSaved] = useState([]);
   const savedRef = useRef([]);
   const [savedHydrated, setSavedHydrated] = useState(false);
