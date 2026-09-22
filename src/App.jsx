@@ -1060,8 +1060,8 @@ function Matchmaker({ pets, feed, location, onLocationChange, onSpeciesChange, o
     <div className="matchmaker-quiz">
       {!started ? <div className="match-intro">
         <div className="match-portrait"><img src={heroImage} alt="A dog and cat resting together" /></div>
-        <h1 id="matchmaker-title">Find a pet who fits <em>your real life.</em></h1>
-        <p>Share your home, routine, household, and pet experience, and we’ll rank current shelter listings with clear reasons—not guesswork.</p>
+        <h1 id="matchmaker-title">Find adoptable dogs and cats — <em>Pawline Adopt</em></h1>
+        <p>Browse shelter listings and discover pets ready for a home. We're building supply with real shelters — start exploring on pawlineadopt.com.</p>
         <Button onClick={() => setStarted(true)}>Start the match quiz <ChevronRight /></Button>
         <span><Clock3 /> About 2 minutes</span>
       </div> : !complete ? <>
