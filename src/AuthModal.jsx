@@ -1,4 +1,5 @@
 "use client";
+import { capture } from "./analytics.js";
 
 import { useState } from "react";
 import { LoaderCircle, RefreshCcw } from "lucide-react";
@@ -61,7 +62,7 @@ export default function AuthModal({
   const isVerifying = mode === "verify";
   const isBusy = submitting || signInFetchStatus === "fetching" || signUpFetchStatus === "fetching";
 
-  const showError = (text) => setMessage({ type: "error", text });
+  const showError = (text) => { capture("auth_error"); setMessage({ type: "error", text }); };
   const showStatus = (text) => setMessage({ type: "status", text });
   const showSuccess = (text) => setMessage({ type: "success", text });
 
@@ -83,6 +84,7 @@ export default function AuthModal({
   };
 
   const onAuthDone = async (successMessage) => {
+    capture((mode === "signup" || mode === "verify" && verifyKind === "email-signup") ? "sign_up_completed" : "sign_in_completed");
     showSuccess(successMessage);
     onSuccess?.();
     onClose?.();
@@ -135,6 +137,7 @@ export default function AuthModal({
     }
 
     setSubmitting(true);
+    capture("auth_started");
     showStatus(authMethod === "email-password" ? "Signing you in..." : "Sending a one-time code...");
     try {
       const result = await startSignIn({
@@ -166,6 +169,7 @@ export default function AuthModal({
     }
 
     setSubmitting(true);
+    capture("auth_started");
     showStatus("Creating your account...");
     try {
       const result = await startEmailSignUp({

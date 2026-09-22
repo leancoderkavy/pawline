@@ -1,4 +1,5 @@
 "use client";
+import { capture } from "./analytics.js";
 
 import PetImage from "./PetImage";
 import { PAWLINE_BASEMAP, addMapMarker } from "./mapBrand.js";
@@ -1307,12 +1308,16 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
     try {
       localStorage.setItem("pawline-saved", JSON.stringify(nextSaved));
     } catch {
+      capture("favorite_error");
       setFavoriteError("Favorites could not be saved in this browser. Free storage space and retry.");
       return;
     }
     savedRef.current = nextSaved;
     setSaved(nextSaved);
-    favoriteSyncRef.current?.(id, favorite).catch((error) => {
+    const favoriteEvent = favorite ? "pet_favorite_added" : "pet_favorite_removed";
+    if (!favoriteSyncRef.current) capture(favoriteEvent);
+    favoriteSyncRef.current?.(id, favorite).then(() => capture(favoriteEvent)).catch((error) => {
+      capture("favorite_error");
       const current = savedRef.current;
       const restored = restoreFavoriteAfterFailure(current, id, favorite);
       try { localStorage.setItem("pawline-saved", JSON.stringify(restored)); }
@@ -1453,6 +1458,7 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
     setSpecies(value);
   };
   const openPetDetail = pet => {
+    capture("pet_viewed");
     setRailCollapsed(true);
     setSelectedPet(pet);
   };

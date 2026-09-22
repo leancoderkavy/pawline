@@ -1,4 +1,5 @@
 "use client";
+import { capture } from "./analytics.js";
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { CalendarDays, Video } from 'lucide-react';
 import Dialog from './Dialog.jsx';
@@ -36,9 +37,12 @@ export default function AppointmentPanel({ request, conversation, onClose }) {
     setBusy(true); setError('');
     try {
       const result = await request('/api/appointments', { method: 'POST', body: JSON.stringify({ action: type, conversationId: conversation.id, id: row.id, revision: row.revision, ...extra }) });
-      await refresh();
+      const event = { propose: 'appointment_proposed', accept: 'appointment_confirmed', reschedule: 'appointment_rescheduled', cancel: 'appointment_cancelled', end: 'appointment_completed' }[type];
+      if (event) capture(event);
+      // A failed follow-up read must not turn an accepted mutation into a failure.
+      await refresh().catch(failure => { if (alive.current) setError(failure.message); });
       return result;
-    } catch (failure) { if (alive.current) setError(failure.message); await refresh().catch(() => {}); return null; }
+    } catch (failure) { capture('appointment_error'); if (alive.current) setError(failure.message); await refresh().catch(() => {}); return null; }
     finally { if (alive.current) setBusy(false); }
   };
   const propose = async values => {
