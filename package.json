@@ -25,9 +25,9 @@
     "@daily-co/daily-js": "^0.92.2",
     "@neondatabase/serverless": "^1.0.1",
     "ably": "^2.28.0",
-    "ai": "^7.0.70",
+    "ai": "^7.0.107",
     "lucide-react": "^1.39.0",
-    "mapbox-gl": "^3.29.0",
+    "mapbox-gl": "^3.31.0",
     "next": "^16.3.4",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
