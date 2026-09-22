@@ -41,18 +41,23 @@ test("documented Clerk parties include current local Next.js preview origins", a
   assert.match(example, /https:\/\/www\.pawlineadopt\.com/);
 });
 
-test("the custom account modal uses the current Clerk signal flow without a loading dead end", async () => {
+test("the custom account modal uses passwordless email OTP without a loading dead end", async () => {
   const modal = await read("src/AuthModal.jsx");
 
   assert.match(modal, /const \{ signIn, fetchStatus: signInFetchStatus \} = useSignIn\(\)/);
   assert.match(modal, /const \{ signUp, fetchStatus: signUpFetchStatus \} = useSignUp\(\)/);
-  assert.match(modal, /signIn\.password\(\{[\s\S]*?emailAddress: normalizedEmail/);
-  assert.match(modal, /signUp\.password\(\{ emailAddress: normalizedEmail, password \}\)/);
+  assert.match(modal, /signIn\.emailCode\.sendCode\(\{ emailAddress: normalizedEmail \}\)/);
+  assert.match(modal, /signIn\.emailCode\.verifyCode\(\{ code: cleanCode \}\)/);
+  assert.match(modal, /signUp\.create\(\{ emailAddress: normalizedEmail \}\)/);
   assert.match(modal, /signUp\.verifications\.sendEmailCode\(\)/);
   assert.match(modal, /signUp\.verifications\.verifyEmailCode\(\{ code: cleanCode \}\)/);
   assert.match(modal, /resource\.finalize\(\)/);
   assert.match(modal, /<form onSubmit=\{submitHandler\}>/);
   assert.match(modal, /code === "signed_out"/);
+  assert.match(modal, /id="clerk-captcha"/);
   assert.doesNotMatch(modal, /Preparing your account form/);
+  assert.doesNotMatch(modal, /signIn\.password\(|signUp\.password\(/);
+  assert.doesNotMatch(modal, /email and password/);
+  assert.doesNotMatch(modal, /type="password"/);
   assert.doesNotMatch(modal, /\.isLoaded|\.setActive\(|prepareEmailAddressVerification|attemptEmailAddressVerification/);
 });
