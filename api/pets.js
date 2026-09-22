@@ -97,6 +97,30 @@ function socrataUrl(base, { limit, page, where }) {
   return url;
 }
 
+/**
+ * Calculate distance between two points using Haversine formula
+ * @param {number} lat1 - Latitude of point 1 in degrees
+ * @param {number} lon1 - Longitude of point 1 in degrees
+ * @param {number} lat2 - Latitude of point 2 in degrees
+ * @param {number} lon2 - Longitude of point 2 in degrees
+ * @returns {number} Distance in miles
+ */
+function haversineDistance(lat1, lon1, lat2, lon2) {
+  const R = 3959; // Earth's radius in miles
+  const toRad = (deg) => (deg * Math.PI) / 180;
+  
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
 async function fetchSocrata(url, provider) {
   return coalescePublicFeed(url.toString(), async () => {
     const upstream = await fetch(url.toString(), {
@@ -182,27 +206,6 @@ export function normalizeKingCountyPet(pet, index) {
   };
 }
 
-export async function fetchMontgomeryPets(species, options) {
-  const type = species.length === 1 ? species[0].toUpperCase() : null;
-  const where = type ? `upper(animaltype)='${type}'` : null;
-  const rows = await fetchSocrata(
-    socrataUrl(MONTGOMERY_API, { ...options, where }),
-    "Montgomery County",
-  );
-  return Object.assign(rows.map(normalizeMontgomeryPet).filter(Boolean), { hasMore: rows.length >= options.limit });
-}
-
-export async function fetchKingCountyPets(species, options) {
-  const clauses = ["upper(record_type)='ADOPTABLE'"];
-  if (species.length === 1) {
-    clauses.push(`upper(animal_type)='${species[0].toUpperCase()}'`);
-  }
-  const rows = await fetchSocrata(
-    socrataUrl(KING_COUNTY_API, { ...options, where: clauses.join(" AND ") }),
-    "King County",
-  );
-  return Object.assign(rows.map(normalizeKingCountyPet).filter(Boolean), { hasMore: rows.length >= options.limit });
-}
 
 export function normalizeLosAngelesPet(record) {
   const center = LOS_ANGELES_CENTERS[record.locationCode];
@@ -562,8 +565,10 @@ export default async function handler(request, response) {
     const longitude = request.query.longitude ? Number(request.query.longitude) : null;
     const radius = request.query.radius ? Number(request.query.radius) : null;
     
-    let rows;
+    let rows = null;
     let geoSearchAttempted = false;
+    let suggestedCenter = null;
+    let geoSearchFailed = false; // Track if both PostGIS AND haversine failed
     
     // Try geo filtering if params provided
     if (latitude != null && longitude != null && radius != null && 
@@ -572,6 +577,8 @@ export default async function handler(request, response) {
       try {
         geoSearchAttempted = true;
         const radiusMeters = radius * 1609.34;
+        
+        // Geo search: ONLY pets with coordinates within radius
         rows = await database`
           SELECT id, source_id, verified_at, external_id, name, species, breed, age, sex, size, city, country,
                  shelter, image_url, source_url, latitude, longitude, claimed_by_clerk_user_id, organization_id,
@@ -595,15 +602,116 @@ export default async function handler(request, response) {
           LIMIT ${limit + 1}
           OFFSET ${offset}
         `;
+        
+        // If geo search returned 0 results, find nearest located pet cluster for recenter suggestion
+        if (rows.length === 0 && offset === 0) {
+          const nearest = await database`
+            SELECT latitude, longitude, city, COUNT(*) as count
+            FROM pets
+            WHERE status = 'available'
+              AND verified_at IS NOT NULL
+              AND species = ANY(${species})
+              AND latitude IS NOT NULL
+              AND longitude IS NOT NULL
+            GROUP BY latitude, longitude, city
+            ORDER BY ST_Distance(
+              ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
+              ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)::geography
+            ) ASC
+            LIMIT 1
+          `;
+          
+          if (nearest.length > 0) {
+            suggestedCenter = {
+              latitude: Number(nearest[0].latitude),
+              longitude: Number(nearest[0].longitude),
+              city: nearest[0].city,
+              count: Number(nearest[0].count),
+            };
+          }
+        }
       } catch (geoError) {
-        // PostGIS not available or query failed - fall back to non-geo search
-        console.warn("Geo search unavailable, falling back to non-geo:", geoError.message);
-        rows = null;
+        // PostGIS not available or query failed
+        // Fall back to non-PostGIS distance calculation (haversine)
+        console.warn("PostGIS unavailable, using haversine fallback:", geoError.message);
+        
+        try {
+          // Fetch ALL located pets (can't filter by radius in SQL without PostGIS)
+          const allLocated = await database`
+            SELECT id, source_id, verified_at, external_id, name, species, breed, age, sex, size, city, country,
+                   shelter, image_url, source_url, latitude, longitude, claimed_by_clerk_user_id, organization_id,
+                   EXISTS (SELECT 1 FROM organization_memberships m WHERE m.organization_id = pets.organization_id) AS organization_has_members
+            FROM pets
+            WHERE status = 'available' 
+              AND verified_at IS NOT NULL
+              AND species = ANY(${species})
+              AND latitude IS NOT NULL
+              AND longitude IS NOT NULL
+            ORDER BY verified_at DESC, id ASC
+          `;
+          
+          // Calculate distance for each pet using haversine
+          const petsWithDistance = allLocated.map(pet => ({
+            ...pet,
+            distance_miles: haversineDistance(
+              latitude,
+              longitude,
+              Number(pet.latitude),
+              Number(pet.longitude)
+            ),
+          }));
+          
+          // Filter by radius and sort by distance
+          const inRadius = petsWithDistance
+            .filter(pet => pet.distance_miles <= radius)
+            .sort((a, b) => a.distance_miles - b.distance_miles || a.id - b.id);
+          
+          // Apply pagination
+          rows = inRadius.slice(offset, offset + limit + 1);
+          
+          // If empty results on first page, find nearest cluster using haversine
+          if (rows.length === 0 && offset === 0) {
+            // Group pets by location and calculate distance to each cluster
+            const clusters = new Map();
+            for (const pet of petsWithDistance) {
+              const key = `${pet.latitude},${pet.longitude}`;
+              if (!clusters.has(key)) {
+                clusters.set(key, {
+                  latitude: Number(pet.latitude),
+                  longitude: Number(pet.longitude),
+                  city: pet.city,
+                  count: 0,
+                  distance: pet.distance_miles,
+                });
+              }
+              clusters.get(key).count++;
+            }
+            
+            // Find nearest cluster
+            const nearestCluster = Array.from(clusters.values())
+              .sort((a, b) => a.distance - b.distance)
+              [0];
+            
+            if (nearestCluster) {
+              suggestedCenter = {
+                latitude: nearestCluster.latitude,
+                longitude: nearestCluster.longitude,
+                city: nearestCluster.city,
+                count: nearestCluster.count,
+              };
+            }
+          }
+        } catch (fallbackError) {
+          console.error("Haversine fallback also failed:", fallbackError.message);
+          rows = []; // Fail closed: empty results
+          geoSearchFailed = true; // Both PostGIS and haversine failed
+        }
       }
     }
     
-    // Fall back to non-geo query if geo search wasn't attempted or failed
-    if (!rows) {
+    // Fall back to non-geo query ONLY if geo search wasn't attempted
+    // If geo was attempted (even if it failed), rows is already set
+    if (rows === null) {
       rows = await database`
         SELECT id, source_id, verified_at, external_id, name, species, breed, age, sex, size, city, country,
                shelter, image_url, source_url, latitude, longitude, claimed_by_clerk_user_id, organization_id,
@@ -634,7 +742,7 @@ export default async function handler(request, response) {
       "public, s-maxage=300, stale-while-revalidate=900",
     );
     
-    return response.status(200).json({
+    const responseBody = {
       mode: pets.length ? "live" : "empty",
       pets,
       count: pets.length,
@@ -645,7 +753,19 @@ export default async function handler(request, response) {
       pagination: "limit-offset",
       fetchedAt: new Date().toISOString(),
       message: pets.length ? undefined : "No verified listings are available yet.",
-    });
+    };
+    
+    // Add recenter suggestion when geo search returned 0 results but inventory exists elsewhere
+    if (suggestedCenter && pets.length === 0) {
+      responseBody.suggestedCenter = suggestedCenter;
+      // Use honest empty copy (haversine worked, just found nothing nearby)
+      responseBody.message = `No pets found within ${radius} miles. Try searching near ${suggestedCenter.city || "a different location"}.`;
+    } else if (geoSearchAttempted && pets.length === 0 && geoSearchFailed) {
+      // Both PostGIS and haversine failed completely
+      responseBody.message = "Geographic search temporarily unavailable. Please try again or search without location filters.";
+    }
+    
+    return response.status(200).json(responseBody);
   } catch (error) {
     console.error("Pet feed request failed", error);
     return response.status(500).json({
@@ -656,5 +776,3 @@ export default async function handler(request, response) {
     });
   }
 }
-
-export { safeHttpUrl, safeImageUrl };

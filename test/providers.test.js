@@ -14,9 +14,8 @@ import {
   geocodeRescueGroupsPets,
   isCurrentProviderListing,
   parseLosAngelesPets,
-  safeHttpUrl,
-  safeImageUrl,
 } from "../api/pets.js";
+import { safeHttpUrl, safeImageUrl } from "../api/_safe-url.js";
 
 test("reads public RescueGroups coordinates across REST response shapes", () => {
   assert.deepEqual(publicLocationCoordinates({ lat: "34.1", lon: "-118.2" }), {
