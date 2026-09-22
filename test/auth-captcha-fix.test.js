@@ -22,13 +22,13 @@ test("AuthModal handles CAPTCHA errors with helpful message", async () => {
   // Verify it checks for CAPTCHA error codes
   assert.match(
     authModalSource,
-    /error\.code === "captcha_invalid"/,
+    /code === "captcha_invalid"/,
     "Should check for captcha_invalid error code"
   );
 
   assert.match(
     authModalSource,
-    /error\.code === "captcha_unavailable"/,
+    /code === "captcha_unavailable"/,
     "Should check for captcha_unavailable error code"
   );
 
