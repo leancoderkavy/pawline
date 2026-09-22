@@ -4,11 +4,11 @@ const securityHeaders = [
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' https://clerk.pawlineadopt.com https://*.clerk.accounts.dev https://*.clerk.com https://challenges.cloudflare.com https://*.protect.clerk.com",
+      "script-src 'self' 'unsafe-inline' https://clerk.pawlineadopt.com https://*.clerk.accounts.dev https://*.clerk.com https://challenges.cloudflare.com https://*.protect.clerk.com https://us-assets.i.posthog.com",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: blob: https:",
-      "connect-src 'self' https://clerk.pawlineadopt.com https://api.mapbox.com https://events.mapbox.com https://*.clerk.accounts.dev https://api.clerk.com https://*.ably.io https://*.ably-realtime.com wss://*.ably-realtime.com https://*.protect.clerk.com:*",
+      "connect-src 'self' https://clerk.pawlineadopt.com https://api.mapbox.com https://events.mapbox.com https://*.clerk.accounts.dev https://api.clerk.com https://*.ably.io https://*.ably-realtime.com wss://*.ably-realtime.com https://*.protect.clerk.com:* https://us.i.posthog.com",
       `frame-src https://clerk.pawlineadopt.com https://*.clerk.accounts.dev https://*.clerk.com https://challenges.cloudflare.com https://*.protect.clerk.com${dailyOrigin ? ` ${dailyOrigin}` : ''}`,
       "worker-src 'self' blob:",
       "frame-ancestors 'none'",
