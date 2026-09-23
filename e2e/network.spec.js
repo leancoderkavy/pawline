@@ -34,7 +34,7 @@ test("shelter CSV preview and review submission work on mobile", async ({
   await page.getByLabel("CSV file").setInputFiles({
     name: "pets.csv",
     mimeType: "text/csv",
-    buffer: Buffer.from("external_id,name,species\nqa-rabbit,Juniper,Rabbit\n"),
+    buffer: Buffer.from("external_id,name,species,image_url\nqa-rabbit,Juniper,Rabbit,https://example.test/juniper.jpg\n"),
   });
   await page.route("**/api/shelter-import", route => route.fulfill({status:503,json:{error:"Import temporarily unavailable. Try again."}}), {times:1});
   await page.getByRole("button", { name: "Preview import" }).click();

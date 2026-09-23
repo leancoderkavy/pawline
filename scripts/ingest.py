@@ -92,6 +92,23 @@ def clean_text(value: Any, strip_html: bool = False) -> str | None:
     return result.strip() or None
 
 
+def import_image_url(value: Any) -> str | None:
+    """Require an explicit web photo URL; missing photos never enter inventory."""
+    if not isinstance(value, str):
+        return None
+    value = value.strip()
+    try:
+        parsed = urlparse(value)
+        if (parsed.scheme not in {"http", "https"} or not parsed.hostname
+                or parsed.username or parsed.password or any(c.isspace() for c in value)):
+            return None
+        parsed.port  # Reject malformed ports as well as malformed URLs.
+    except ValueError:
+        return None
+    # Production image CSP requires HTTPS, including legacy HTTP feed links.
+    return urlunparse(parsed._replace(scheme="https"))
+
+
 def configured_value(row: dict[str, Any], field: str, config: dict[str, Any]) -> Any:
     constants = config.get("constants") or {}
     if field in constants:
@@ -122,7 +139,8 @@ def normalize(row: dict[str, Any], source: dict[str, Any]) -> dict[str, Any] | N
     item = {field: configured_value(row, field, config) for field in FIELDS}
     item["name"] = str(item["name"] or "").strip()[:100]
     item["species"] = canonical_species(item["species"])
-    if not item["name"] or not item["species"]:
+    item["image_url"] = import_image_url(item["image_url"])
+    if not item["name"] or not item["species"] or not item["image_url"]:
         return None
     strip_html_fields = set(config.get("strip_html_fields") or [])
     for field in FIELDS - {"latitude", "longitude", "species", "name"}:
@@ -357,6 +375,7 @@ def ingest_source(connection: psycopg.Connection, source: dict[str, Any]) -> dic
             "source": source["name"],
             "status": "success",
             "upserted": len(records),
+            "rejected": len(rows) - len(records),
             "missing": expired_count,
         }
     except Exception as exc:

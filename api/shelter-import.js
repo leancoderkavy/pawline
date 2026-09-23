@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
 import { organizationMembership } from "./_adoption-platform.js";
 import { canonicalPetSpecies } from "../config/species.js";
-import { safeHttpUrl, safeImageUrl } from "./_safe-url.js";
+import { safeHttpUrl } from "./_safe-url.js";
+import { importImageUrl } from "./_import-image.js";
 import {
   privateHandler,
   requiredText,
@@ -69,8 +70,9 @@ export function parsePetCsv(text) {
       if (!species) throw networkError("Unsupported species.");
       if (ids.has(id)) throw networkError("Duplicate shelter animal ID.");
       ids.add(id);
-      if (r.image_url && !safeImageUrl(r.image_url))
-        throw networkError("Invalid image URL.");
+      const image = importImageUrl(r.image_url);
+      if (!image)
+        throw networkError("A valid image URL is required to import this pet.");
       if (r.source_url && !safeHttpUrl(r.source_url))
         throw networkError("Invalid source URL.");
       pets.push({
@@ -79,7 +81,7 @@ export function parsePetCsv(text) {
         species,
         breed: r.breed?.slice(0, 160) || null,
         description: r.description?.slice(0, 4000) || null,
-        image: safeImageUrl(r.image_url),
+        image,
         sourceUrl: safeHttpUrl(r.source_url),
       });
     } catch (error) {

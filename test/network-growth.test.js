@@ -28,7 +28,7 @@ test("catalog rejects invalid cursors and partial coordinates", () => {
 });
 test("CSV preview supports quoted multiline values and rejects duplicate animal IDs", () => {
   const result = parsePetCsv(
-    'external_id,name,species,description\n1,"Miso, Jr",Cat,"Friendly\ncompanion"\n1,Miso,Cat,duplicate',
+    'external_id,name,species,description,image_url\n1,"Miso, Jr",Cat,"Friendly\ncompanion",https://example.test/miso.jpg\n1,Miso,Cat,duplicate,https://example.test/miso.jpg',
   );
   assert.equal(result.pets[0].name, "Miso, Jr");
   assert.equal(result.errors[0].row, 3);
@@ -136,7 +136,7 @@ test("network migration, complete cursor search, imports, private reports use re
       body: { action: "check", id: saved.data.search.id },
     });
     assert.equal(match.data.pets.length, 2);
-    const csv = "external_id,name,species\nR01,Hopper,Rabbit";
+    const csv = "external_id,name,species,image_url\nR01,Hopper,Rabbit,https://example.test/hopper.jpg";
     assert.equal(
       (
         await invoke("shelter-import", "stranger", {

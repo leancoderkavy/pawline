@@ -8,6 +8,7 @@ import {
   isCurrentProviderListing,
 } from "../pets.js";
 import { PET_SPECIES } from "../../config/species.js";
+import { importImageUrl } from "../_import-image.js";
 
 const LA_SOURCE_ID = "b8f3c2a1-4d5e-6f7a-8b9c-0d1e2f3a4b5c";
 const RESCUEGROUPS_SOURCE_ID = "c9d4e3b2-5f6a-7b8c-9d0e-1f2a3b4c5d6e";
@@ -19,10 +20,14 @@ function createFingerprint(sourceId, externalId) {
     .digest("hex");
 }
 
-async function ingestProvider(database, sourceId, pets, providerName) {
+export async function ingestProvider(database, sourceId, pets, providerName) {
+  const fetched = pets.length;
+  pets = pets.map(pet => ({ ...pet, image: importImageUrl(pet.image) }))
+    .filter(pet => pet.image);
+  const skipped_without_image = fetched - pets.length;
   if (!pets.length) {
     console.log(`${providerName}: no pets to ingest`);
-    return { upserted: 0, marked_unavailable: 0 };
+    return { upserted: 0, marked_unavailable: 0, skipped_without_image };
   }
 
   const syncStartedAt = new Date();
@@ -88,7 +93,7 @@ async function ingestProvider(database, sourceId, pets, providerName) {
   `;
 
   console.log(`${providerName}: upserted ${pets.length} pets, marked ${missingPets.length} as unavailable`);
-  return { upserted: pets.length, marked_unavailable: missingPets.length };
+  return { upserted: pets.length, marked_unavailable: missingPets.length, skipped_without_image };
 }
 
 async function fetchAllLosAngelesPets() {
