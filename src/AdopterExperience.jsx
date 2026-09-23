@@ -1,4 +1,5 @@
 "use client";
+import { capture } from "./analytics.js";
 
 import PetImage from "./PetImage";
 import { resultFreshness } from "./listingEvidence";
@@ -315,6 +316,7 @@ export default function AdopterExperience({ pets, nearbyPets = pets, searchLocat
     setSelectedPet(null);
   };
   const openPet = pet => {
+    capture("pet_viewed");
     const url = new URL(window.location.href);
     url.searchParams.set("pet", String(pet.id));
     window.history.pushState({}, "", `${url.pathname}${url.search}${url.hash}`);
@@ -368,10 +370,11 @@ export default function AdopterExperience({ pets, nearbyPets = pets, searchLocat
         method: "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: application.id, submit: true, sharedFields }),
       });
+      capture("application_submitted");
       const next = { ...result.application, sourceUrl: safeHttpUrl(result.application.sourceUrl || application.sourceUrl), organizationClaimed: Boolean(result.application.applicationEnabled) };
       setLocalJourney(current => ({ ...current, applications: current.applications.map(item => item.id === application.id ? next : item) }));
       return result;
-    } catch (error) { return { error: error.message }; }
+    } catch (error) { capture("application_error"); return { error: error.message }; }
   };
   const confirmAdoptionOutcome = async (application, outcome) => {
     if (!isSignedIn || typeof getToken !== "function") return { error: "Sign in before confirming an adoption outcome." };

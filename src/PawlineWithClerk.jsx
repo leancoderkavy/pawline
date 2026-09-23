@@ -1,11 +1,16 @@
 "use client";
 
+import { useEffect } from "react";
+import { syncAnalyticsIdentity } from "./analytics.js";
 import { ClerkProvider, useAuth } from "@clerk/nextjs";
 import PawlineApp from "./App";
 import { clerkBrowserOptions } from "./clerkBrowserOptions";
 
 function AuthenticatedLanding({ publishableKey }) {
-  const { isLoaded, isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn, userId } = useAuth();
+  useEffect(() => {
+    if (isLoaded) syncAnalyticsIdentity(isSignedIn ? userId : null);
+  }, [isLoaded, isSignedIn, userId]);
   if (!isLoaded) return <main className="methodology-page">
     <article className="methodology-content">
       <h1>Find adoptable dogs and cats near you</h1>

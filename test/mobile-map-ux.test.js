@@ -37,7 +37,7 @@ test("the mobile location field stays usable without a zoom-sized or undersized 
 test("opening a map pet detail collapses and hides the discovery rail behind its modal", async () => {
   const [app, styles] = await Promise.all([read("src/App.jsx"), read("src/styles.css")]);
 
-  assert.match(app, /const openPetDetail = pet => \{\s*setRailCollapsed\(true\);\s*setSelectedPet\(pet\);\s*\}/s);
+  assert.match(app, /const openPetDetail = pet => \{\s*(?:capture\("pet_viewed"\);\s*)?setRailCollapsed\(true\);\s*setSelectedPet\(pet\);\s*\}/s);
   assert.match(app, /onOpenPet=\{openPetDetail\}/);
   assert.match(app, /\$\{selectedPet \? "detail-open" : ""\}/);
   assert.match(styles, /\.map-workspace\.detail-open \.map-rail \{ visibility:hidden;pointer-events:none; \}/);
