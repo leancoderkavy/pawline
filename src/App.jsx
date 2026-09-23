@@ -8,6 +8,7 @@ import NetworkTools from "./NetworkTools.jsx";
 const NetworkToolsWithAuth = React.lazy(() => import("./NetworkToolsWithAuth.jsx"));
 
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useClerk } from "@clerk/nextjs";
 import {
   AlertTriangle, ArrowLeft, CalendarDays, CheckCircle2, ChevronRight, Clock3,
   Building2, CalendarClock, Check, Compass, ExternalLink, FileText, Fullscreen, Globe2, Heart, House, Info, Layers3, ListChecks, LocateFixed, LockKeyhole, MapPin, Menu, PawPrint, Pencil,
@@ -37,6 +38,11 @@ const MapAccountActions = lazy(() => import("./MapAccountActions"));
 const MapResources = lazy(() => import("./MapResources"));
 const ClaimOrganizationClient = lazy(() => import("../app/shelter/claim/ClaimOrganizationClient"));
 const ReviewModerationClient = lazy(() => import("../app/pawline-moderation/reviews/ReviewModerationClient"));
+
+function MapNavigationWithSignOut(props) {
+  const { signOut } = useClerk();
+  return <MapNavigation {...props} onSignOut={() => signOut()} />;
+}
 
 function Button({ className = "", variant = "primary", children, ...props }) {
   return <button className={`button ${variant === "outline" ? "button-outline" : ""} ${className}`} {...props}>{children}</button>;
@@ -1502,8 +1508,11 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
     <a className="skip-link" href="#discover">Skip to main content</a>
     {clerkConfigured && savedHydrated ? <Suspense fallback={null}><FavoritesSync key={favoriteSyncVersion} localFavorites={saved} onLoad={loadAccountFavorites} onSessionChange={setFavoriteSession} onError={setFavoriteError} /></Suspense> : null}
     {favoriteError ? <div className="favorites-sync-alert" role="alert"><span>{favoriteError}</span><button type="button" onClick={retryFavoriteSync}>Retry favorites</button></div> : null}
-    <MapNavigation activePanel={activePanel} savedCount={saved.length} onNavigate={openPanel} onSubmit={() => { setListingCaregiver(null); setSubmitOpen(true); }}
-      accountAction={clerkConfigured ? <Suspense fallback={null}><MapAccountActions onProfile={() => openPanel("profile")} /></Suspense> : null} />
+    {clerkConfigured
+      ? <MapNavigationWithSignOut activePanel={activePanel} savedCount={saved.length} onNavigate={openPanel} onSubmit={() => { setListingCaregiver(null); setSubmitOpen(true); }}
+          isSignedIn={isSignedIn}
+          accountAction={<Suspense fallback={null}><MapAccountActions onProfile={() => openPanel("profile")} /></Suspense>} />
+      : <MapNavigation activePanel={activePanel} savedCount={saved.length} onNavigate={openPanel} onSubmit={() => { setListingCaregiver(null); setSubmitOpen(true); }} />}
 
   <main id="discover" tabIndex={-1} className={`map-workspace panel-${activePanel} ${railCollapsed ? "rail-collapsed" : ""} ${selectedPet ? "detail-open" : ""}`}>
       <MapPanel showLocationControls={activePanel !== "onboarding"} location={location} coordinates={coordinates} userCoordinates={userCoordinates} locationPrompt={locationPrompt} configured={integrations.mapboxConfigured} view={mapView} petType={mapPetType} showEvents={showMapEvents} densityMode={densityMode} routePets={routePets} onOpenPet={openPetDetail} onOpenEvent={setSelectedEvent} onOpenDiscovery={setSelectedDiscovery} onOpenShelter={setSelectedShelter} onMapMove={searchThisMapArea} onStopLocation={stopUserLocation} onRequestLocation={requestUserLocation} onDismissLocation={dismissLocationPrompt} onRevealMap={() => setRailCollapsed(true)} />
