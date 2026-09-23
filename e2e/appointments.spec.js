@@ -3,6 +3,10 @@ import { test, expect } from '@playwright/test';
 test('two accounts book, reschedule, join, finish, choose a next step and cancel a final visit', async ({ browser }) => {
   const a = await browser.newContext(), s = await browser.newContext();
   const errors = [];
+  for (const context of [a, s]) await context.addInitScript(() => {
+    window.analyticsCalls = [];
+    window.posthog = { capture: (...args) => window.analyticsCalls.push(args) };
+  });
   try {
     const adopter = await a.newPage(), shelter = await s.newPage();
     for (const page of [adopter, shelter]) page.on('pageerror', error => errors.push(error.message));
@@ -53,6 +57,13 @@ test('two accounts book, reschedule, join, finish, choose a next step and cancel
     await expect(adopter.getByRole('article', { name: 'Final visit appointment' }).getByText('Confirmed', { exact: true })).toBeVisible();
     await adopter.getByRole('button', { name: 'Cancel appointment', exact: true }).click();
     await expect(adopter.getByText('Cancelled', { exact: true })).toBeVisible();
+    expect(await adopter.evaluate(() => window.analyticsCalls)).toEqual([
+      ['appointment_proposed'], ['appointment_confirmed'], ['appointment_completed'],
+      ['appointment_proposed'], ['appointment_cancelled'],
+    ]);
+    expect(await shelter.evaluate(() => window.analyticsCalls)).toEqual([
+      ['appointment_rescheduled'], ['appointment_confirmed'],
+    ]);
     expect(errors).toEqual([]);
   } finally { await a.close(); await s.close(); }
 });
