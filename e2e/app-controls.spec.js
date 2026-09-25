@@ -262,7 +262,7 @@ test("quiz back, restart, AI consent and unavailable provider controls", async (
   await expect(page.locator("#global-location-status")).toContainText("Enter a city");
 });
 
-test("all guest navigation destinations, submit gate, drawer and footer links", async ({ page }) => {
+test("all guest navigation destinations, submit gate, drawer and legal links", async ({ page }) => {
   await fixture(page); await open(page);
   for (const [name, text] of [["Adoption plan", "Profile"], ["Adoption events", "events"], ["Community", "Community needs Clerk"], ["Shelters & fosters", "unavailable"]]) {
     await more(page, name);
@@ -275,8 +275,10 @@ test("all guest navigation destinations, submit gate, drawer and footer links", 
   await page.getByRole("button", { name: "Find pets", exact: true }).click();
   await page.getByRole("button", { name: "Hide discovery tools", exact: true }).click();
   await page.getByRole("button", { name: "Show discovery tools", exact: true }).click();
+  await expect(page.locator(".legal-footer")).toBeHidden();
+  await page.getByRole("button", { name: "More", exact: true }).click();
   for (const [name, href] of [["Privacy", "/privacy"], ["Terms", "/terms"]]) {
-    await expect(page.getByRole("link", { name, exact: true })).toHaveAttribute("href", href);
+    await expect(page.locator("#map-more-menu").getByRole("link", { name, exact: true })).toHaveAttribute("href", href);
   }
 });
 

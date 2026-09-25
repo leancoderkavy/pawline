@@ -32,6 +32,7 @@ export default function MapNavigation({ activePanel, savedCount, onNavigate, onS
           {more.map(([key, Icon, label]) => <button key={key} type="button" aria-current={activePanel === key ? "page" : undefined} onClick={() => navigate(key)}><Icon />{label}</button>)}
           <button type="button" onClick={() => { setOpen(false); onSubmit(); }}><PawPrint />List a pet</button>
           {isSignedIn && onSignOut ? <button type="button" onClick={() => { setOpen(false); onSignOut(); }}><LogOut />Sign out</button> : null}
+          <div className="map-more-legal" aria-label="Legal information"><a href="/privacy">Privacy</a><a href="/terms">Terms</a></div>
         </div> : null}
       </div>
     </nav>
