@@ -72,7 +72,11 @@ export async function ensureDirectMessageTables(database) {
       to_regclass('public.direct_message_reports') AS reports,
       to_regclass('public.direct_conversation_state') AS state,
       to_regclass('public.direct_video_calls') AS calls,
-      to_regclass('public.direct_video_signals') AS signals
+      to_regclass('public.direct_video_signals') AS signals,
+      EXISTS (SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'direct_conversations' AND column_name = 'status') AS conversation_status,
+      EXISTS (SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'direct_messages' AND column_name = 'client_message_id') AS message_client_id
   `;
   if (!schema[0]?.conversations || Object.values(schema[0]).some(value => !value)) {
     throw new Error("Direct messaging migration is missing.");

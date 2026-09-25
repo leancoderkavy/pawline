@@ -500,6 +500,8 @@ Before enabling production:
 1. Run `npm run db:migrate:dry-run`, then apply `npm run db:migrate` against the
    intended database as a reviewed migration. The migration is idempotent and
    request handlers never create tables. Deploy schema before application code.
+   Check `/api/health`: `directMessagingConfigured` reports credentials, while
+   `directMessagingReady` confirms required chat tables and columns exist.
 2. Configure `CLERK_SECRET_KEY`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, and the
    authorized origins. The local test fixture does not exercise live Clerk.
 3. Configure a coturn-compatible relay with `PAWLINE_TURN_URLS` (comma-separated
