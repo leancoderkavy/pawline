@@ -1,5 +1,7 @@
 import { shelterOutreachStatus } from "./_shelter-outreach.js";
 import { videoConfiguration } from "./_direct-video.js";
+import { getDatabase } from "./_db.js";
+import { ensureDirectMessageTables } from "./_direct.js";
 import { dailyConfigured } from "./_daily.js";
 
 export function getHealth(environment = process.env) {
@@ -48,11 +50,27 @@ export function getHealth(environment = process.env) {
   };
 }
 
-export default function handler(request, response) {
-  response.setHeader("Cache-Control", "no-store");
-  if (request.method !== "GET") {
-    response.setHeader("Allow", "GET");
-    return response.status(405).json({ error: "Method not allowed" });
-  }
-  response.status(200).json(getHealth());
+export function createHealthHandler(dependencies = {}) {
+  const databaseForRequest = dependencies.getDatabase || getDatabase;
+  const environment = dependencies.environment || process.env;
+  return async function handler(request, response) {
+    response.setHeader("Cache-Control", "no-store");
+    if (request.method !== "GET") {
+      response.setHeader("Allow", "GET");
+      return response.status(405).json({ error: "Method not allowed" });
+    }
+    const health = getHealth(environment);
+    health.directMessagingReady = false;
+    if (health.directMessagingConfigured) {
+      try {
+        await ensureDirectMessageTables(databaseForRequest());
+        health.directMessagingReady = true;
+      } catch {
+        // Configuration alone does not prove the production schema is current.
+      }
+    }
+    return response.status(200).json(health);
+  };
 }
+
+export default createHealthHandler();
