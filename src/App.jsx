@@ -1356,7 +1356,6 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
     setCoordinates({ ...match, longitude, latitude });
     setMapSearchMoved(false);
     setLocationState({ status: "success", message: `Map centered on ${match.name}.` });
-    document.getElementById("map")?.scrollIntoView({ behavior: "smooth" });
   };
   const findMatch = async () => {
     if (!location.trim()) {
@@ -1367,7 +1366,6 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
       const currentMapArea = coordinates?.name || "the current map area";
       setLocation(currentMapArea);
       setLocationState({ status: "error", message: `Live location search is unavailable until the map provider is connected. ${currentMapArea} remains selected.` });
-      document.getElementById("map")?.scrollIntoView({ behavior: "smooth" });
       return;
     }
     setLocationState({ status: "loading", message: "Finding that location…" });
