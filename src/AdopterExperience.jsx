@@ -401,7 +401,7 @@ export default function AdopterExperience({ pets, nearbyPets = pets, searchLocat
   const startApplication = pet => {
     const existing = applications.find(item => item.petId === String(pet.id) && !["declined", "withdrawn", "adopted"].includes(item.status));
     const draft = existing || createApplicationDraft(pet, profile);
-    if (!existing) setLocalJourney(current => ({ ...current, applications: [draft, ...current.applications] }));
+    if (!existing) { capture("application_started"); setLocalJourney(current => ({ ...current, applications: [draft, ...current.applications] })); }
     setSelectedApplicationId(draft.id);
     navigate("applications");
   };
@@ -409,7 +409,7 @@ export default function AdopterExperience({ pets, nearbyPets = pets, searchLocat
     if (!applicationPet) return;
     const existing = applications.find(item => item.petId === String(applicationPet.id) && !["declined", "withdrawn", "adopted"].includes(item.status));
     const draft = existing || createApplicationDraft(applicationPet, profile);
-    if (!existing) setLocalJourney(current => ({ ...current, applications: [draft, ...current.applications] }));
+    if (!existing) { capture("application_started"); setLocalJourney(current => ({ ...current, applications: [draft, ...current.applications] })); }
     setSelectedApplicationId(draft.id);
     onApplicationHandled();
   }, [applicationPet]);
