@@ -115,6 +115,7 @@ function LocationAutocomplete({ value, mapboxConfigured, locationState, onChange
     setActiveIndex(-1);
   };
   const selectSuggestion = suggestion => {
+    capture("search_performed");
     onSelect(suggestion);
     searchSessionRef.current = "";
     setHasUserEdited(false);
@@ -147,6 +148,7 @@ function LocationAutocomplete({ value, mapboxConfigured, locationState, onChange
     if (activeSuggestion) selectSuggestion(activeSuggestion);
     else {
       closeSuggestions();
+      capture("search_performed");
       onSearch();
     }
   };
