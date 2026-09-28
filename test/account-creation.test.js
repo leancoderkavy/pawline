@@ -41,23 +41,35 @@ test("documented Clerk parties include current local Next.js preview origins", a
   assert.match(example, /https:\/\/www\.pawlineadopt\.com/);
 });
 
-test("the custom account modal offers email code, optional password, and phone code sign-in", async () => {
+test("the custom account modal offers email code, Google, and phone code sign-in", async () => {
   const modal = await read("src/AuthModal.jsx");
 
   assert.match(modal, /const \{ signIn, fetchStatus: signInFetchStatus \} = useSignIn\(\)/);
   assert.match(modal, /const \{ signUp, fetchStatus: signUpFetchStatus \} = useSignUp\(\)/);
   assert.match(modal, /method:\s*authMethod/);
   assert.match(modal, /email-code/);
-  assert.match(modal, /email-password/);
   assert.match(modal, /phone-code/);
   assert.match(modal, />Email code<\/button>/);
-  assert.match(modal, />Email \+ password<\/button>/);
+  assert.match(modal, /Continue with Google<\/button>/);
+  assert.match(modal, /strategy: "oauth_google"/);
   assert.match(modal, />Phone code<\/button>/);
-  assert.match(modal, /type="password"/);
+  assert.doesNotMatch(modal, /type="password"/);
   assert.match(modal, /type="tel"/);
   assert.match(modal, /<form onSubmit=\{submitHandler\}>/);
   assert.match(modal, /code === "signed_out"/);
   assert.match(modal, /id="clerk-captcha"/);
   assert.doesNotMatch(modal, /Preparing your account form/);
   assert.doesNotMatch(modal, /\.isLoaded|\.setActive\(|prepareEmailAddressVerification|attemptEmailAddressVerification/);
+});
+
+test("Google sign-in returns through a Clerk-backed callback", async () => {
+  const [modal, page, callback] = await Promise.all([
+    read("src/AuthModal.jsx"),
+    read("app/sso-callback/page.jsx"),
+    read("src/SsoCallback.jsx"),
+  ]);
+  assert.match(modal, /redirectCallbackUrl: "\/sso-callback"/);
+  assert.match(page, /<ClerkProvider/);
+  assert.match(callback, /signIn\.finalize\(\)/);
+  assert.match(callback, /signUp\.finalize\(\)/);
 });

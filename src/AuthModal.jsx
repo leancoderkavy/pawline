@@ -50,7 +50,6 @@ export default function AuthModal({
   const [returnMode, setReturnMode] = useState(startingMode);
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
   const [message, setMessage] = useState({ type: "idle", text: "" });
   const [submitting, setSubmitting] = useState(false);
@@ -71,14 +70,12 @@ export default function AuthModal({
     setReturnMode(nextMode);
     setAuthMethod(authMethod === "phone-code" ? "email-code" : authMethod);
     setVerifyKind(nextMode === "signup" ? "email-signup" : "email-signin");
-    setPassword("");
     setCode("");
     setMessage({ type: "idle", text: "" });
   };
 
   const selectMethod = (method) => {
     setAuthMethod(method);
-    setPassword("");
     setCode("");
     setMessage({ type: "idle", text: "" });
   };
@@ -88,6 +85,29 @@ export default function AuthModal({
     showSuccess(successMessage);
     onSuccess?.();
     onClose?.();
+  };
+
+  const handleGoogle = async () => {
+    if (isBusy) return;
+    const resource = isSignUpMode ? signUp : signIn;
+    if (!resource) {
+      showError("The sign-in service is not ready. Please try again.");
+      return;
+    }
+    setSubmitting(true);
+    capture("auth_started");
+    showStatus("Continuing with Google...");
+    try {
+      const { error } = await resource.sso({
+        strategy: "oauth_google",
+        redirectCallbackUrl: "/sso-callback",
+        redirectUrl: "/",
+      });
+      if (error) throw error;
+    } catch (error) {
+      showError(readErrorMessage(error));
+      setSubmitting(false);
+    }
   };
 
   const enterVerify = (kind, statusText) => {
@@ -138,14 +158,13 @@ export default function AuthModal({
 
     setSubmitting(true);
     capture("auth_started");
-    showStatus(authMethod === "email-password" ? "Signing you in..." : "Sending a one-time code...");
+    showStatus("Sending a one-time code...");
     try {
       const result = await startSignIn({
         signIn,
         method: authMethod,
         email,
         phone,
-        password,
       });
       if (result.status === "complete") {
         await onAuthDone("Welcome back. You are signed in.");
@@ -175,8 +194,7 @@ export default function AuthModal({
       const result = await startEmailSignUp({
         signUp,
         email,
-        password,
-        usePassword: authMethod === "email-password",
+        usePassword: false,
       });
       if (result.status === "complete") {
         await onAuthDone("Your Pawline account is ready.");
@@ -229,22 +247,20 @@ export default function AuthModal({
     ? "Verify code"
     : isSignUpMode
       ? "Create account"
-      : authMethod === "email-password"
-        ? "Sign in"
-        : "Send code";
+      : "Send code";
   const submitHandler = isVerifying ? verifyCode : isSignUpMode ? handleSignUp : handleSignIn;
   const destination = verifyKind === "phone-signin" ? normalizePhone(phone) : normalizeEmail(email);
   const dialogCopy = isVerifying
     ? `Enter the one-time code sent to ${destination || "your account"}.`
     : isSignUpMode
-      ? "Create an account with an email code or choose a password."
-      : "Choose the sign-in method that works for you.";
+      ? "Create an account with an email code or Google."
+      : "Sign in with an email code or Google.";
 
   return <Dialog title={title} onClose={onClose} centered>
     <p className="dialog-copy">{dialogCopy}</p>
+    {!isVerifying ? <button type="button" className="auth-google" onClick={handleGoogle} disabled={isBusy}>Continue with Google</button> : null}
     {!isVerifying ? <div className="auth-method" aria-label="Authentication method">
       <button type="button" className={authMethod === "email-code" ? "selected" : ""} onClick={() => selectMethod("email-code")}>Email code</button>
-      <button type="button" className={authMethod === "email-password" ? "selected" : ""} onClick={() => selectMethod("email-password")}>Email + password</button>
       {isSignInMode && process.env.NEXT_PUBLIC_CLERK_PHONE_SIGN_IN_ENABLED === "true" ? <button type="button" className={authMethod === "phone-code" ? "selected" : ""} onClick={() => selectMethod("phone-code")}>Phone code</button> : null}
     </div> : null}
     <form onSubmit={submitHandler}>
@@ -254,9 +270,6 @@ export default function AuthModal({
       {!isVerifying && authMethod === "phone-code" ? <label>Phone number
         <input type="tel" name="phone" required value={phone} autoComplete="tel" onChange={(event) => setPhone(event.target.value)} placeholder="+1 415 555 0100" />
         <span className="field-help">SMS sign-in is available for U.S. and Canadian numbers.</span>
-      </label> : null}
-      {!isVerifying && authMethod === "email-password" ? <label>Password
-        <input type="password" name="password" required value={password} autoComplete={isSignUpMode ? "new-password" : "current-password"} onChange={(event) => setPassword(event.target.value)} minLength={8} />
       </label> : null}
       {isVerifying ? <label>Verification code
         <input type="text" name="code" required value={code} onChange={(event) => setCode(event.target.value)} placeholder="123456" maxLength={8} inputMode="numeric" autoComplete="one-time-code" />
