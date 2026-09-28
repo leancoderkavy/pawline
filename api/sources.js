@@ -110,6 +110,8 @@ export default async function handler(request, response) {
           count(p.id) FILTER (WHERE p.status='available' AND p.verified_at IS NOT NULL)::integer AS available_count
           FROM sources s LEFT JOIN pets p ON p.source_id=s.id GROUP BY s.id ORDER BY s.name`,
         database`SELECT (SELECT count(*)::integer FROM pets WHERE status='available' AND verified_at IS NOT NULL) AS available,
+          (SELECT count(*)::integer FROM pets WHERE status='available' AND verified_at IS NOT NULL
+            AND (source_id IS NULL OR EXISTS (SELECT 1 FROM sources s WHERE s.id=pets.source_id AND s.enabled AND s.last_success_at > now() - interval '48 hours'))) AS searchable,
           (SELECT count(*)::integer FROM organizations) AS organizations,
           (SELECT count(DISTINCT organization_id)::integer FROM organization_memberships) AS participating_organizations`,
       ]);
@@ -121,6 +123,6 @@ export default async function handler(request, response) {
     inventory, observed, observationStatus, observedAt: new Date().toISOString(),
     sources: sourceCatalog,
     active: sourceCatalog.filter((source) => source.status === "active").length,
-    note: "Stored inventory counts exclude live provider totals and web leads. Source configuration is not proof of feed health. No single public database contains every adoptable pet worldwide.",
+    note: "Available is stored inventory; searchable excludes imported pets whose source has not synced successfully within 48 hours. Counts exclude web leads. Source configuration is not proof of feed health. No single public database contains every adoptable pet worldwide.",
   });
 }

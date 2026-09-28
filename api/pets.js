@@ -590,6 +590,7 @@ export default async function handler(request, response) {
           FROM pets
           WHERE status = 'available' 
             AND verified_at IS NOT NULL
+            AND (source_id IS NULL OR EXISTS (SELECT 1 FROM sources s WHERE s.id=pets.source_id AND s.enabled AND s.last_success_at > now() - interval '48 hours'))
             AND species = ANY(${species})
             AND latitude IS NOT NULL 
             AND longitude IS NOT NULL
@@ -610,6 +611,7 @@ export default async function handler(request, response) {
             FROM pets
             WHERE status = 'available'
               AND verified_at IS NOT NULL
+              AND (source_id IS NULL OR EXISTS (SELECT 1 FROM sources s WHERE s.id=pets.source_id AND s.enabled AND s.last_success_at > now() - interval '48 hours'))
               AND species = ANY(${species})
               AND latitude IS NOT NULL
               AND longitude IS NOT NULL
@@ -644,6 +646,7 @@ export default async function handler(request, response) {
             FROM pets
             WHERE status = 'available' 
               AND verified_at IS NOT NULL
+              AND (source_id IS NULL OR EXISTS (SELECT 1 FROM sources s WHERE s.id=pets.source_id AND s.enabled AND s.last_success_at > now() - interval '48 hours'))
               AND species = ANY(${species})
               AND latitude IS NOT NULL
               AND longitude IS NOT NULL
@@ -719,6 +722,7 @@ export default async function handler(request, response) {
         FROM pets
         WHERE status = 'available' 
           AND verified_at IS NOT NULL
+          AND (source_id IS NULL OR EXISTS (SELECT 1 FROM sources s WHERE s.id=pets.source_id AND s.enabled AND s.last_success_at > now() - interval '48 hours'))
           AND species = ANY(${species})
         ORDER BY verified_at DESC, id ASC
         LIMIT ${limit + 1}
@@ -734,6 +738,7 @@ export default async function handler(request, response) {
       FROM pets
       WHERE status = 'available' 
         AND verified_at IS NOT NULL
+        AND (source_id IS NULL OR EXISTS (SELECT 1 FROM sources s WHERE s.id=pets.source_id AND s.enabled AND s.last_success_at > now() - interval '48 hours'))
         AND species = ANY(${species})
     `;
     

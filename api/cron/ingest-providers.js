@@ -20,6 +20,17 @@ function createFingerprint(sourceId, externalId) {
     .digest("hex");
 }
 
+export async function recordProviderRun(database, sourceId, { error = null, fetched = 0, upserted = 0 } = {}) {
+  const message = error ? String(error.message || error).slice(0, 1000) : null;
+  await database.transaction([
+    database`INSERT INTO ingestion_runs (source_id, status, error, fetched_count, upserted_count, finished_at)
+      VALUES (${sourceId}, ${message ? "error" : "success"}, ${message}, ${fetched}, ${upserted}, now())`,
+    database`UPDATE sources SET last_run_at=now(),
+      last_success_at=CASE WHEN ${message}::text IS NULL THEN now() ELSE last_success_at END,
+      last_error=${message}, updated_at=now() WHERE id=${sourceId}`,
+  ]);
+}
+
 export async function ingestProvider(database, sourceId, pets, providerName) {
   const fetched = pets.length;
   pets = pets.map(pet => ({ ...pet, image: importImageUrl(pet.image) }))
@@ -96,21 +107,17 @@ export async function ingestProvider(database, sourceId, pets, providerName) {
   return { upserted: pets.length, marked_unavailable: missingPets.length, skipped_without_image };
 }
 
-async function fetchAllLosAngelesPets() {
+export async function fetchAllLosAngelesPets(fetchPage = fetchLosAngelesPets) {
   const allPets = [];
   let page = 1;
   let hasMore = true;
   while (hasMore && page <= 20) {
-    try {
-      const pets = await fetchLosAngelesPets(PET_SPECIES, { limit: 48, page });
-      allPets.push(...pets);
-      hasMore = pets.hasMore && pets.length === 48;
-      page++;
-    } catch (error) {
-      console.error(`LA Animal Services page ${page} failed:`, error);
-      break;
-    }
+    const pets = await fetchPage(PET_SPECIES, { limit: 48, page });
+    allPets.push(...pets);
+    hasMore = Boolean(pets.hasMore);
+    page++;
   }
+  if (hasMore) throw new Error("LA Animal Services pagination limit reached; snapshot is incomplete");
   return allPets.map(pet => ({
     externalId: pet.externalId,
     name: pet.name,
@@ -130,10 +137,9 @@ async function fetchAllLosAngelesPets() {
   }));
 }
 
-async function fetchAllRescueGroupsPets(apiKey) {
+export async function fetchAllRescueGroupsPets(apiKey, fetchPage = fetchSpecies) {
   if (!apiKey) {
-    console.log("RescueGroups: API key not configured");
-    return [];
+    throw new Error("RescueGroups API key is not configured");
   }
 
   const allPets = [];
@@ -141,25 +147,21 @@ async function fetchAllRescueGroupsPets(apiKey) {
     let page = 1;
     let hasMore = true;
     while (hasMore && page <= RESCUEGROUPS_MAX_PAGES) {
-      try {
-        const payload = await fetchSpecies([species], { limit: 250, page, query: {} }, apiKey);
-        const pets = (payload.data || [])
-          .map((animal, index) => normalizeAnimal(animal, payload.included || [], index))
-          .filter(isCurrentProviderListing);
-        
-        allPets.push(...pets);
-        hasMore = pets.length === 250;
-        page++;
-        
-        // Log progress every 5 pages
-        if (page % 5 === 0) {
-          console.log(`RescueGroups ${species}: fetched ${page} pages, ${allPets.length} pets so far`);
-        }
-      } catch (error) {
-        console.error(`RescueGroups ${species} page ${page} failed:`, error);
-        break;
+      const payload = await fetchPage([species], { limit: 250, page, query: {} }, apiKey);
+      if (!Array.isArray(payload?.data)) throw new Error(`RescueGroups ${species} page ${page} returned an invalid animal page`);
+      const pets = payload.data
+        .map((animal, index) => normalizeAnimal(animal, payload.included || [], index))
+        .filter(isCurrentProviderListing);
+
+      allPets.push(...pets);
+      hasMore = payload.data.length === 250;
+      page++;
+
+      if (page % 5 === 0) {
+        console.log(`RescueGroups ${species}: fetched ${page} pages, ${allPets.length} pets so far`);
       }
     }
+    if (hasMore) throw new Error(`RescueGroups ${species} pagination limit reached; snapshot is incomplete`);
   }
 
   // Geocode RescueGroups pets that don't have coordinates
@@ -229,30 +231,38 @@ export default async function handler(request, response) {
     // Fetch from LA Animal Services
     console.log("Fetching LA Animal Services pets...");
     const laPets = await fetchAllLosAngelesPets();
+    if (!laPets.length) throw new Error("LA Animal Services returned an empty snapshot");
     results.losAngeles = await ingestProvider(
       database,
       LA_SOURCE_ID,
       laPets,
       "LA Animal Services"
     );
+    if (!results.losAngeles.upserted) throw new Error("LA Animal Services snapshot has no usable pet photos");
+    await recordProviderRun(database, LA_SOURCE_ID, { fetched: laPets.length, upserted: results.losAngeles.upserted });
   } catch (error) {
     console.error("LA Animal Services ingestion failed:", error);
     results.losAngeles = { error: error.message };
+    await recordProviderRun(database, LA_SOURCE_ID, { error });
   }
 
   try {
     // Fetch from RescueGroups
     console.log("Fetching RescueGroups pets...");
     const rescueGroupsPets = await fetchAllRescueGroupsPets(process.env.RESCUEGROUPS_API_KEY);
+    if (!rescueGroupsPets.length) throw new Error("RescueGroups returned an empty snapshot");
     results.rescueGroups = await ingestProvider(
       database,
       RESCUEGROUPS_SOURCE_ID,
       rescueGroupsPets,
       "RescueGroups"
     );
+    if (!results.rescueGroups.upserted) throw new Error("RescueGroups snapshot has no usable pet photos");
+    await recordProviderRun(database, RESCUEGROUPS_SOURCE_ID, { fetched: rescueGroupsPets.length, upserted: results.rescueGroups.upserted });
   } catch (error) {
     console.error("RescueGroups ingestion failed:", error);
     results.rescueGroups = { error: error.message };
+    await recordProviderRun(database, RESCUEGROUPS_SOURCE_ID, { error });
   }
 
   const finishedAt = new Date();
@@ -260,8 +270,8 @@ export default async function handler(request, response) {
 
   console.log(`Ingestion completed in ${elapsedMs}ms`);
 
-  return response.status(200).json({
-    status: "completed",
+  return response.status(results.losAngeles?.error || results.rescueGroups?.error ? 502 : 200).json({
+    status: results.losAngeles?.error || results.rescueGroups?.error ? "partial" : "completed",
     startedAt: startedAt.toISOString(),
     finishedAt: finishedAt.toISOString(),
     elapsedMs,

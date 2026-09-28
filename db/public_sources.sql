@@ -84,6 +84,7 @@ INSERT INTO sources (
   'https://www.laanimalservices.com/',
   true,
   '{
+    "ingestion": "provider",
     "pagination": {"page_size": 48, "max_pages": 20},
     "constants": {
       "country": "United States",
@@ -101,6 +102,7 @@ INSERT INTO sources (
   'https://rescuegroups.org/',
   true,
   '{
+    "ingestion": "provider",
     "pagination": {"page_size": 250, "max_pages": 100},
     "constants": {
       "country": "United States"
