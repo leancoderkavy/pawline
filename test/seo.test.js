@@ -8,9 +8,8 @@ test("homepage publishes canonical search and social metadata", async () => {
   const layout = await read("app/layout.jsx");
   assert.match(layout, /alternates: \{ canonical: "\/"/);
   assert.match(layout, /robots: \{ index: true, follow: true/);
-  assert.match(layout, /Pawline Adopt \| Pet Adoption App for Dogs & Cats/);
-  assert.match(layout, /Shelter dog finder — not a pet-health product/);
-  assert.match(layout, /start your adoption journey/);
+  assert.match(layout, /Adopt Dogs & Cats Near You \| Pawline/);
+  assert.match(layout, /map, check listing sources, and compare/);
   assert.match(layout, /home, routine, household, and pet experience/);
   assert.match(layout, /card: "summary_large_image"/);
   assert.match(layout, /locale: "en_US"/);
@@ -19,6 +18,17 @@ test("homepage publishes canonical search and social metadata", async () => {
   assert.match(layout, /llms\.txt/);
   assert.match(layout, /type="application\/ld\+json"/);
   assert.match(layout, /"@type": "WebApplication"/);
+});
+
+test("homepage explains its search value and links to crawlable guides", async () => {
+  const onboarding = await read("src/Onboarding.jsx");
+  assert.match(onboarding, /Find adoptable dogs and cats near you/);
+  assert.match(onboarding, /Why use Pawline/);
+  assert.match(onboarding, /Map-first search/);
+  assert.match(onboarding, /Listing source labels/);
+  assert.match(onboarding, /Fit reasons and unknowns/);
+  assert.match(onboarding, /href="\/how-pawline-works"/);
+  assert.match(onboarding, /href="\/guides\/find-a-pet-that-fits-your-home-and-routine"/);
 });
 
 test("guides have crawlable canonical pages and share content with map panels", async () => {
