@@ -31,6 +31,15 @@ test("homepage explains its search value and links to crawlable guides", async (
   assert.match(onboarding, /href="\/guides\/find-a-pet-that-fits-your-home-and-routine"/);
 });
 
+test("Clerk loading HTML explains the same source and fit value", async () => {
+  const landing = await read("src/PawlineWithClerk.jsx");
+  assert.match(landing, /Why use Pawline\?/);
+  assert.match(landing, /Map-first search/);
+  assert.match(landing, /Listing source labels/);
+  assert.match(landing, /Fit reasons and unknowns/);
+  assert.match(landing, /href="\/guides\/find-a-pet-that-fits-your-home-and-routine"/);
+});
+
 test("guides have crawlable canonical pages and share content with map panels", async () => {
   const targets = [
     ["how-pawline-works", "#how-pawline-works", "Methodology", "Approximate web leads"],

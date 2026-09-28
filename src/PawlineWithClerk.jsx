@@ -15,10 +15,19 @@ function AuthenticatedLanding({ publishableKey }) {
     <article className="methodology-content">
       <h1>Find adoptable dogs and cats near you</h1>
       <p>Explore shelter listings on Pawline's adoption map and compare listed needs with your home and routine. Confirm availability and adoption requirements with the original shelter or rescue.</p>
+      <section aria-labelledby="clerk-landing-value">
+        <h2 id="clerk-landing-value">Why use Pawline?</h2>
+        <ul>
+          <li><strong>Map-first search.</strong> Explore pet listings and shelter locations around a place you can reach.</li>
+          <li><strong>Listing source labels.</strong> See how each record was found and confirm availability with the original source.</li>
+          <li><strong>Fit reasons and unknowns.</strong> Compare disclosed pet needs with your household and routine.</li>
+        </ul>
+      </section>
       <p role="status">Opening Pawline…</p>
       <nav className="search-page-nav" aria-label="Adoption resources">
         <a href="/guides">Read the adoption guides</a>
         <a href="/how-pawline-works">How Pawline checks listing sources</a>
+        <a href="/guides/find-a-pet-that-fits-your-home-and-routine">How Pawline compares fit</a>
       </nav>
     </article>
   </main>;
