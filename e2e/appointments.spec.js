@@ -29,7 +29,8 @@ test('two accounts book, reschedule, join, finish, choose a next step and cancel
     await shelter.getByRole('button', { name: /Miso.*Alex/ }).click();
     await shelter.getByRole('button', { name: /Appointments/ }).click();
     await shelter.getByRole('button', { name: 'Suggest another time' }).click();
-    const local = new Date(); const value = new Date(local - local.getTimezoneOffset() * 60000).toISOString().slice(0, 19);
+    const local = new Date(Date.now() + 5 * 60 * 1000);
+    const value = new Date(local.getTime() - local.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
     await shelter.getByLabel('Your local date and time').fill(value);
     await shelter.getByRole('button', { name: 'Propose time', exact: true }).click();
     await expect(adopter.getByRole('checkbox', { name: 'Email me updates and a reminder', exact: true })).toBeChecked();
