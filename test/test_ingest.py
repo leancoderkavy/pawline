@@ -7,10 +7,18 @@ from scripts.ingest import (
     nested,
     normalize,
     snapshot_records,
+    is_feed_source,
 )
 
 
 class IngestNormalizationTests(unittest.TestCase):
+    def test_provider_managed_sources_are_not_generic_json_feeds(self):
+        self.assertFalse(is_feed_source({"parser_config": {"ingestion": "provider"}}))
+        self.assertTrue(is_feed_source({"parser_config": {"mapping": {"name": "petname"}}}))
+        sql = REVIEWED_SOURCES_SQL.read_text(encoding="utf-8")
+        self.assertRegex(sql, r"LA Animal Services adoptable pets[\s\S]+?\"ingestion\": \"provider\"")
+        self.assertRegex(sql, r"RescueGroups.org partner listings[\s\S]+?\"ingestion\": \"provider\"")
+
     def test_every_imported_species_requires_a_valid_photo(self):
         source = {"id": "source-id", "parser_config": {"mapping": {
             "external_id": "id", "name": "name", "species": "species", "image_url": "photo",

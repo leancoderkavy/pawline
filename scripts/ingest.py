@@ -220,6 +220,11 @@ def snapshot_records(rows, source):
     return records
 
 
+def is_feed_source(source: dict[str, Any]) -> bool:
+    """Only generic JSON/CSV feeds belong to the Python importer."""
+    return (source.get("parser_config") or {}).get("ingestion", "feed") == "feed"
+
+
 def validate_snapshot_size(previous_count, record_count, source):
     threshold = float((source.get("parser_config") or {}).get("minimum_snapshot_ratio", 0.5))
     if not 0 <= threshold <= 1:
@@ -415,7 +420,7 @@ def run(dry_run=False, source_id=None) -> list[dict[str, int | str]]:
                    AND kind IN ('json', 'csv', 'google_sheet') AND url IS NOT NULL
                    AND (%s::uuid IS NULL OR id=%s::uuid) ORDER BY name""", (source_id, source_id)
             )
-            sources = cursor.fetchall()
+            sources = [source for source in cursor.fetchall() if is_feed_source(source)]
         if not dry_run:
             return [ingest_source(connection, source) for source in sources]
         results = []

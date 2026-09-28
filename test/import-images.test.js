@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { importImageUrl } from "../api/_import-image.js";
-import { ingestProvider } from "../api/cron/ingest-providers.js";
+import { ingestProvider, fetchAllLosAngelesPets, fetchAllRescueGroupsPets, recordProviderRun } from "../api/cron/ingest-providers.js";
+import { createChatFixture } from "../e2e/chat-fixture.mjs";
 import { parsePetCsv } from "../api/shelter-import.js";
 
 test("import photo metadata rejects missing, unsafe and malformed URLs", () => {
@@ -34,6 +35,35 @@ test("all-photo-less provider snapshot does not mutate inventory", async () => {
   const database = () => { throw new Error("Unexpected database write"); };
   const result = await ingestProvider(database, "qa", [{ name: "No photo" }], "QA");
   assert.deepEqual(result, { upserted: 0, marked_unavailable: 0, skipped_without_image: 1 });
+});
+
+test("provider page failures reject the whole snapshot", async () => {
+  await assert.rejects(fetchAllLosAngelesPets(async (_species, { page }) => {
+    if (page === 2) throw new Error("source failed");
+    return Object.assign([{ externalId: "LA-1", image: "https://example.test/la.jpg" }], { hasMore: true });
+  }), /source failed/);
+  await assert.rejects(fetchAllRescueGroupsPets("key", async () => { throw new Error("HTTP 401"); }), /HTTP 401/);
+});
+
+test("provider run state records failure and only a complete run clears it", async () => {
+  const fixture = await createChatFixture();
+  const sourceId = "55555555-5555-4555-8555-555555555555";
+  try {
+    await fixture.database`INSERT INTO sources (id, name, kind, enabled) VALUES (${sourceId}, 'Provider', 'json', true)`;
+    await recordProviderRun(fixture.database, sourceId, { error: new Error("HTTP 401") });
+    let [source] = await fixture.database`SELECT last_success_at, last_error FROM sources WHERE id=${sourceId}`;
+    assert.equal(source.last_success_at, null);
+    assert.equal(source.last_error, "HTTP 401");
+    await recordProviderRun(fixture.database, sourceId, { fetched: 2, upserted: 2 });
+    [source] = await fixture.database`SELECT last_success_at, last_error FROM sources WHERE id=${sourceId}`;
+    assert.ok(source.last_success_at);
+    assert.equal(source.last_error, null);
+    const runs = await fixture.database`SELECT status, fetched_count FROM ingestion_runs WHERE source_id=${sourceId} ORDER BY started_at`;
+    assert.deepEqual(runs.map(run => run.status), ["error", "success"]);
+    assert.equal(runs[1].fetched_count, 2);
+  } finally {
+    await fixture.close();
+  }
 });
 
 test("shelter CSV preview rejects photo-less rows and retains valid rows", () => {
