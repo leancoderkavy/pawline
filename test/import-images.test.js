@@ -43,6 +43,13 @@ test("provider page failures reject the whole snapshot", async () => {
     return Object.assign([{ externalId: "LA-1", image: "https://example.test/la.jpg" }], { hasMore: true });
   }), /source failed/);
   await assert.rejects(fetchAllRescueGroupsPets("key", async () => { throw new Error("HTTP 401"); }), /HTTP 401/);
+  let page = 0;
+  await assert.rejects(fetchAllRescueGroupsPets("key", async () => {
+    page++;
+    return page === 1
+      ? { data: Array.from({ length: 250 }, (_, i) => ({ id: i + 1, attributes: { name: `Pet ${i + 1}` } })) }
+      : {};
+  }), /invalid animal page/);
 });
 
 test("provider run state records failure and only a complete run clears it", async () => {

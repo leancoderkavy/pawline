@@ -148,12 +148,13 @@ export async function fetchAllRescueGroupsPets(apiKey, fetchPage = fetchSpecies)
     let hasMore = true;
     while (hasMore && page <= RESCUEGROUPS_MAX_PAGES) {
       const payload = await fetchPage([species], { limit: 250, page, query: {} }, apiKey);
-      const pets = (payload.data || [])
+      if (!Array.isArray(payload?.data)) throw new Error(`RescueGroups ${species} page ${page} returned an invalid animal page`);
+      const pets = payload.data
         .map((animal, index) => normalizeAnimal(animal, payload.included || [], index))
         .filter(isCurrentProviderListing);
 
       allPets.push(...pets);
-      hasMore = (payload.data || []).length === 250;
+      hasMore = payload.data.length === 250;
       page++;
 
       if (page % 5 === 0) {
