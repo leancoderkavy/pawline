@@ -74,7 +74,7 @@ async function fixture(page, { map = false } = {}) {
 }
 async function open(page) {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "What brings you here?" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Find adoptable dogs and cats near you" })).toBeVisible();
   await page.getByRole("button", { name: "Just browsing? Explore pets" }).click();
   await expect(page.getByRole("heading", { name: "Pets near you", exact: true })).toBeVisible();
 }
