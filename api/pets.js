@@ -5,6 +5,7 @@ import { createPublicFeedCoalescer, readBoundedText, deduplicatePets } from "./_
 import { safeHttpUrl, safeImageUrl } from "./_safe-url.js";
 import { buildRescueGroupsUrl } from "./_rescuegroups.js";
 import { consumeUsageChain, createUsageFallbackLimiter, requestClientKey } from "./_usage-limit.js";
+import { safePetSourceUrl } from "../src/petSourceLink.js";
 
 const API_BASE =
   process.env.RESCUEGROUPS_API_BASE_URL || "https://api.rescuegroups.org/v5";
@@ -166,7 +167,7 @@ export function normalizeMontgomeryPet(pet, index) {
     rating: null,
     reviews: null,
     source: "Montgomery County Open Data · Live",
-    sourceUrl: MONTGOMERY_ADOPTION_URL,
+    sourceUrl: safePetSourceUrl(MONTGOMERY_ADOPTION_URL),
     image: safeImageUrl(pet.url?.url),
     latitude: null,
     longitude: null,
@@ -194,7 +195,7 @@ export function normalizeKingCountyPet(pet, index) {
     rating: null,
     reviews: null,
     source: "King County Open Data · Live",
-    sourceUrl: safeHttpUrl(pet.link?.url),
+    sourceUrl: safePetSourceUrl(safeHttpUrl(pet.link?.url)),
     image: safeImageUrl(pet.image?.url),
     description: cleanText(pet.memo),
     latitude: Number.isFinite(Number(pet.obfuscated_latitude))
@@ -228,7 +229,7 @@ export function normalizeLosAngelesPet(record) {
     rating: null,
     reviews: null,
     source: "LA Animal Services · Live",
-    sourceUrl: `https://www.laanimalservices.com/pet/${record.id.toLowerCase()}`,
+    sourceUrl: safePetSourceUrl(`https://www.laanimalservices.com/pet/${record.id.toLowerCase()}`),
     image: safeImageUrl(record.image ? decodeHtml(record.image) : null),
     latitude: center.latitude,
     longitude: center.longitude,
@@ -401,7 +402,7 @@ export function normalizeDatabasePet(pet, index) {
     rating: null,
     reviews: null,
     source: pet.source_id ? "Official feed · Imported" : "Pawline community · Reviewed",
-    sourceUrl: safeHttpUrl(pet.source_url),
+    sourceUrl: safePetSourceUrl(safeHttpUrl(pet.source_url)),
     messageAvailable: pet.organization_id ? Boolean(pet.organization_has_members) : Boolean(pet.claimed_by_clerk_user_id),
     image: safeImageUrl(pet.image_url),
     latitude: pet.latitude == null ? null : Number(pet.latitude),
@@ -473,7 +474,7 @@ export function normalizeAnimal(animal, included, index) {
     rating: null,
     reviews: null,
     source: "RescueGroups · Live",
-    sourceUrl: safeHttpUrl(attributes.url || organization.adoptionUrl || organization.url),
+    sourceUrl: safePetSourceUrl(safeHttpUrl(attributes.url || organization.adoptionUrl || organization.url)),
     image: [picture?.large, picture?.original, attributes.pictureThumbnailUrl, picture?.small]
       .map(safeImageUrl).find(Boolean) || null,
     latitude: coordinates.latitude,

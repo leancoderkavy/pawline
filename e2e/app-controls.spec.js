@@ -57,12 +57,12 @@ const pets = [
   { id: "qa-cat", name: "QA Miso", species: "Cat", breed: "Domestic Shorthair", latitude: 34.1478, longitude: -118.1445, hours: "10am–4pm", city: "Pasadena", shelter: "QA Shelter", image: "/pet-photo-placeholder.svg", sourceUrl: "https://example.org/miso", description: "Test listing", age: "Adult", size: "Small" },
   { id: "qa-dog", name: "QA Willow", species: "Dog", breed: "Mixed", latitude: 34.15, longitude: -118.15, city: "Pasadena", shelter: "QA Shelter", image: "/pet-photo-placeholder.svg", sourceUrl: "https://example.org/willow", description: "Test listing", age: "Adult", size: "Medium" },
 ];
-async function fixture(page, { map = false, events = [], eventQueries = [] } = {}) {
+async function fixture(page, { map = false, events = [], eventQueries = [], petProvider = "QA fixture", petSourceUrl = "https://example.org/miso" } = {}) {
   await page.route("**/api/**", async route => {
     const url = new URL(route.request().url());
     const path = url.pathname;
     let body = {};
-    if (path === "/api/pets") body = { mode: "live", provider: "QA fixture", pets: pets.filter(pet => !url.searchParams.get("species") || pet.species === url.searchParams.get("species")) };
+    if (path === "/api/pets") body = { mode: "live", ...(petProvider ? { provider: petProvider } : {}), pets: pets.map(pet => pet.id === "qa-cat" ? { ...pet, sourceUrl: petSourceUrl } : pet).filter(pet => !url.searchParams.get("species") || pet.species === url.searchParams.get("species")) };
     else if (path === "/api/health") body = { mapboxConfigured: map };
     else if (path === "/api/events") { eventQueries.push(url.searchParams.get("days")); body = { mode: "live", events }; }
     else if (path === "/api/discoveries") body = { discoveries: [] };
@@ -101,6 +101,38 @@ test("event range shows only upcoming events on the map and in results", async (
   await panel.getByRole("combobox", { name: "Upcoming event range" }).selectOption("7");
   await expect(panel).toContainText("Soon event");
   await expect(panel).not.toContainText("Later event");
+});
+
+test("match quiz names current records when provider is absent", async ({ page }) => {
+  await fixture(page, { petProvider: null });
+  await open(page);
+  await more(page, "Match quiz");
+  await expect(page.locator(".quiz-feed")).toContainText("current records from shelter feeds");
+  await expect(page.locator(".quiz-feed")).not.toContainText("undefined");
+});
+
+test("pet results preview only a few events and lead to full event view", async ({ page }) => {
+  const events = Array.from({ length: 8 }, (_, index) => ({
+    id: `event-${index}`, title: `QA adoption event ${index}`, type: "adoption",
+    starts_at: new Date(Date.now() + (index + 1) * 86_400_000).toISOString(),
+    latitude: 34.1478, longitude: -118.1445, venue: "QA Venue", city: "Pasadena", country: "United States",
+    source_url: `https://example.org/events/${index}`,
+  }));
+  await fixture(page, { events });
+  await open(page);
+  await expect(page.locator(".map-results .map-result-row")).toHaveCount(5);
+  await page.getByRole("button", { name: "Browse all upcoming events" }).focus();
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/#events$/);
+  await expect(page.locator(".event-panel")).toContainText("QA adoption event 0");
+  await expect(page.locator(".event-panel")).toContainText("QA adoption event 7");
+});
+
+test("generic organization source has truthful link label", async ({ page }) => {
+  await fixture(page, { petSourceUrl: "http://example.org/" });
+  await open(page);
+  await page.getByRole("button", { name: "Open QA Miso details" }).click();
+  await expect(page.getByRole("dialog").getByRole("link", { name: "Visit organization website" })).toHaveAttribute("href", "http://example.org/");
 });
 async function open(page) {
   await page.goto("/");
@@ -166,7 +198,7 @@ for (const width of [320, 390, 768, 1440]) {
     await expect(page.locator(".map-result-open")).toHaveCount(1);
     await page.locator(".map-result-open").click();
     await expect(page.locator(".dialog")).toBeVisible();
-    await expect(page.locator(".dialog").getByRole("link", { name: "View adoption listing" })).toHaveAttribute("href", "https://example.org/miso");
+    await expect(page.locator(".dialog").getByRole("link", { name: "Visit organization website" })).toHaveAttribute("href", "https://example.org/miso");
     await page.keyboard.press("Escape");
     await expect(page.locator(".dialog")).toHaveCount(0);
     await page.getByRole("button", { name: "Show discovery tools", exact: true }).click();
@@ -411,7 +443,7 @@ test("pet list provides evidence, official next steps and a private draft on mob
   await expect(page.locator(".journey-pet-card")).toHaveCount(1);
   await page.getByRole("button", { name: "See fit details" }).click();
   await expect(page.getByRole("heading", { name: "Your next steps" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Contact shelter through official listing" })).toHaveAttribute("href", "https://example.org/miso");
+  await expect(page.getByRole("link", { name: "Visit organization website" }).first()).toHaveAttribute("href", "https://example.org/miso");
   await expect(page.locator(".journey-pet-page")).not.toContainText("Provider-verified");
   await page.getByRole("button", { name: "Prepare private draft" }).click();
   await expect(page.locator(".share-review")).toContainText("has not enabled Pawline applications");

@@ -17,6 +17,20 @@ import {
   parseLosAngelesPets,
 } from "../api/pets.js";
 import { safeHttpUrl, safeImageUrl } from "../api/_safe-url.js";
+import { petSourceLinkLabel, safePetSourceUrl } from "../src/petSourceLink.js";
+
+test("pet source links distinguish pet pages from organization routes and suppress failed sites", () => {
+  assert.equal(petSourceLinkLabel("https://www.laanimalservices.com/pet/a2296674", "A2296674"), "Open pet listing");
+  assert.equal(petSourceLinkLabel("https://www.montgomerycountymd.gov/animalservices/adoption/index.html", "A123"), "Visit organization website");
+  assert.equal(petSourceLinkLabel("https://example.org/contact?note=A2296674", "A2296674"), "Visit organization website");
+  assert.equal(safePetSourceUrl("http://www.collierpets.com/"), null);
+  assert.equal(safePetSourceUrl("http://www.basv.org/"), null);
+  assert.equal(safePetSourceUrl("http://unitedhope4animals.org/"), null);
+  assert.equal(safePetSourceUrl("https://ruffstartrescue.rescuegroups.org/animals/detail?AnimalID=22156450"), null);
+  assert.equal(safePetSourceUrl("http://www.sbcphd.org/as"), null);
+  assert.equal(safePetSourceUrl("https://nar.rescuegroups.org/animals/detail?AnimalID=20125110"), "https://nar.rescuegroups.org/animals/detail?AnimalID=20125110");
+  assert.equal(normalizeDatabasePet({ id: "db-2", external_id: "1", name: "Rabbit", species: "Rabbit", source_url: "http://www.collierpets.com/" }, 0).sourceUrl, null);
+});
 
 test("RescueGroups uses a valid thumbnail when a preferred picture field is an object", () => {
   const animal = {

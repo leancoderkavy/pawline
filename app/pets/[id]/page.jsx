@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { cache } from "react";
 import { getDatabase } from "../../../api/_db.js";
 import { catalogQuery, searchCatalog } from "../../../api/catalog.js";
+import { petSourceLinkLabel } from "../../../src/petSourceLink.js";
 export const dynamic = "force-dynamic";
 const load = cache(async (id) => {
   let query;
@@ -70,7 +71,7 @@ export default async function PetPage({ params }) {
         {pet.sourceUrl ? (
           <p>
             <a href={pet.sourceUrl} rel="noreferrer" target="_blank">
-              View the original shelter listing
+              {petSourceLinkLabel(pet.sourceUrl, pet.externalId)}
             </a>
           </p>
         ) : null}
