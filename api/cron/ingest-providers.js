@@ -155,64 +155,16 @@ export async function fetchAllRescueGroupsPets(apiKey, fetchPage = fetchSpecies)
     throw new Error("RescueGroups API key is not configured");
   }
 
-  const imageShape = value => {
-    if (typeof value !== "string") return typeof value;
-    if (/^https:\/\//i.test(value)) return "https-absolute";
-    if (/^http:\/\//i.test(value)) return "http-absolute";
-    if (/^\/\//.test(value)) return "protocol-relative";
-    if (/^\//.test(value)) return "root-relative";
-    return "other-string";
-  };
-  const countShape = (counts, value) => {
-    const shape = imageShape(value);
-    counts[shape] = (counts[shape] || 0) + 1;
-  };
   const allPets = [];
-  const photoDiagnostics = {
-    animals: 0,
-    pictureRelationships: 0,
-    includedPictures: 0,
-    includedPictureUrls: 0,
-    thumbnailUrls: 0,
-    normalizedImages: 0,
-    animalAttributeKeys: [],
-    pictureAttributeKeys: [],
-    relationshipTypes: {},
-    includedTypes: {},
-    matchedPictureReferences: 0,
-    largeUrlShapes: {},
-    thumbnailUrlShapes: {},
-  };
   for (const species of RESCUEGROUPS_SYNC_SPECIES) {
     let page = 1;
     let hasMore = true;
     while (hasMore && page <= RESCUEGROUPS_MAX_PAGES) {
       const payload = await fetchPage([species], { limit: 250, page, query: {} }, apiKey);
       if (!Array.isArray(payload?.data)) throw new Error(`RescueGroups ${species} page ${page} returned an invalid animal page`);
-      const includedPictures = (payload.included || []).filter(item => item.type === "pictures");
-      photoDiagnostics.animals += payload.data.length;
-      photoDiagnostics.pictureRelationships += payload.data.filter(item => item.relationships?.pictures?.data?.length).length;
-      photoDiagnostics.includedPictures += includedPictures.length;
-      photoDiagnostics.includedPictureUrls += includedPictures.filter(item => item.attributes?.large || item.attributes?.original || item.attributes?.small).length;
-      photoDiagnostics.thumbnailUrls += payload.data.filter(item => item.attributes?.pictureThumbnailUrl).length;
-      for (const item of includedPictures) {
-        photoDiagnostics.includedTypes[item.type] = (photoDiagnostics.includedTypes[item.type] || 0) + 1;
-        countShape(photoDiagnostics.largeUrlShapes, item.attributes?.large);
-      }
-      for (const item of payload.data) {
-        const refs = item.relationships?.pictures?.data || [];
-        for (const ref of Array.isArray(refs) ? refs : [refs]) {
-          photoDiagnostics.relationshipTypes[ref.type] = (photoDiagnostics.relationshipTypes[ref.type] || 0) + 1;
-          if (includedPictures.some(pic => pic.type === ref.type && String(pic.id) === String(ref.id))) photoDiagnostics.matchedPictureReferences++;
-        }
-        countShape(photoDiagnostics.thumbnailUrlShapes, item.attributes?.pictureThumbnailUrl);
-      }
-      if (!photoDiagnostics.animalAttributeKeys.length && payload.data.length) photoDiagnostics.animalAttributeKeys = Object.keys(payload.data[0].attributes || {});
-      if (!photoDiagnostics.pictureAttributeKeys.length && includedPictures.length) photoDiagnostics.pictureAttributeKeys = Object.keys(includedPictures[0].attributes || {});
       const pets = payload.data
         .map((animal, index) => normalizeAnimal(animal, payload.included || [], index))
         .filter(isCurrentProviderListing);
-      photoDiagnostics.normalizedImages += pets.filter(pet => pet.image).length;
 
       allPets.push(...pets);
       hasMore = payload.data.length === 250;
@@ -231,7 +183,7 @@ export async function fetchAllRescueGroupsPets(apiKey, fetchPage = fetchSpecies)
       allPets,
       process.env.MAPBOX_ACCESS_TOKEN
     );
-    const mapped = geocoded.map(pet => ({
+    return geocoded.map(pet => ({
       externalId: pet.externalId,
       name: pet.name,
       species: pet.species,
@@ -247,11 +199,9 @@ export async function fetchAllRescueGroupsPets(apiKey, fetchPage = fetchSpecies)
       image: pet.image,
       sourceUrl: pet.sourceUrl,
     }));
-    mapped.photoDiagnostics = photoDiagnostics;
-    return mapped;
   } catch (error) {
     console.error("RescueGroups geocoding failed:", error);
-    const mapped = allPets.map(pet => ({
+    return allPets.map(pet => ({
       externalId: pet.externalId,
       name: pet.name,
       species: pet.species,
@@ -267,8 +217,6 @@ export async function fetchAllRescueGroupsPets(apiKey, fetchPage = fetchSpecies)
       image: pet.image,
       sourceUrl: pet.sourceUrl,
     }));
-    mapped.photoDiagnostics = photoDiagnostics;
-    return mapped;
   }
 }
 
@@ -322,7 +270,7 @@ export default async function handler(request, response) {
       rescueGroupsPets,
       "RescueGroups"
     );
-    if (!results.rescueGroups.upserted) throw new Error(`RescueGroups snapshot has no usable pet photos: ${JSON.stringify(rescueGroupsPets.photoDiagnostics || {})}`);
+    if (!results.rescueGroups.upserted) throw new Error("RescueGroups snapshot has no usable pet photos");
     results.rescueGroups.retired_off_scope = await retireProviderSpecies(
       database, RESCUEGROUPS_SOURCE_ID, RESCUEGROUPS_OFF_SCOPE_SPECIES
     );
