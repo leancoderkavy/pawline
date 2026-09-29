@@ -62,7 +62,7 @@ test("map filters keep species choice primary and disclose secondary controls in
   const [app, styles] = await Promise.all([read("src/App.jsx"), read("src/styles.css")]);
   const filters = app.slice(app.indexOf("function MapFilters"), app.indexOf("function NearbyShelters"));
 
-  assert.match(filters, /const activeFilterCount = \[distance !== "150", hoursFilter !== "all", !showEvents, densityMode\]\.filter\(Boolean\)\.length/);
+  assert.match(filters, /const activeFilterCount = \[distance !== "150", hoursFilter !== "all", !showEvents, densityMode, eventWindowDays !== 14\]\.filter\(Boolean\)\.length/);
   assert.match(filters, /className="map-pet-types"/);
   assert.match(filters, /\["All", \.\.\.PET_SPECIES\]/);
   assert.match(filters, /<span>Filters<\/span>/);
