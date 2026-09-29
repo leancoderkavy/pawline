@@ -71,7 +71,7 @@ export default async function PetPage({ params }) {
         {pet.sourceUrl ? (
           <p>
             <a href={pet.sourceUrl} rel="noreferrer" target="_blank">
-              {petSourceLinkLabel(pet.sourceUrl)}
+              {petSourceLinkLabel(pet.sourceUrl, pet.externalId)}
             </a>
           </p>
         ) : null}

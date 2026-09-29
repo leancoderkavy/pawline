@@ -413,12 +413,12 @@ function PetDetail({ pet, onClose, saved, onSave, onMessage, onApply }) {
         {pet.id?.startsWith("pawline-") ? <a className="button button-outline" href={`/pets/${pet.id.slice(8)}`}>Shareable pet page</a> : null}
         <Button variant="outline" onClick={() => onSave(pet.id)}><Heart fill={saved ? "currentColor" : "none"} />{saved ? "Saved" : "Save"}</Button>
         {pet.messageAvailable ? <Button className="pet-message" onClick={() => { onMessage(pet); onClose(); }}><MessageCircle />Message {pet.shelter || "caretaker"}</Button> : null}
-        {pet.sourceUrl ? <a className="button" href={pet.sourceUrl} target="_blank" rel="noreferrer">{petSourceLinkLabel(pet.sourceUrl)} <ChevronRight /></a> : <span className="button button-disabled" aria-disabled="true">Contact the listed rescue</span>}
+        {pet.sourceUrl ? <a className="button" href={pet.sourceUrl} target="_blank" rel="noreferrer">{petSourceLinkLabel(pet.sourceUrl, pet.externalId)} <ChevronRight /></a> : <span className="button button-disabled" aria-disabled="true">Source link unavailable</span>}
         {directionsUrl ? <a className="button button-outline detail-directions" href={directionsUrl} target="_blank" rel="noreferrer"><Compass /> Directions</a> : null}
       </div>
       {hasSpecificBreed ? <h3>{pet.breed}</h3> : null}
       <p className="detail-location"><MapPin /><span><strong>{pet.locationAccuracy === "shelter" ? "Current shelter location" : "Location"}</strong>{pet.address || pet.city}{pet.address && pet.city ? <small>{pet.city}</small> : null}</span></p>
-      <p><ShieldCheck /> {pet.shelter} · verified source</p>
+      <p><ShieldCheck /> {pet.shelter} · provider-supplied listing</p>
       <p className="detail-hours"><CalendarClock /><span><strong>Shelter hours</strong>{suppliedHours(pet) || "Not supplied by this listing—confirm before visiting."}</span></p>
       {pet.locationAccuracy === "shelter" ? <p className="detail-note">The map marker shows the shelter caring for {pet.name}, not a private or foster address. Confirm current availability before visiting.</p> : null}
       {pet.description ? <p>{pet.description}</p> : null}
@@ -1017,7 +1017,7 @@ function MatchResult({ match, rank }) {
         {considerations.length ? <div className="consider"><h4><AlertTriangle /> Things to consider</h4><ul>{considerations.map(item => <li key={item}>{item}</li>)}</ul></div> : null}
         {questions.length ? <div><h4><Info /> Ask the shelter</h4><ul>{questions.map(question => <li key={question}>{question}</li>)}</ul></div> : null}
       </div>
-      {pet.sourceUrl ? <a className="button match-link" href={pet.sourceUrl} target="_blank" rel="noreferrer">View shelter listing <ExternalLink /></a> : <span className="match-link-unavailable">Shelter link unavailable</span>}
+      {pet.sourceUrl ? <a className="button match-link" href={pet.sourceUrl} target="_blank" rel="noreferrer">{petSourceLinkLabel(pet.sourceUrl, pet.externalId)} <ExternalLink /></a> : <span className="match-link-unavailable">Source link unavailable</span>}
     </div>
   </article>;
 }

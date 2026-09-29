@@ -1,3 +1,5 @@
+import { safePetSourceUrl } from "./petSourceLink.js";
+
 export const APPLICATION_STATUS = {
   draft: { label: "Draft", tone: "neutral" },
   awaiting_participation: { label: "Awaiting shelter participation", tone: "notice" },
@@ -74,7 +76,7 @@ export function createApplicationDraft(pet = {}, profile = {}) {
     shelter: normalize(pet.shelter) || "the listed organization",
     organizationId: pet.organization_id || pet.organizationId || null,
     organizationClaimed: Boolean(pet.organizationClaimed || pet.organization_claimed),
-    sourceUrl: safeHttpUrl(pet.sourceUrl || pet.source_url),
+    sourceUrl: safePetSourceUrl(pet.sourceUrl || pet.source_url),
     status: "draft",
     coreAnswers: {
       household: normalize(profile.householdName),

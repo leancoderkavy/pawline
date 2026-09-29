@@ -198,7 +198,7 @@ for (const width of [320, 390, 768, 1440]) {
     await expect(page.locator(".map-result-open")).toHaveCount(1);
     await page.locator(".map-result-open").click();
     await expect(page.locator(".dialog")).toBeVisible();
-    await expect(page.locator(".dialog").getByRole("link", { name: "Open source page" })).toHaveAttribute("href", "https://example.org/miso");
+    await expect(page.locator(".dialog").getByRole("link", { name: "Visit organization website" })).toHaveAttribute("href", "https://example.org/miso");
     await page.keyboard.press("Escape");
     await expect(page.locator(".dialog")).toHaveCount(0);
     await page.getByRole("button", { name: "Show discovery tools", exact: true }).click();
@@ -443,7 +443,7 @@ test("pet list provides evidence, official next steps and a private draft on mob
   await expect(page.locator(".journey-pet-card")).toHaveCount(1);
   await page.getByRole("button", { name: "See fit details" }).click();
   await expect(page.getByRole("heading", { name: "Your next steps" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Open source page" }).first()).toHaveAttribute("href", "https://example.org/miso");
+  await expect(page.getByRole("link", { name: "Visit organization website" }).first()).toHaveAttribute("href", "https://example.org/miso");
   await expect(page.locator(".journey-pet-page")).not.toContainText("Provider-verified");
   await page.getByRole("button", { name: "Prepare private draft" }).click();
   await expect(page.locator(".share-review")).toContainText("has not enabled Pawline applications");
