@@ -70,6 +70,6 @@ test("Google sign-in returns through a Clerk-backed callback", async () => {
   ]);
   assert.match(modal, /redirectCallbackUrl: "\/sso-callback"/);
   assert.match(page, /<ClerkProvider/);
-  assert.match(callback, /signIn\.finalize\(\)/);
-  assert.match(callback, /signUp\.finalize\(\)/);
+  assert.match(callback, /resource\.finalize\(\{ navigate \}\)/);
+  assert.match(callback, /window\.location\.replace\(decorateUrl\("\/"\)\)/);
 });

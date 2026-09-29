@@ -1,79 +1,77 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useClerk, useSignIn, useSignUp } from "@clerk/nextjs";
 import { capture } from "./analytics";
-
-function goHome() {
-  window.location.replace("/");
-}
 
 export default function SsoCallback() {
   const clerk = useClerk();
   const { signIn } = useSignIn();
   const { signUp } = useSignUp();
   const hasRun = useRef(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     let cancelled = false;
+    const navigate = async ({ session, decorateUrl }) => {
+      if (session?.currentTask) {
+        throw new Error("Your account needs another sign-in step. Return to Pawline and try again.");
+      }
+      if (!cancelled) window.location.replace(decorateUrl("/"));
+    };
+    const finalize = async (resource, eventName) => {
+      const { error } = await resource.finalize({ navigate });
+      if (error) throw error;
+      capture(eventName, { method: "sso" });
+    };
     (async () => {
       if (!clerk.loaded || hasRun.current || !signIn || !signUp) return;
       hasRun.current = true;
       try {
         if (signIn.status === "complete") {
-          const { error } = await signIn.finalize();
-          if (error) throw error;
-          capture("user_signed_in", { method: "sso" });
-          if (!cancelled) goHome();
+          await finalize(signIn, "user_signed_in");
           return;
         }
 
         if (signUp.isTransferable) {
-          await signIn.create({ transfer: true });
+          const { error } = await signIn.create({ transfer: true });
+          if (error) throw error;
           if (signIn.status === "complete") {
-            const { error } = await signIn.finalize();
-            if (error) throw error;
-            capture("user_signed_in", { method: "sso" });
-            if (!cancelled) goHome();
+            await finalize(signIn, "user_signed_in");
             return;
           }
         }
 
         if (signIn.isTransferable) {
-          await signUp.create({ transfer: true });
+          const { error } = await signUp.create({ transfer: true });
+          if (error) throw error;
           if (signUp.status === "complete") {
-            const { error } = await signUp.finalize();
-            if (error) throw error;
-            capture("user_signed_up", { method: "sso" });
-            if (!cancelled) goHome();
+            await finalize(signUp, "user_signed_up");
             return;
           }
         }
 
         if (signUp.status === "complete") {
-          const { error } = await signUp.finalize();
-          if (error) throw error;
-          capture("user_signed_up", { method: "sso" });
-          if (!cancelled) goHome();
+          await finalize(signUp, "user_signed_up");
           return;
         }
 
         const sessionId = signIn.existingSession?.sessionId || signUp.existingSession?.sessionId;
         if (sessionId) {
-          await clerk.setActive({ session: sessionId });
-          if (!cancelled) goHome();
+          await clerk.setActive({ session: sessionId, navigate });
           return;
         }
-      } catch {
-        // Fall through to the map so the visitor can retry from the account modal.
+        throw new Error("Google sign-in needs another step. Return to Pawline and try again.");
+      } catch (error) {
+        if (!cancelled) setErrorMessage(error?.errors?.[0]?.message || error?.message || "Google sign-in could not finish. Please try again.");
       }
-      if (!cancelled) goHome();
     })();
     return () => { cancelled = true; };
   }, [clerk, signIn, signUp]);
 
   return <main className="next-loading" role="status">
-    <p>Finishing sign-in…</p>
+    <p>{errorMessage || "Finishing sign-in…"}</p>
+    {errorMessage ? <a href="/">Back to Pawline</a> : null}
     <div id="clerk-captcha" />
   </main>;
 }
