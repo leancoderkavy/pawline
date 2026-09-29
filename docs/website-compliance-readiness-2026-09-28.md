@@ -2,7 +2,7 @@
 
 ## Scope and result
 
-Pawline's current repository serves pet adoption, shelter, messaging, application, and pet-record workflows. Pet health records alone are outside HIPAA's human-health PHI definition. Pawline still handles adopter personal information. This review does not establish full legal compliance or verify every production provider setting.
+Pawline's current repository serves pet adoption, shelter, messaging, application, and pet-record workflows. Pet health records alone are outside HIPAA's human-health PHI definition. Pawline still handles adopter personal information. Owner confirms intended audience is US users age 13 or older. This review does not establish full legal compliance or verify every production provider setting.
 
 ## Implemented in this release
 
@@ -10,6 +10,7 @@ Pawline's current repository serves pet adoption, shelter, messaging, applicatio
 - Database-backed request queue, durable submission rate limit, Clerk-authenticated operator access, and status tracking.
 - Reference-only operator email alert when Resend sender configuration is present. The email contains no requester details.
 - Operator procedure requiring identity verification before disclosure or change.
+- Signup self-attestation and Terms copy for the stated age 13 minimum. This is not independent age verification.
 
 ## Production acceptance checks
 
@@ -21,7 +22,7 @@ Pawline's current repository serves pet adoption, shelter, messaging, applicatio
 
 ## Legal scope still to determine
 
-Record where Pawline intentionally serves users, whether users under 13 can create accounts, business revenue and data-volume thresholds, and whether any personal information is sold or shared for cross-context advertising. Those facts determine which state, children's privacy, and international rules apply. Obtain legal review before claiming compliance with a specific regime.
+Owner states Pawline targets US users age 13 or older. Confirm whether other signup routes bypass the age prompt, and establish a process for any known under-13 accounts. Record business revenue and data-volume thresholds, and whether any personal information is sold or shared for cross-context advertising. Those facts determine which state privacy rules apply. Obtain legal review before claiming compliance with a specific regime.
 
 ## Sources
 
