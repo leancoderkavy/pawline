@@ -82,7 +82,7 @@ test("event feed includes later official pages and sorts by start time", async (
       total_pages: 2,
       events: [{
         id: page, title: page === 1 ? "Dog Adoption Event" : "Basics 101",
-        start_date: page === 1 ? "2027-10-02 17:00:00" : "2027-10-01 17:00:00",
+        start_date: new Date(Date.now() + (page === 1 ? 2 : 1) * 86_400_000).toISOString().slice(0, 19).replace("T", " "),
         url: `https://pasadenahumane.org/phs-event/${page}/`,
         categories: page === 1 ? [] : [{ slug: "training-classes" }],
       }],
@@ -94,6 +94,56 @@ test("event feed includes later official pages and sorts by start time", async (
     assert.deepEqual(requestedPages.sort(), [1, 2]);
     assert.equal(response.body.count, 2);
     assert.deepEqual(response.body.events.map(event => event.type), ["training", "adoption"]);
+  } finally {
+    global.fetch = previousFetch;
+  }
+});
+
+test("event feed limits every source to the selected upcoming range", async () => {
+  const previousFetch = global.fetch;
+  const requestedUrls = [];
+  const at = (days) => new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 19).replace("T", " ");
+  global.fetch = async (input) => {
+    const url = new URL(input);
+    requestedUrls.push(url);
+    if (url.hostname !== "pasadenahumane.org") return { ok: true, json: async () => [] };
+    return { ok: true, json: async () => ({ total_pages: 1, events: [-1, 1, 8, 20, 31].map((days, index) => ({
+      id: index + 1, title: `Dog Adoption Event ${index + 1}`,
+      start_date: at(days), utc_start_date: at(days),
+      url: `https://pasadenahumane.org/events/${index + 1}`,
+    })) }) };
+  };
+  try {
+    for (const [days, expected] of [[undefined, 2], [7, 1], [30, 3]]) {
+      const response = responseRecorder();
+      await handler({ method: "GET", query: days ? { days: String(days) } : {}, headers: {}, socket: {} }, response);
+      assert.equal(response.body.count, expected, `days=${days || "default"}`);
+      assert.equal(response.body.windowDays, days || 14);
+    }
+    const pasadena = requestedUrls.find(url => url.hostname === "pasadenahumane.org");
+    const king = requestedUrls.find(url => url.hostname === "data.kingcounty.gov");
+    assert.ok(pasadena.searchParams.has("end_date"));
+    assert.match(king.searchParams.get("$where"), /start_time </);
+  } finally {
+    global.fetch = previousFetch;
+  }
+});
+
+test("event feed sends at most 100 upcoming events to the map", async () => {
+  const previousFetch = global.fetch;
+  const soon = new Date(Date.now() + 86_400_000).toISOString().slice(0, 19).replace("T", " ");
+  global.fetch = async (input) => new URL(input).hostname === "pasadenahumane.org"
+    ? { ok: true, json: async () => ({ total_pages: 1, events: Array.from({ length: 105 }, (_, index) => ({
+      id: index + 1, title: `Dog Adoption Event ${index + 1}`, start_date: soon, utc_start_date: soon,
+      url: `https://pasadenahumane.org/events/${index + 1}`,
+    })) }) }
+    : { ok: true, json: async () => [] };
+  try {
+    const response = responseRecorder();
+    await handler({ method: "GET", query: { limit: "250" }, headers: {}, socket: {} }, response);
+    assert.equal(response.body.count, 100);
+    assert.equal(response.body.total, 105);
+    assert.equal(response.body.hasMore, true);
   } finally {
     global.fetch = previousFetch;
   }
@@ -132,7 +182,7 @@ test("event feed still checks the official provider when durable limits are unav
     json: async () => ({ events: [{
       id: 45,
       title: "Dog Adoption Event",
-      start_date: "2026-09-01 17:00:00",
+      start_date: new Date(Date.now() + 86_400_000).toISOString().slice(0, 19).replace("T", " "),
       url: "https://pasadenahumane.org/events/45",
       description: "Meet adoptable dogs at 3347 E. Foothill Blvd, Pasadena, CA 91107.",
     }] }),

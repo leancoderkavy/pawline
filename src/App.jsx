@@ -764,8 +764,12 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
   </>;
 }
 
-function MapFilters({ petType, distance, showEvents, densityMode, hoursFilter, onPetTypeChange, onDistanceChange, onShowEventsChange, onDensityChange, onHoursFilterChange, onReset }) {
-  const activeFilterCount = [distance !== "150", hoursFilter !== "all", !showEvents, densityMode].filter(Boolean).length;
+function EventRangeSelect({ days, onChange }) {
+  return <label className="map-select event-range"><CalendarDays /><span>Upcoming events</span><select aria-label="Upcoming event range" value={days} onChange={event => onChange(Number(event.target.value))}><option value="7">Next 7 days</option><option value="14">Next 14 days</option><option value="30">Next 30 days</option></select></label>;
+}
+
+function MapFilters({ petType, distance, showEvents, densityMode, hoursFilter, eventWindowDays, onPetTypeChange, onDistanceChange, onShowEventsChange, onDensityChange, onHoursFilterChange, onEventWindowChange, onReset }) {
+  const activeFilterCount = [distance !== "150", hoursFilter !== "all", !showEvents, densityMode, eventWindowDays !== 14].filter(Boolean).length;
   const activeFilterLabel = `${activeFilterCount} active ${activeFilterCount === 1 ? "filter" : "filters"}`;
 
   return <div className="map-toolbar" role="group" aria-label="Map filters">
@@ -778,6 +782,7 @@ function MapFilters({ petType, distance, showEvents, densityMode, hoursFilter, o
         <label className="map-select"><PawPrint /><span>Species</span><select aria-label="All pet species" value={petType} onChange={event => onPetTypeChange(event.target.value)}><option>All</option>{PET_SPECIES.map(item => <option key={item}>{item}</option>)}</select></label>
         <label className="map-select"><LocateFixed /><span>Search radius</span><select value={distance} onChange={event => onDistanceChange(event.target.value)} aria-label="Map search radius"><option value="25">25 mi</option><option value="50">50 mi</option><option value="100">100 mi</option><option value="150">150 mi</option></select></label>
         <label className="map-select"><CalendarClock /><span>Shelter hours</span><select value={hoursFilter} onChange={event => onHoursFilterChange(event.target.value)} aria-label="Filter by supplied shelter hours"><option value="all">All listings</option><option value="known">Hours supplied</option></select></label>
+        <EventRangeSelect days={eventWindowDays} onChange={onEventWindowChange} />
         <button type="button" className={`map-toggle ${showEvents ? "is-active" : ""}`} onClick={() => onShowEventsChange(value => !value)} aria-pressed={showEvents}><CalendarDays /> Show events</button>
         <button type="button" className={`map-toggle ${densityMode ? "is-active" : ""}`} onClick={() => onDensityChange(value => !value)} aria-pressed={densityMode}><Layers3 /> Show pet density</button>
         {activeFilterCount ? <button type="button" className="map-reset" onClick={onReset} aria-label="Reset all filters"><RotateCcw /> Reset filters</button> : null}
@@ -970,13 +975,14 @@ function normalizeEvent(event) {
   };
 }
 
-function EventPanel({ events, state }) {
+function EventPanel({ events, state, eventWindowDays, onEventWindowChange }) {
+  const range = <EventRangeSelect days={eventWindowDays} onChange={onEventWindowChange} />;
   if (!events.length) {
     const unavailable = state.status === "error";
     const loading = state.status === "loading";
-    return <article className="event-panel event-empty" role={unavailable ? "status" : undefined}><div className="event-label"><CalendarDays /> {unavailable ? "Events temporarily unavailable" : "Verified events"}</div><h3>{unavailable ? "We could not load events" : loading ? "Checking for verified events" : "No verified events yet"}</h3><p>{unavailable ? state.message || "Try again shortly." : loading ? "Checking official and reviewed event sources." : "Partner events will appear here after their organizer and source are reviewed."}</p></article>;
+    return <article className="event-panel event-empty" role={unavailable ? "status" : undefined}><div className="event-label"><CalendarDays /> {unavailable ? "Events temporarily unavailable" : "Verified events"}</div>{range}<h3>{unavailable ? "We could not load events" : loading ? "Checking for verified events" : "No upcoming verified events"}</h3><p>{unavailable ? state.message || "Try again shortly." : loading ? "Checking official and reviewed event sources." : `No verified events in the next ${eventWindowDays} days. Try a longer range.`}</p></article>;
   }
-  return <article className="event-panel"><div className="event-label"><CalendarDays /> Verified pet events</div><div className="event-list">{events.slice(0, 5).map(event => {
+  return <article className="event-panel"><div className="event-label"><CalendarDays /> Verified pet events · next {eventWindowDays} days</div>{range}{state.message ? <p role="status">{state.message}</p> : null}<div className="event-list">{events.slice(0, 5).map(event => {
     const item = normalizeEvent(event);
     return <div className="event-content" key={item.id}><div className="event-date"><small>{item.month}</small><strong>{item.day}</strong></div><div><h3>{item.title}</h3><p>{item.type || "Pet event"} · {item.time}</p><p><MapPin /> {item.place}</p>{item.source_url ? <a href={item.source_url} target="_blank" rel="noreferrer">Official event details <ChevronRight /></a> : <span className="event-review">Confirm details with the organizer</span>}</div></div>;
   })}</div></article>;
@@ -1136,6 +1142,7 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
   const [remotePets, setRemotePets] = useState([]);
   const [remoteEvents, setRemoteEvents] = useState([]);
   const [eventState, setEventState] = useState({ status: "loading", message: "" });
+  const [eventWindowDays, setEventWindowDays] = useState(14);
   const [remoteDiscoveries, setRemoteDiscoveries] = useState([]);
   const [nearbyShelters, setNearbyShelters] = useState([]);
   const [shelterState, setShelterState] = useState({ status: "loading", message: "" });
@@ -1259,18 +1266,21 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
   useEffect(() => setLivePage(1), [species, coordinates?.latitude, coordinates?.longitude, mapDistance]);
   useEffect(() => {
     const controller = new AbortController();
+    setRemoteEvents([]);
+    setEventState({ status: "loading", message: "" });
     const loadEvents = async () => {
-      const events = [];
-      for (let page = 1; page <= 10; page++) {
-        const response = await fetch(page === 1 ? "/api/events" : `/api/events?limit=250&page=${page}`, { signal: controller.signal });
-        const body = await readJson(response, "Verified events are temporarily unavailable.");
-        if (!response.ok || body.mode === "error") throw new Error(body.message || "Verified events are temporarily unavailable.");
-        events.push(...(body.events || []));
-        if (!body.hasMore) break;
-      }
+      const response = await fetch(`/api/events?days=${eventWindowDays}&limit=100`, { signal: controller.signal });
+      const body = await readJson(response, "Verified events are temporarily unavailable.");
+      if (!response.ok || body.mode === "error") throw new Error(body.message || "Verified events are temporarily unavailable.");
+      const now = Date.now();
+      const through = now + eventWindowDays * 86_400_000;
+      const events = (body.events || []).filter(event => {
+        const start = Date.parse(event.starts_at);
+        return Number.isFinite(start) && start >= now && start < through;
+      });
       if (!controller.signal.aborted) {
         setRemoteEvents(events);
-        setEventState({ status: "ready", message: "" });
+        setEventState({ status: "ready", message: body.hasMore ? "Showing first 100 upcoming events. Choose a shorter range to narrow results." : "" });
       }
     };
     loadEvents().catch(error => {
@@ -1280,7 +1290,7 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
       }
     });
     return () => controller.abort();
-  }, []);
+  }, [eventWindowDays]);
   useEffect(() => {
     fetch("/api/discoveries")
       .then(response => readJson(response, "Web discovery leads are unavailable."))
@@ -1465,6 +1475,7 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
     setMapPetType("All");
     setMapDistance("150");
     setShowMapEvents(true);
+    setEventWindowDays(14);
     setDensityMode(false);
     setHoursFilter("all");
   };
@@ -1543,7 +1554,7 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
             <div className="explore-heading"><div><h1>{showSavedOnly ? "Saved pets" : "Pets near you"}</h1><span className={`live-state feed-${feed.mode}`}><i />{feed.mode === "live" ? "Current pet listings" : feed.mode === "loading" ? "Checking listings" : "Listings unavailable"}</span></div><button type="button" className="mobile-view-map" onClick={() => setRailCollapsed(true)}><Compass /> View map</button></div>
             <p>{feed.mode === "live" ? `${petCountLabel(showSavedOnly ? mapView.pets.filter(pet => saved.includes(pet.id)).length : mapView.pets.length, mapPetType)}${showSavedOnly ? " saved" : ""} within ${mapDistance} miles.` : feed.message || "Current shelter listings are unavailable. Pawline does not show made-up pets."}</p>
             <div className="feed-refresh"><span role="status">{feedRefresh.loading ? "Checking for updates…" : feedRefresh.error || (feedRefresh.updatedAt ? `Checked ${feedRefresh.updatedAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} · checks every minute` : "Waiting for connection")}</span><button type="button" disabled={feedRefresh.loading} onClick={() => refreshFeedRef.current?.()} aria-label="Refresh listings"><RotateCcw size={16} /> Refresh</button></div>
-            <MapFilters petType={mapPetType} distance={mapDistance} showEvents={showMapEvents} densityMode={densityMode} hoursFilter={hoursFilter} onPetTypeChange={setMatchSpecies} onDistanceChange={setMapDistance} onShowEventsChange={setShowMapEvents} onDensityChange={setDensityMode} onHoursFilterChange={setHoursFilter} onReset={resetMapFilters} />
+            <MapFilters petType={mapPetType} distance={mapDistance} showEvents={showMapEvents} densityMode={densityMode} hoursFilter={hoursFilter} eventWindowDays={eventWindowDays} onPetTypeChange={setMatchSpecies} onDistanceChange={setMapDistance} onShowEventsChange={setShowMapEvents} onDensityChange={setDensityMode} onHoursFilterChange={setHoursFilter} onEventWindowChange={setEventWindowDays} onReset={resetMapFilters} />
             <button className="discovery-search-link" onClick={() => openPanel("network")}><Search size={16} />Search all pets & lost pets<ChevronRight size={16} /></button>
             {mapSearchMoved ? <p className="map-area-status" role="status">Showing results around the map center.</p> : null}
             <MapResults view={mapView} saved={saved} showSavedOnly={showSavedOnly} onToggleSavedOnly={toggleSavedOnly} onSave={toggleSave} onOpenPet={openPetDetail} onOpenEvent={setSelectedEvent} onOpenDiscovery={setSelectedDiscovery} />
@@ -1592,7 +1603,7 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
           {activePanel === "claim" ? <Suspense fallback={<p className="panel-loading" role="status">Opening organization claim…</p>}><ClaimOrganizationClient embedded /></Suspense> : null}
           {activePanel === "moderation" ? <Suspense fallback={<p className="panel-loading" role="status">Opening review moderation…</p>}><ReviewModerationClient embedded /></Suspense> : null}
           {activePanel === "match" ? <Matchmaker pets={mapView.pets} feed={feed} location={location} onLocationChange={setLocation} onSpeciesChange={setMatchSpecies} onFindLocation={findMatch} locationState={locationState} /> : null}
-          {activePanel === "events" ? <EventPanel events={remoteEvents} state={eventState} /> : null}
+          {activePanel === "events" ? <EventPanel events={remoteEvents} state={eventState} eventWindowDays={eventWindowDays} onEventWindowChange={setEventWindowDays} /> : null}
           {activePanel === "messages" ? clerkConfigured
             ? <Suspense fallback={<div className="community-auth-state" role="status"><span><MessageCircle /></span><h2>Opening Messages…</h2></div>}><DirectMessages initialListing={messagePet} onInitialListingHandled={() => setMessagePet(null)} onBrowse={() => openPanel("explore")} /></Suspense>
             : <div className="community-auth-state"><span><MessageCircle /></span><h2>Messaging is temporarily unavailable</h2><p>You can still explore pets and contact the shelter through its official listing. Please try Messages again later.</p><div className="auth-safety"><ShieldCheck /><span><strong>Your conversations stay private</strong>Sign-in must be available before messages or video calls can open.</span></div></div>

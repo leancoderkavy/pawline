@@ -6,6 +6,8 @@ const PASADENA_EVENTS =
 const KING_COUNTY_EVENTS = "https://data.kingcounty.gov/resource/grxi-zqg2.json";
 const KING_COUNTY_CALENDAR = "https://kingcounty.gov/en/dept/executive-services/animals-pets-pests/regional-animal-services/calendar";
 const EVENT_FEED_WINDOW_MS = 60 * 60 * 1000;
+const EVENT_WINDOW_DAYS = new Set([7, 14, 30]);
+const MAX_VISIBLE_EVENTS = 100;
 const PASADENA_MAX_PAGES = 10;
 const PASADENA_TRAINING_ADDRESS = "361 S. Raymond Avenue, Pasadena, CA 91105";
 const ADDRESS_PATTERN =
@@ -102,10 +104,11 @@ export function normalizePasadenaEvent(event) {
   };
 }
 
-async function fetchPasadenaEvents() {
+async function fetchPasadenaEvents(through) {
   const url = new URL(PASADENA_EVENTS);
   url.searchParams.set("per_page", "50");
   url.searchParams.set("start_date", "now");
+  url.searchParams.set("end_date", new Date(through.getTime() + 86_400_000).toISOString().slice(0, 19).replace("T", " "));
   const fetchPage = async (page) => {
     const pageUrl = new URL(url);
     pageUrl.searchParams.set("page", String(page));
@@ -160,16 +163,16 @@ export function normalizeKingCountyEvent(row) {
   };
 }
 
-export async function fetchKingCountyEvents() {
+export async function fetchKingCountyEvents(through = new Date(Date.now() + 14 * 86_400_000)) {
   const url = new URL(KING_COUNTY_EVENTS);
   url.searchParams.set("pets", "true");
-  url.searchParams.set("$where", `start_time >= '${new Date(Date.now() - 86400000).toISOString().slice(0, 19)}'`);
+  url.searchParams.set("$where", `start_time >= '${new Date(Date.now() - 86_400_000).toISOString().slice(0, 19)}' AND start_time < '${new Date(through.getTime() + 86_400_000).toISOString().slice(0, 19)}'`);
   url.searchParams.set("$limit", "500");
   const upstream = await fetch(url, { headers: { Accept: "application/json", "User-Agent": "Pawline/1.0" }, signal: AbortSignal.timeout(10000) });
   if (!upstream.ok) throw new Error(`King County returned ${upstream.status}`);
   const payload = await upstream.json();
   if (!Array.isArray(payload) || payload.length >= 500) throw new Error("King County returned an incomplete event snapshot");
-  return payload.map(normalizeKingCountyEvent).filter(event => event && new Date(event.starts_at).getTime() >= Date.now());
+  return payload.map(normalizeKingCountyEvent).filter(Boolean);
 }
 
 async function geocodeEvent(event) {
@@ -194,13 +197,13 @@ async function geocodeEvent(event) {
   }
 }
 
-async function fetchDatabaseEvents() {
+async function fetchDatabaseEvents(through) {
   const database = getDatabase();
   if (!database) return [];
   const rows = await database`
     SELECT id, external_id, title, venue, city, country, starts_at, ends_at, source_url
     FROM adoption_events
-    WHERE status = 'published' AND starts_at >= now()
+    WHERE status = 'published' AND starts_at >= now() AND starts_at < ${through.toISOString()}
     ORDER BY starts_at ASC
     LIMIT 250
   `;
@@ -226,11 +229,18 @@ export default async function handler(request, response) {
     return response.status(429).json({ mode: "error", events: [], message: "Event feed request limit reached. Try again later." });
   }
 
-  const settled = await Promise.allSettled([fetchDatabaseEvents(), fetchPasadenaEvents(), fetchKingCountyEvents()]);
+  const requestedDays = Number(request.query?.days);
+  const windowDays = EVENT_WINDOW_DAYS.has(requestedDays) ? requestedDays : 14;
+  const now = Date.now();
+  const through = new Date(now + windowDays * 86_400_000);
+  const settled = await Promise.allSettled([fetchDatabaseEvents(through), fetchPasadenaEvents(through), fetchKingCountyEvents(through)]);
   const databaseEvents = settled[0].status === "fulfilled" ? settled[0].value : [];
   const liveEvents = settled[1].status === "fulfilled" ? settled[1].value : [];
   const kingEvents = settled[2].status === "fulfilled" ? settled[2].value : [];
-  const combined = [...liveEvents, ...kingEvents, ...databaseEvents].filter(
+  const combined = [...liveEvents, ...kingEvents, ...databaseEvents].filter(event => {
+    const start = Date.parse(event.starts_at);
+    return Number.isFinite(start) && start >= now && start < through.getTime();
+  }).filter(
     (event, index, all) =>
       all.findIndex((item) =>
         item.source_url && event.source_url
@@ -239,7 +249,7 @@ export default async function handler(request, response) {
       ) === index,
   ).sort((left, right) => new Date(left.starts_at) - new Date(right.starts_at));
   const page = Math.min(Math.max(Math.trunc(Number(request.query?.page)) || 1, 1), 100);
-  const limit = Math.min(Math.max(Math.trunc(Number(request.query?.limit)) || 250, 1), 250);
+  const limit = Math.min(Math.max(Math.trunc(Number(request.query?.limit)) || MAX_VISIBLE_EVENTS, 1), MAX_VISIBLE_EVENTS);
   const selected = combined.slice((page - 1) * limit, page * limit);
   const geocodedAddresses = new Map();
   const events = await Promise.all(selected.map(event => {
@@ -253,6 +263,8 @@ export default async function handler(request, response) {
   return response.status(200).json({
     mode: !providersAvailable ? "error" : events.length ? "live" : "empty",
     events,
+    windowDays,
+    through: through.toISOString(),
     count: events.length,
     total: combined.length,
     page,
@@ -261,6 +273,6 @@ export default async function handler(request, response) {
     provider: [liveEvents.length && "Pasadena Humane", kingEvents.length && "King County", databaseEvents.length && "Pawline"].filter(Boolean).join(", ") || null,
     message: !providersAvailable
       ? "Verified pet events are temporarily unavailable."
-      : events.length ? undefined : "No verified upcoming pet events are available.",
+      : events.length ? undefined : `No verified pet events are available in the next ${windowDays} days.`,
   });
 }

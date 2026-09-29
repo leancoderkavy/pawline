@@ -57,14 +57,14 @@ const pets = [
   { id: "qa-cat", name: "QA Miso", species: "Cat", breed: "Domestic Shorthair", latitude: 34.1478, longitude: -118.1445, hours: "10am–4pm", city: "Pasadena", shelter: "QA Shelter", image: "/pet-photo-placeholder.svg", sourceUrl: "https://example.org/miso", description: "Test listing", age: "Adult", size: "Small" },
   { id: "qa-dog", name: "QA Willow", species: "Dog", breed: "Mixed", latitude: 34.15, longitude: -118.15, city: "Pasadena", shelter: "QA Shelter", image: "/pet-photo-placeholder.svg", sourceUrl: "https://example.org/willow", description: "Test listing", age: "Adult", size: "Medium" },
 ];
-async function fixture(page, { map = false } = {}) {
+async function fixture(page, { map = false, events = [], eventQueries = [] } = {}) {
   await page.route("**/api/**", async route => {
     const url = new URL(route.request().url());
     const path = url.pathname;
     let body = {};
     if (path === "/api/pets") body = { mode: "live", provider: "QA fixture", pets: pets.filter(pet => !url.searchParams.get("species") || pet.species === url.searchParams.get("species")) };
     else if (path === "/api/health") body = { mapboxConfigured: map };
-    else if (path === "/api/events") body = { mode: "live", events: [] };
+    else if (path === "/api/events") { eventQueries.push(url.searchParams.get("days")); body = { mode: "live", events }; }
     else if (path === "/api/discoveries") body = { discoveries: [] };
     else if (path === "/api/nearby-shelters") body = { shelters: [] };
     else if (path === "/api/geocode") body = { results: [{ name: "Pasadena, California, USA", latitude: 34.1478, longitude: -118.1445 }] };
@@ -72,6 +72,36 @@ async function fixture(page, { map = false } = {}) {
     return route.fulfill({ json: body });
   });
 }
+
+test("event range shows only upcoming events on the map and in results", async ({ page }) => {
+  const eventQueries = [];
+  const event = (id, days) => ({
+    id, title: `${id} event`, type: "adoption",
+    starts_at: new Date(Date.now() + days * 86_400_000).toISOString(),
+    latitude: 34.1478, longitude: -118.1445, venue: "QA Venue", city: "Pasadena", country: "United States", source: "QA official calendar",
+    source_url: `https://example.org/events/${id}`,
+  });
+  await fixture(page, { events: [event("Past", -1), event("Soon", 2), event("Later", 20), event("Distant", 45)], eventQueries });
+  await open(page);
+  await expect(page.getByRole("button", { name: /Open Soon event/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Open Past event/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Open Later event/ })).toHaveCount(0);
+  await page.locator(".more-filters summary").click();
+  const range = page.getByRole("combobox", { name: "Upcoming event range" });
+  await expect(range).toHaveValue("14");
+  await range.selectOption("30");
+  await expect(page.getByRole("button", { name: /Open Later event/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Open Distant event/ })).toHaveCount(0);
+  expect(eventQueries).toContain("14");
+  expect(eventQueries).toContain("30");
+  await page.goto("/#events");
+  const panel = page.locator(".event-panel");
+  await expect(panel).toContainText("Soon event");
+  await expect(panel).toContainText("Later event");
+  await panel.getByRole("combobox", { name: "Upcoming event range" }).selectOption("7");
+  await expect(panel).toContainText("Soon event");
+  await expect(panel).not.toContainText("Later event");
+});
 async function open(page) {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Find adoptable dogs and cats near you" })).toBeVisible();
@@ -285,7 +315,7 @@ test("all guest navigation destinations, submit gate, drawer and legal links", a
 test("radius changes results, event and lead details, shelter links and visit checklist", async ({ page }) => {
   await fixture(page);
   await page.route("**/api/pets?*", route => route.fulfill({ json: { mode: "live", pets: [...pets, { ...pets[1], id: "far", name: "QA Faraway", latitude: 35 }] } }));
-  await page.route("**/api/events", route => route.fulfill({ json: { mode: "live", events: [{ id: "event", title: "QA adoption day", starts_at: "2099-10-01T10:00:00Z", latitude: 34.15, longitude: -118.15, source_url: "https://example.org/event" }] } }));
+  await page.route("**/api/events?*", route => route.fulfill({ json: { mode: "live", events: [{ id: "event", title: "QA adoption day", starts_at: new Date(Date.now() + 2 * 86_400_000).toISOString(), latitude: 34.15, longitude: -118.15, venue: "QA Venue", source_url: "https://example.org/event" }] } }));
   await page.route("**/api/discoveries", route => route.fulfill({ json: { discoveries: [{ id: "lead", title: "QA web lead", latitude: 34.15, longitude: -118.15, source_url: "https://example.org/lead", source_domain: "example.org" }] } }));
   await page.route("**/api/nearby-shelters?*", route => route.fulfill({ json: { shelters: [{ id: "shelter", name: "QA shelter location", latitude: 34.15, longitude: -118.15, website: "https://example.org/shelter" }] } }));
   await open(page);
