@@ -88,6 +88,24 @@ test("privacy and terms are canonical, crawlable, and linked site-wide", async (
   assert.match(terms, /Verify information with the source/);
 });
 
+test("pet events have a crawlable, sourced landing page without misleading event schema", async () => {
+  const [page, layout, sitemap, llms, full] = await Promise.all([
+    read("app/events/page.jsx"), read("app/layout.jsx"), read("public/sitemap.xml"),
+    read("public/llms.txt"), read("public/llms-full.txt"),
+  ]);
+  assert.match(page, /searchMetadata\(/);
+  assert.match(page, /"\/events"/);
+  assert.match(page, /<SearchPage/);
+  assert.match(page, /Pasadena Humane/);
+  assert.match(page, /Regional Animal Services of King County/);
+  assert.match(page, /href="\/#events"/);
+  assert.doesNotMatch(page, /"@type": "Event"/);
+  assert.match(layout, /href="\/events"/);
+  assert.match(sitemap, /https:\/\/www\.pawlineadopt\.com\/events/);
+  assert.match(llms, /training, clinic, and community pet events/);
+  assert.match(full, /training, clinic, and community pet events/);
+});
+
 test("the apex host redirects to the canonical www host", async () => {
   const proxy = await read("proxy.js");
   assert.match(proxy, /requestedHost === "pawlineadopt\.com"/);

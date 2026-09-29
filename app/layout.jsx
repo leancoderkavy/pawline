@@ -54,6 +54,7 @@ export default function RootLayout({ children }) {
       <div className="legal-footer" role="contentinfo" aria-label="Pawline legal information">
         <span>© {new Date().getFullYear()} Pawline</span>
         <a href="/guides">Adoption guides</a>
+        <a href="/events">Pet events</a>
         <a href="/how-pawline-works">Our sources</a>
         <a href="/privacy">Privacy</a>
         <a href="/terms">Terms</a>
