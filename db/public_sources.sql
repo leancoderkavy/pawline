@@ -129,9 +129,10 @@ INSERT INTO sources (
       "ends_at": "utc_end_date",
       "source_url": "url"
     },
-    "constants": {
-      "country": "United States",
-      "organizer": "Pasadena Humane"
+      "constants": {
+        "country": "United States",
+        "city": "Pasadena",
+        "organizer": "Pasadena Humane"
     },
     "strip_html_fields": ["description"],
     "required_terms": ["adopt"],

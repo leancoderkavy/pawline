@@ -113,7 +113,10 @@ def configured_value(row: dict[str, Any], field: str, config: dict[str, Any]) ->
     constants = config.get("constants") or {}
     if field in constants:
         return constants[field]
-    value = nested(row, (config.get("mapping") or {}).get(field))
+    mapping = (config.get("mapping") or {}).get(field)
+    if not mapping:
+        return None
+    value = nested(row, mapping)
     value_map = (config.get("value_maps") or {}).get(field) or {}
     return value_map.get(str(value), value)
 

@@ -6,12 +6,28 @@ from scripts.ingest import (
     clean_text,
     nested,
     normalize,
+    normalize_event,
+    configured_value,
     snapshot_records,
     is_feed_source,
 )
 
 
 class IngestNormalizationTests(unittest.TestCase):
+    def test_unmapped_fields_do_not_store_entire_source_record(self):
+        row = {"id": 42, "title": "Dog adoption"}
+        config = {"mapping": {"external_id": "id", "title": "title"}}
+        self.assertIsNone(configured_value(row, "city", config))
+
+    def test_event_city_uses_reviewed_source_constant(self):
+        source = {"id": "source-id", "parser_config": {
+            "mapping": {"external_id": "id", "title": "title", "starts_at": "start_date"},
+            "constants": {"city": "Pasadena", "country": "United States"},
+        }}
+        event = normalize_event({"id": 42, "title": "Dog adoption", "start_date": "2027-10-01T17:00:00Z"}, source)
+        self.assertEqual(event["city"], "Pasadena")
+        self.assertNotIn("{'id'", str(event["city"]))
+
     def test_provider_managed_sources_are_not_generic_json_feeds(self):
         self.assertFalse(is_feed_source({"parser_config": {"ingestion": "provider"}}))
         self.assertTrue(is_feed_source({"parser_config": {"mapping": {"name": "petname"}}}))
