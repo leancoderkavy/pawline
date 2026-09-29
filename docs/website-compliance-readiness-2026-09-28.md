@@ -15,11 +15,21 @@ Pawline's current repository serves pet adoption, shelter, messaging, applicatio
 
 ## Production acceptance checks
 
-1. Confirm Vercel production has `DATABASE_URL`, Clerk credentials, and a verified `PAWLINE_PRIVACY_OPERATOR_EMAIL` or `PAWLINE_MODERATION_EMAIL`. Confirm Resend sender settings if email alerts are expected.
-2. Apply `privacy_requests` schema to the exact production database. Submit a synthetic request through the live site and verify queue receipt, operator access, and rejection for another account.
-3. Assign a person to monitor the queue, answer requests through a private verified channel, and record completion. The form does not automatically fulfill a request.
-4. Manually test important signed-in paths with keyboard, screen reader, and mobile zoom. Automated checks cover public pages and the new form, but cannot establish site-wide accessibility.
-5. Review production provider settings, access logs, backups, breach response, retention, and account deletion procedure. Confirm policy statements match those settings.
+### Verified September 28, 2026
+
+- Main commit `1453f373e7eba075b0cfd9ee1168387a3a558145` passed Pawline App CI and CodeQL and received a successful Vercel Production deployment. Canonical Privacy, Terms, and privacy-request pages returned HTTP 200 with current copy; anonymous `GET /api/privacy-requests` returned 401.
+- The production database has `privacy_requests`. A synthetic public submission was stored and removed. In a later signed-in check, the authorized operator queue displayed a separate synthetic database row; that exact row was removed afterward. The queue was empty before the check. These checks establish working intake and operator read access, not actual request fulfillment.
+- Live axe checks found no WCAG A/AA violations on 10 public routes at 360px and 1280px. At a 320px viewport, the privacy form had no horizontal overflow, labeled fields, and visible keyboard focus through its controls.
+- Vercel project settings showed Production `DATABASE_URL`, Clerk keys, `PAWLINE_MODERATION_EMAIL`, `PAWLINE_FROM_EMAIL`, and Resend key names. No dedicated `PAWLINE_PRIVACY_OPERATOR_EMAIL` was listed, so the documented moderation fallback is in use. Secret values were not inspected. The live operator check supports this configuration.
+- Neon Pawline project uses its `main` branch in AWS US East 2. Its overview showed one day of history retention and no IP restrictions. This is configuration evidence, not a completed backup or access-risk review.
+
+### Required before a compliance approval
+
+1. Name a person who monitors the privacy queue, specify a review cadence and private response channel, and retain a record of completed requests. The form and status selector do not fulfill requests automatically.
+2. Review a real request handling procedure, including identity verification, account data inventory, deletion exceptions, provider data, and response deadlines. Test a non-operator signed-in account for a 403 response; anonymous denial and operator access are verified.
+3. Review Vercel, Neon, Clerk, Resend, Daily, Mapbox, and any enabled AI provider settings and contracts for access, retention, backup/restore, incident response, and deletion. In particular, decide whether Neon's one-day history window meets the recovery objective and document a restore test. Do not treat the presence of environment variables as proof of provider safeguards.
+4. Complete manual signed-in keyboard, screen-reader, and zoom checks for messaging, applications, and shelter workflows. Automated scans and the public privacy-form keyboard check do not establish site-wide accessibility.
+5. Obtain approval from the accountable owner and qualified privacy/legal reviewer after they check this evidence against actual business practices and applicable law. No technical test can grant that approval.
 
 ## Legal scope still to determine
 

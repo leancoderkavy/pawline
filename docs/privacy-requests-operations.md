@@ -7,7 +7,7 @@ Pawline accepts access, correction, deletion, and other privacy requests at `/pr
 1. Set `PAWLINE_PRIVACY_OPERATOR_EMAIL` to a verified Clerk account controlled by the privacy operator. `PAWLINE_MODERATION_EMAIL` is a fallback. The endpoint fails closed if neither is set.
 2. Run `npm run db:migrate` against the intended database. Verify the `privacy_requests` table exists.
 3. Deploy the matching application code and submit a synthetic request through `/privacy/request`. Confirm the reference ID appears in the database.
-4. Sign in as the operator at `/pawline-moderation/privacy`. Confirm another account receives 403 from `GET /api/privacy-requests`. Monitor the queue regularly. Resend sends a reference-only alert when configured; a failed alert leaves the stored request available in the queue.
+4. Sign in as the operator at `/pawline-moderation/privacy`. Confirm another account receives 403 from `GET /api/privacy-requests`. Assign a named person and review cadence for the queue; do not rely on email alone. The queue puts unresolved requests before completed or denied requests, oldest unresolved first. Resend sends a reference-only alert when configured; a failed alert leaves the stored request available in the queue.
 
 ## Handling a request
 
