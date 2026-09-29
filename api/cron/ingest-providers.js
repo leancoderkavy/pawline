@@ -13,6 +13,10 @@ import { importImageUrl } from "../_import-image.js";
 const LA_SOURCE_ID = "b8f3c2a1-4d5e-6f7a-8b9c-0d1e2f3a4b5c";
 const RESCUEGROUPS_SOURCE_ID = "c9d4e3b2-5f6a-7b8c-9d0e-1f2a3b4c5d6e";
 const RESCUEGROUPS_MAX_PAGES = 20; // Bound pagination to avoid timeout
+// Nationwide Dog/Cat searches exceed the bounded snapshot. Other pet types
+// can complete independently, so keep those listings current for the map.
+export const RESCUEGROUPS_SYNC_SPECIES = PET_SPECIES.filter(species => species !== "Dog" && species !== "Cat");
+const RESCUEGROUPS_OFF_SCOPE_SPECIES = ["Dog", "Cat"];
 
 function createFingerprint(sourceId, externalId) {
   return createHash("sha256")
@@ -107,6 +111,15 @@ export async function ingestProvider(database, sourceId, pets, providerName) {
   return { upserted: pets.length, marked_unavailable: missingPets.length, skipped_without_image };
 }
 
+export async function retireProviderSpecies(database, sourceId, species) {
+  const retired = await database`
+    UPDATE pets SET status='unavailable', missed_syncs=GREATEST(missed_syncs, 2), updated_at=now()
+    WHERE source_id=${sourceId} AND species = ANY(${species}) AND status='available'
+    RETURNING id
+  `;
+  return retired.length;
+}
+
 export async function fetchAllLosAngelesPets(fetchPage = fetchLosAngelesPets) {
   const allPets = [];
   let page = 1;
@@ -143,7 +156,7 @@ export async function fetchAllRescueGroupsPets(apiKey, fetchPage = fetchSpecies)
   }
 
   const allPets = [];
-  for (const species of PET_SPECIES) {
+  for (const species of RESCUEGROUPS_SYNC_SPECIES) {
     let page = 1;
     let hasMore = true;
     while (hasMore && page <= RESCUEGROUPS_MAX_PAGES) {
@@ -258,6 +271,9 @@ export default async function handler(request, response) {
       "RescueGroups"
     );
     if (!results.rescueGroups.upserted) throw new Error("RescueGroups snapshot has no usable pet photos");
+    results.rescueGroups.retired_off_scope = await retireProviderSpecies(
+      database, RESCUEGROUPS_SOURCE_ID, RESCUEGROUPS_OFF_SCOPE_SPECIES
+    );
     await recordProviderRun(database, RESCUEGROUPS_SOURCE_ID, { fetched: rescueGroupsPets.length, upserted: results.rescueGroups.upserted });
   } catch (error) {
     console.error("RescueGroups ingestion failed:", error);
