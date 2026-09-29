@@ -41,7 +41,15 @@ export default async function handler(request, response) {
         if (!updated[0]) return response.status(404).json({ error: "Request not found." });
         return response.status(200).json({ request: updated[0] });
       }
-      const rows = await database`SELECT id, request_type, contact_email, details, status, created_at FROM privacy_requests ORDER BY created_at ASC LIMIT 100`;
+      const rows = await database`
+        SELECT id, request_type, contact_email, details, status, created_at
+        FROM privacy_requests
+        ORDER BY
+          CASE WHEN status IN ('received', 'verifying', 'in_progress') THEN 0 ELSE 1 END,
+          CASE WHEN status IN ('received', 'verifying', 'in_progress') THEN created_at END ASC,
+          created_at DESC
+        LIMIT 100
+      `;
       return response.status(200).json({ requests: rows });
     } catch {
       return response.status(503).json({ error: "Privacy requests are temporarily unavailable." });
@@ -56,7 +64,7 @@ export default async function handler(request, response) {
       INSERT INTO privacy_requests (request_type, contact_email, details)
       VALUES (${data.type}, ${data.email}, ${data.details}) RETURNING id
     `;
-    if (process.env.RESEND_API_KEY && process.env.PAWLINE_FROM_EMAIL && process.env.PAWLINE_MODERATION_EMAIL) {
+    if (process.env.RESEND_API_KEY && process.env.PAWLINE_FROM_EMAIL) {
       try {
         await sendShelterConfirmationEmail({
           to: operatorEmail,
