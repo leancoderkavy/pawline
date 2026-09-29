@@ -1,5 +1,5 @@
 import { directEndpoint, directError, parseConversationId, requireConversation, requireWritable } from "./_direct.js";
-import { expireCalls, publicCall, validateSignal, videoConfiguration } from "./_direct-video.js";
+import { expireCalls, publicCall, resolveVideoConfiguration, validateSignal, videoConfiguration } from "./_direct-video.js";
 import { consumeUsage } from "./_usage-limit.js";
 
 export function createVideoHandler(dependencies) {
@@ -16,6 +16,8 @@ export function createVideoHandler(dependencies) {
     if (request.method === "POST" && action === "start") {
       requireWritable(conversation);
       if (!config.enabled) throw directError(config.reason, 503);
+      const connectionConfig = config.provider === "cloudflare"
+        ? await resolveVideoConfiguration(environment, dependencies.fetch || globalThis.fetch) : config;
       const allowed = await consumeUsage(database, { scope: "direct_video_start", subject: user.id, limit: 15, windowMs: 3600000 });
       if (!allowed) throw directError("Call limit reached. Please continue in messages for now.", 429);
       const callId = parseConversationId(input.callId);
@@ -31,7 +33,7 @@ export function createVideoHandler(dependencies) {
       }
       if (!call) throw directError("A call is already in progress. Open the current invitation or try again when it ends.", 409);
       await notify(conversation);
-      return response.status(201).json({ call: publicCall(call, user.id, conversation), configuration: config });
+      return response.status(201).json({ call: publicCall(call, user.id, conversation), configuration: connectionConfig });
     }
     const callId = parseConversationId(input?.callId);
     if (!callId) throw directError("Choose a valid call.");
@@ -48,12 +50,15 @@ export function createVideoHandler(dependencies) {
         SELECT id::text, kind, payload FROM direct_video_signals WHERE call_id = ${callId}
           AND sender_user_id <> ${user.id} AND id > ${after}::bigint ORDER BY id LIMIT 100
       ` : [];
-      return response.status(200).json({ call: view, signals, configuration: view.participant && live ? config : undefined });
+      return response.status(200).json({ call: view, signals, configuration: view.participant && live && config.provider !== "cloudflare" ? config : undefined });
     }
+    let connectionConfig;
     if (action === "accept" || action === "decline") {
       requireWritable(conversation);
       if (action === "accept" && !config.enabled) throw directError(config.reason, 503);
       if (!view.canAccept) throw directError("This invitation is no longer available to answer.", 409);
+      if (action === "accept") connectionConfig = config.provider === "cloudflare"
+        ? await resolveVideoConfiguration(environment, dependencies.fetch || globalThis.fetch) : config;
       const rows = await database`
         UPDATE direct_video_calls SET state = ${action === "accept" ? "accepted" : "declined"}, callee_user_id = ${user.id},
           callee_seen_at = now(), accepted_at = CASE WHEN ${action} = 'accept' THEN now() ELSE NULL END,
@@ -95,7 +100,7 @@ export function createVideoHandler(dependencies) {
       `;
     } else throw directError("Choose a valid call action.");
     if (["accept", "decline", "end"].includes(action)) await notify(conversation);
-    return response.status(200).json({ call: publicCall(call, user.id, conversation), configuration: config.enabled && ["accept"].includes(action) ? config : undefined });
+    return response.status(200).json({ call: publicCall(call, user.id, conversation), configuration: action === "accept" ? connectionConfig : undefined });
   }, dependencies);
 }
 export default createVideoHandler();

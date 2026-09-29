@@ -504,15 +504,20 @@ Before enabling production:
    `directMessagingReady` confirms required chat tables and columns exist.
 2. Configure `CLERK_SECRET_KEY`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, and the
    authorized origins. The local test fixture does not exercise live Clerk.
-3. Configure a coturn-compatible relay with `PAWLINE_TURN_URLS` (comma-separated
-   `turn:`/`turns:` URLs) and server-only `PAWLINE_TURN_SHARED_SECRET`. The server
-   issues per-call HMAC credentials valid for 65 minutes. Production uses
-   relay-only ICE; the TURN shared secret never reaches the browser. Relay
-   hosting/provider billing must be configured separately.
-4. Set `PAWLINE_VIDEO_ENABLED=true` only after testing the relay over separate
+3. Configure a TURN provider in the Vercel project environment. For Cloudflare
+   Realtime TURN, create a TURN key and set server-only
+   `PAWLINE_CLOUDFLARE_TURN_KEY_ID` and `PAWLINE_CLOUDFLARE_TURN_API_TOKEN`.
+   Pawline requests 65-minute credentials when each participant joins and uses
+   relay-only ICE. The long-lived API token never reaches the browser. As an
+   alternative, configure a coturn-compatible relay with `PAWLINE_TURN_URLS`
+   (comma-separated `turn:`/`turns:` URLs) and server-only
+   `PAWLINE_TURN_SHARED_SECRET`. The coturn relay takes precedence if both are
+   configured. TURN service billing and usage monitoring remain provider tasks.
+4. Set `PAWLINE_VIDEO_ENABLED=true` only after testing the provider over separate
    networks. `PAWLINE_VIDEO_ALLOW_DIRECT=true` is for local development and is
-   ignored in production. With missing relay configuration, chat stays usable
-   and the Video call action explains that calling is unavailable.
+   ignored in production. With missing provider configuration, chat stays usable
+   and the Video call action explains that calling is unavailable. If credential
+   issuance fails, no call invitation is created.
 5. Configure `CRON_SECRET` and ensure `/api/cron/purge-video-signals` runs every
    15 minutes as specified in `vercel.json`. Hangup/block/resolve delete signaling
    immediately; session reads remove expired signaling too. The scheduled job

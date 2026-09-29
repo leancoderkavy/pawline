@@ -60,6 +60,7 @@ export async function createChatFixture(options = {}) {
     publish: async (_database, conversation) => { events.push({ conversationId: conversation.id }); },
     onError: error => { if (!error.statusCode) errors.push(error); },
     environment: { NODE_ENV: "test", PAWLINE_VIDEO_ENABLED: "true", PAWLINE_VIDEO_ALLOW_DIRECT: "true", ...options.environment },
+    ...(options.fetch ? { fetch: options.fetch } : {}),
     ...(options.provider ? { provider: options.provider } : {}),
   };
   const handlers = {
