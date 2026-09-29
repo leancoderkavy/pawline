@@ -19,7 +19,7 @@
     "test": "node --test && python -m unittest discover -s test -p \"test_*.py\""
   },
   "dependencies": {
-    "@clerk/backend": "^3.17.0",
+    "@clerk/backend": "^3.20.1",
     "@clerk/nextjs": "^7.9.0",
     "@clerk/react": "^6.15.0",
     "@daily-co/daily-js": "^0.92.2",
