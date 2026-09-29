@@ -92,11 +92,13 @@ test("the top location search offers map-backed autocomplete", async () => {
   assert.match(geocode, /url\.searchParams\.set\("session_token", searchSession\)/);
 });
 
-test("every rendered map point has a keyboard-accessible result action", async () => {
+test("map results expose pet actions and a keyboard path to every upcoming event", async () => {
   const app = await read("src/App.jsx");
   const results = app.slice(app.indexOf("function MapResults"), app.indexOf("function VisitPlanner"));
-  assert.doesNotMatch(results, /\.slice\(/);
   assert.match(results, /className="map-result-open"/);
+  assert.match(results, /className="map-events-link"/);
+  assert.match(app, /onOpenEvents=\{\(\) => openPanel\("events"\)\}/);
+  assert.match(app, /className="event-list">\{events\.map\(/);
 });
 
 test("favorite persistence failures stay truthful and expose recovery", async () => {

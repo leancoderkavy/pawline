@@ -17,6 +17,7 @@ import {
 import heroImage from "./heroData";
 import { rankPets } from "./matching";
 import { buildMapView, distanceInMiles, mapResultBounds, petCountLabel, petResultDetail } from "./mapView";
+import { petSourceLinkLabel } from "./petSourceLink";
 import { parseStoredFavorites, restoreFavoriteAfterFailure } from "./favoritesState";
 import Dialog from "./Dialog";
 import AuthModal from "./AuthModal";
@@ -412,7 +413,7 @@ function PetDetail({ pet, onClose, saved, onSave, onMessage, onApply }) {
         {pet.id?.startsWith("pawline-") ? <a className="button button-outline" href={`/pets/${pet.id.slice(8)}`}>Shareable pet page</a> : null}
         <Button variant="outline" onClick={() => onSave(pet.id)}><Heart fill={saved ? "currentColor" : "none"} />{saved ? "Saved" : "Save"}</Button>
         {pet.messageAvailable ? <Button className="pet-message" onClick={() => { onMessage(pet); onClose(); }}><MessageCircle />Message {pet.shelter || "caretaker"}</Button> : null}
-        {pet.sourceUrl ? <a className="button" href={pet.sourceUrl} target="_blank" rel="noreferrer">View adoption listing <ChevronRight /></a> : <span className="button button-disabled" aria-disabled="true">Contact the listed rescue</span>}
+        {pet.sourceUrl ? <a className="button" href={pet.sourceUrl} target="_blank" rel="noreferrer">{petSourceLinkLabel(pet.sourceUrl)} <ChevronRight /></a> : <span className="button button-disabled" aria-disabled="true">Contact the listed rescue</span>}
         {directionsUrl ? <a className="button button-outline detail-directions" href={directionsUrl} target="_blank" rel="noreferrer"><Compass /> Directions</a> : null}
       </div>
       {hasSpecificBreed ? <h3>{pet.breed}</h3> : null}
@@ -811,11 +812,11 @@ function NearbyShelters({ shelters, state, onOpen }) {
   </section>;
 }
 
-function MapResults({ view, saved, showSavedOnly, onToggleSavedOnly, onSave, onOpenPet, onOpenEvent, onOpenDiscovery }) {
+function MapResults({ view, saved, showSavedOnly, onToggleSavedOnly, onSave, onOpenPet, onOpenEvent, onOpenDiscovery, onOpenEvents }) {
   const items = [
     ...view.pets.filter(item => !showSavedOnly || saved.includes(item.id)).map(item => ({ ...item, resultType: "pet" })),
     ...(showSavedOnly ? [] : [
-    ...view.events.map(item => ({ ...item, resultType: "event" })),
+    ...view.events.slice(0, 3).map(item => ({ ...item, resultType: "event" })),
     ...view.discoveries.map(item => ({ ...item, resultType: "discovery" })),
     ]),
   ];
@@ -844,6 +845,7 @@ function MapResults({ view, saved, showSavedOnly, onToggleSavedOnly, onSave, onO
         {item.resultType === "pet" ? <button type="button" className={`map-result-heart ${saved.includes(item.id) ? "is-saved" : ""}`} onClick={() => onSave(item.id)} aria-pressed={saved.includes(item.id)} aria-label={`${saved.includes(item.id) ? "Remove" : "Add"} ${item.name} ${saved.includes(item.id) ? "from" : "to"} favorites`}><Heart fill={saved.includes(item.id) ? "currentColor" : "none"} /></button> : null}
       </div>,
     )}</div> : <p>{showSavedOnly ? "No favorite listings are visible in this map area yet. Heart a pet to keep it here." : "No coordinate-backed results match this map area and filters."}</p>}
+    {!showSavedOnly && view.events.length > 3 ? <button type="button" className="map-events-link" onClick={onOpenEvents}>Browse all upcoming events <ChevronRight /></button> : null}
   </section>;
 }
 
@@ -982,7 +984,7 @@ function EventPanel({ events, state, eventWindowDays, onEventWindowChange }) {
     const loading = state.status === "loading";
     return <article className="event-panel event-empty" role={unavailable ? "status" : undefined}><div className="event-label"><CalendarDays /> {unavailable ? "Events temporarily unavailable" : "Verified events"}</div>{range}<h3>{unavailable ? "We could not load events" : loading ? "Checking for verified events" : "No upcoming verified events"}</h3><p>{unavailable ? state.message || "Try again shortly." : loading ? "Checking official and reviewed event sources." : `No verified events in the next ${eventWindowDays} days. Try a longer range.`}</p></article>;
   }
-  return <article className="event-panel"><div className="event-label"><CalendarDays /> Verified pet events · next {eventWindowDays} days</div>{range}{state.message ? <p role="status">{state.message}</p> : null}<div className="event-list">{events.slice(0, 5).map(event => {
+  return <article className="event-panel"><div className="event-label"><CalendarDays /> Verified pet events · next {eventWindowDays} days</div>{range}{state.message ? <p role="status">{state.message}</p> : null}<div className="event-list">{events.map(event => {
     const item = normalizeEvent(event);
     return <div className="event-content" key={item.id}><div className="event-date"><small>{item.month}</small><strong>{item.day}</strong></div><div><h3>{item.title}</h3><p>{item.type || "Pet event"} · {item.time}</p><p><MapPin /> {item.place}</p>{item.source_url ? <a href={item.source_url} target="_blank" rel="noreferrer">Official event details <ChevronRight /></a> : <span className="event-review">Confirm details with the organizer</span>}</div></div>;
   })}</div></article>;
@@ -1104,7 +1106,7 @@ function Matchmaker({ pets, feed, location, onLocationChange, onSpeciesChange, o
       </div>}
       <div className="quiz-location"><MapPin /><label><span>Search area<small>Used to center nearby pets and events</small></span><input aria-label="City or postal code" value={location} onChange={event => onLocationChange(event.target.value)} /></label><button onClick={onFindLocation} disabled={locationState.status === "loading"}>{locationState.status === "loading" ? "Finding…" : "Update map"}</button></div>
       {locationState.message ? <p className={`location-state location-${locationState.status}`} role={locationState.status === "error" ? "alert" : "status"}>{locationState.message}</p> : null}
-      <div className={`quiz-feed feed-${feed.mode}`}><Info /><span><strong>{feed.mode === "live" ? "Live adoptable pets" : feed.mode === "loading" ? "Checking live shelter listings" : "Live listings unavailable"}</strong>{feed.mode === "live" ? `${feed.count || pets.length} current records from ${feed.provider}. Always confirm availability with the shelter.` : feed.message || "No synthetic pet profiles are shown."}</span></div>
+      <div className={`quiz-feed feed-${feed.mode}`}><Info /><span><strong>{feed.mode === "live" ? "Live adoptable pets" : feed.mode === "loading" ? "Checking live shelter listings" : "Live listings unavailable"}</strong>{feed.mode === "live" ? `${feed.count || pets.length} current records from ${feed.provider || "shelter feeds"}. Always confirm availability with the shelter.` : feed.message || "No synthetic pet profiles are shown."}</span></div>
     </div>
     <div className="matchmaker-results" aria-live="polite">
       <div className="results-head"><div><h2>{complete ? "Your top matches nearby" : "Your matches will appear here"}</h2><p>{complete ? "Ranked from current listing facts and your answers" : "Finish the quiz to see transparent compatibility reasons."}</p></div>{complete ? <button onClick={restart}><Pencil /> Adjust my answers</button> : null}</div>
@@ -1557,7 +1559,7 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
             <MapFilters petType={mapPetType} distance={mapDistance} showEvents={showMapEvents} densityMode={densityMode} hoursFilter={hoursFilter} eventWindowDays={eventWindowDays} onPetTypeChange={setMatchSpecies} onDistanceChange={setMapDistance} onShowEventsChange={setShowMapEvents} onDensityChange={setDensityMode} onHoursFilterChange={setHoursFilter} onEventWindowChange={setEventWindowDays} onReset={resetMapFilters} />
             <button className="discovery-search-link" onClick={() => openPanel("network")}><Search size={16} />Search all pets & lost pets<ChevronRight size={16} /></button>
             {mapSearchMoved ? <p className="map-area-status" role="status">Showing results around the map center.</p> : null}
-            <MapResults view={mapView} saved={saved} showSavedOnly={showSavedOnly} onToggleSavedOnly={toggleSavedOnly} onSave={toggleSave} onOpenPet={openPetDetail} onOpenEvent={setSelectedEvent} onOpenDiscovery={setSelectedDiscovery} />
+            <MapResults view={mapView} saved={saved} showSavedOnly={showSavedOnly} onToggleSavedOnly={toggleSavedOnly} onSave={toggleSave} onOpenPet={openPetDetail} onOpenEvent={setSelectedEvent} onOpenDiscovery={setSelectedDiscovery} onOpenEvents={() => openPanel("events")} />
             <div className="network-pagination" aria-label="Live provider pages"><button type="button" disabled={livePage === 1 || feedRefresh.loading} onClick={() => setLivePage(value => value - 1)}>Previous pets</button><span>Page {livePage}</span><button type="button" disabled={!feed.hasMore || feedRefresh.loading} onClick={() => setLivePage(value => value + 1)}>Next pets</button></div>
             <NearbyShelters shelters={mapView.shelters} state={shelterState} onOpen={setSelectedShelter} />
             {routePets.length ? <VisitPlanner pets={routePets} location={location} /> : null}
@@ -1574,7 +1576,7 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
               <ShieldCheck />
               <div>
                 <h2>How Pawline finds adoptable pets</h2>
-                <p>Current pet records come from official shelter feeds, authorized providers, or reviewed Pawline records. We link to the original listing so you can confirm availability and adoption requirements with the shelter.</p>
+                <p>Current pet records come from official shelter feeds, authorized providers, or reviewed Pawline records. Source links may open a pet page or an organization website. Confirm availability and adoption requirements with the shelter.</p>
                 <p>Approximate web leads are labeled separately and never presented as verified animals. Pawline does not substitute demo pets when live sources are unavailable.</p>
                 <a href="#how-pawline-works">Read our source and matching methodology <ChevronRight /></a>
               </div>
