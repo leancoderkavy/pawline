@@ -434,15 +434,15 @@ function EventDetail({ event, onClose }) {
     : Number.isFinite(Number(item.latitude)) && Number.isFinite(Number(item.longitude))
       ? `https://www.google.com/maps/dir/?api=1&destination=${item.latitude},${item.longitude}`
       : null;
-  return <Dialog title={item.title || "Adoption event"} onClose={onClose}>
+  return <Dialog title={item.title || "Pet event"} onClose={onClose}>
     <div className="map-point-detail">
-      <div className="point-detail-hero"><span className="point-detail-icon"><CalendarDays /></span><div><span className="point-detail-label"><ShieldCheck /> Source reviewed</span><p>A Pawline field note for meeting adoptable pets nearby.</p></div></div>
+      <div className="point-detail-hero"><span className="point-detail-icon"><CalendarDays /></span><div><span className="point-detail-label"><ShieldCheck /> Source reviewed · {item.type || "Pet event"}</span><p>Confirm participation and details with the organizer before visiting.</p></div></div>
       <dl className="point-detail-facts">
         <div><dt><Clock3 /> When</dt><dd>{item.date ? `${item.date} · ${item.time}` : item.time || "Confirm the current time with the organizer"}</dd></div>
         <div><dt><MapPin /> Where</dt><dd>{item.place || item.city || "See the official event page"}</dd></div>
       </dl>
       {item.description ? <p className="point-detail-description">{item.description}</p> : null}
-      <aside className="visit-note"><PawPrint /><div><strong>Before you head out</strong><span>Confirm the event time, bring household questions, and ask what each pet needs after adoption.</span></div></aside>
+      <aside className="visit-note"><PawPrint /><div><strong>Before you head out</strong><span>Confirm the event time, location, registration needs, and pet policy with the organizer.</span></div></aside>
       <div className="point-detail-actions">
         {item.source_url ? <a className="button" href={item.source_url} target="_blank" rel="noreferrer">Official details <ExternalLink /></a> : <span className="button button-disabled" aria-disabled="true">Confirm with organizer</span>}
         {directionsUrl ? <a className="button button-outline" href={directionsUrl} target="_blank" rel="noreferrer">Directions <Compass /></a> : null}
@@ -976,9 +976,9 @@ function EventPanel({ events, state }) {
     const loading = state.status === "loading";
     return <article className="event-panel event-empty" role={unavailable ? "status" : undefined}><div className="event-label"><CalendarDays /> {unavailable ? "Events temporarily unavailable" : "Verified events"}</div><h3>{unavailable ? "We could not load events" : loading ? "Checking for verified events" : "No verified events yet"}</h3><p>{unavailable ? state.message || "Try again shortly." : loading ? "Checking official and reviewed event sources." : "Partner events will appear here after their organizer and source are reviewed."}</p></article>;
   }
-  return <article className="event-panel"><div className="event-label"><CalendarDays /> Live dog adoption events</div><div className="event-list">{events.slice(0, 5).map(event => {
+  return <article className="event-panel"><div className="event-label"><CalendarDays /> Verified pet events</div><div className="event-list">{events.slice(0, 5).map(event => {
     const item = normalizeEvent(event);
-    return <div className="event-content" key={item.id}><div className="event-date"><small>{item.month}</small><strong>{item.day}</strong></div><div><h3>{item.title}</h3><p>{item.time}</p><p><MapPin /> {item.place}</p>{item.source_url ? <a href={item.source_url} target="_blank" rel="noreferrer">Official event details <ChevronRight /></a> : <span className="event-review">Confirm details with the organizer</span>}</div></div>;
+    return <div className="event-content" key={item.id}><div className="event-date"><small>{item.month}</small><strong>{item.day}</strong></div><div><h3>{item.title}</h3><p>{item.type || "Pet event"} · {item.time}</p><p><MapPin /> {item.place}</p>{item.source_url ? <a href={item.source_url} target="_blank" rel="noreferrer">Official event details <ChevronRight /></a> : <span className="event-review">Confirm details with the organizer</span>}</div></div>;
   })}</div></article>;
 }
 
@@ -1258,17 +1258,28 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
   }, [species, livePage, coordinates?.latitude, coordinates?.longitude, mapDistance]);
   useEffect(() => setLivePage(1), [species, coordinates?.latitude, coordinates?.longitude, mapDistance]);
   useEffect(() => {
-    fetch("/api/events")
-      .then(async response => {
+    const controller = new AbortController();
+    const loadEvents = async () => {
+      const events = [];
+      for (let page = 1; page <= 10; page++) {
+        const response = await fetch(`/api/events?limit=250&page=${page}`, { signal: controller.signal });
         const body = await readJson(response, "Verified events are temporarily unavailable.");
         if (!response.ok || body.mode === "error") throw new Error(body.message || "Verified events are temporarily unavailable.");
-        setRemoteEvents(body.events || []);
-        setEventState({ status: "ready", message: body.message || "" });
-      })
-      .catch(error => {
+        events.push(...(body.events || []));
+        if (!body.hasMore) break;
+      }
+      if (!controller.signal.aborted) {
+        setRemoteEvents(events);
+        setEventState({ status: "ready", message: "" });
+      }
+    };
+    loadEvents().catch(error => {
+      if (!controller.signal.aborted) {
         setRemoteEvents([]);
         setEventState({ status: "error", message: error.message || "Verified events are temporarily unavailable." });
-      });
+      }
+    });
+    return () => controller.abort();
   }, []);
   useEffect(() => {
     fetch("/api/discoveries")
