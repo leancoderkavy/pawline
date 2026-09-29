@@ -11,13 +11,14 @@ Pawline's current repository serves pet adoption, shelter, messaging, applicatio
 - Reference-only operator email alert when Resend sender configuration is present. The email contains no requester details.
 - Operator procedure requiring identity verification before disclosure or change.
 - Signup self-attestation and Terms copy for the stated age 13 minimum. This is not independent age verification.
+- Follow-up: Privacy and Terms effective dates now reflect September 28 changes. Privacy notice describes stored request fields. Automated WCAG A/AA scans cover 10 public routes at 360px and 1280px; contrast fixes cover guide labels, mobile eyebrow text, and the map submit button.
 
 ## Production acceptance checks
 
 1. Confirm Vercel production has `DATABASE_URL`, Clerk credentials, and a verified `PAWLINE_PRIVACY_OPERATOR_EMAIL` or `PAWLINE_MODERATION_EMAIL`. Confirm Resend sender settings if email alerts are expected.
 2. Apply `privacy_requests` schema to the exact production database. Submit a synthetic request through the live site and verify queue receipt, operator access, and rejection for another account.
 3. Assign a person to monitor the queue, answer requests through a private verified channel, and record completion. The form does not automatically fulfill a request.
-4. Test the full website's important paths with keyboard, screen reader, mobile zoom, and contrast checks. The new form has a local keyboard smoke test, but this is not a site-wide accessibility audit.
+4. Manually test important signed-in paths with keyboard, screen reader, and mobile zoom. Automated checks cover public pages and the new form, but cannot establish site-wide accessibility.
 5. Review production provider settings, access logs, backups, breach response, retention, and account deletion procedure. Confirm policy statements match those settings.
 
 ## Legal scope still to determine
