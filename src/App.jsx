@@ -770,7 +770,7 @@ function MapFilters({ petType, distance, showEvents, densityMode, hoursFilter, o
 
   return <div className="map-toolbar" role="group" aria-label="Map filters">
     <div className="map-pet-types" role="group" aria-label="Pet type">
-      {["All", "Dog", "Cat"].map(type => <button key={type} type="button" className={petType === type ? "is-active" : ""} onClick={() => onPetTypeChange(type)} aria-pressed={petType === type}>{type === "All" ? "All" : `${type}s`}</button>)}
+      {["All", ...PET_SPECIES].map(type => <button key={type} type="button" className={petType === type ? "is-active" : ""} onClick={() => onPetTypeChange(type)} aria-pressed={petType === type}>{type === "All" ? "All" : ({ Dog: "Dogs", Cat: "Cats", Rabbit: "Rabbits", Bird: "Birds", "Small animal": "Small animals", Horse: "Horses", Reptile: "Reptiles", Barnyard: "Barnyard" })[type]}</button>)}
     </div>
     <details className="more-filters">
       <summary><SlidersHorizontal /><span>Filters</span>{activeFilterCount ? <span className="filter-count" aria-label={activeFilterLabel}>{activeFilterCount}</span> : null}</summary>
