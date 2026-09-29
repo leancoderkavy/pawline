@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { createChatFixture, ids, users } from "../e2e/chat-fixture.mjs";
-import { videoConfiguration, validateSignal, purgeExpiredVideoSignals } from "../api/_direct-video.js";
+import { videoConfiguration, resolveVideoConfiguration, validateSignal, purgeExpiredVideoSignals } from "../api/_direct-video.js";
 
 test("shelter messaging: PostgreSQL persistence, team access, pagination, unread, moderation and blocking", async () => {
   const fixture = await createChatFixture();
@@ -121,4 +121,81 @@ test("production video requires TURN and issues temporary credentials without ex
   assert.doesNotMatch(JSON.stringify(config), /fixture-secret|private-user/);
   assert.throws(() => validateSignal("offer", { type: "answer", sdp: "v=0" }));
   assert.throws(() => validateSignal("candidate", { candidate: "a".repeat(5000) }));
+});
+
+test("Cloudflare TURN gives each caller temporary relay credentials without exposing its API token", async () => {
+  const environment = {
+    NODE_ENV: "production", PAWLINE_VIDEO_ENABLED: "true",
+    PAWLINE_CLOUDFLARE_TURN_KEY_ID: "key-123", PAWLINE_CLOUDFLARE_TURN_API_TOKEN: "private-api-token",
+  };
+  const requests = [];
+  const fetchCredentials = async (url, options) => {
+    requests.push({ url, options });
+    return { ok: true, status: 201, json: async () => ({ iceServers: [{
+      urls: ["turn:turn.cloudflare.com:3478?transport=udp", "turns:turn.cloudflare.com:5349?transport=tcp"],
+      username: "temporary-user", credential: "temporary-password",
+    }] }) };
+  };
+  const config = await resolveVideoConfiguration(environment, fetchCredentials);
+  assert.equal(videoConfiguration(environment).enabled, true);
+  assert.equal(config.iceTransportPolicy, "relay");
+  assert.equal(config.iceServers[0].username, "temporary-user");
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].url, "https://rtc.live.cloudflare.com/v1/turn/keys/key-123/credentials/generate-ice-servers");
+  assert.equal(JSON.parse(requests[0].options.body).ttl, 3900);
+  assert.doesNotMatch(JSON.stringify(config), /private-api-token|key-123/);
+});
+
+test("Cloudflare credential failure leaves the conversation without a ringing call", async () => {
+  const fixture = await createChatFixture({
+    environment: { NODE_ENV: "production", PAWLINE_VIDEO_ALLOW_DIRECT: "false", PAWLINE_CLOUDFLARE_TURN_KEY_ID: "key-123", PAWLINE_CLOUDFLARE_TURN_API_TOKEN: "private-api-token" },
+    fetch: async () => ({ ok: false, status: 503 }),
+  });
+  try {
+    const conversationId = (await fixture.invoke("direct-conversations", "adopter", { method: "POST", body: { listingId: ids.pet } })).data.conversation.id;
+    const response = await fixture.invoke("direct-video", "adopter", { method: "POST", body: { conversationId, callId: randomUUID(), action: "start" } });
+    assert.equal(response.statusCode, 503);
+    assert.match(response.data.error, /temporarily unavailable/i);
+    const [row] = await fixture.database`SELECT count(*)::int AS count FROM direct_video_calls`;
+    assert.equal(row.count, 0);
+  } finally { await fixture.close(); }
+});
+
+test("Cloudflare issues credentials at join without fetching them on call status polls", async () => {
+  let requests = 0;
+  const fixture = await createChatFixture({
+    environment: { NODE_ENV: "production", PAWLINE_VIDEO_ALLOW_DIRECT: "false", PAWLINE_CLOUDFLARE_TURN_KEY_ID: "key-123", PAWLINE_CLOUDFLARE_TURN_API_TOKEN: "private-api-token" },
+    fetch: async () => ({ ok: true, status: 201, json: async () => ({ iceServers: [{
+      urls: ["turns:turn.cloudflare.com:5349?transport=tcp"], username: `user-${++requests}`, credential: "temporary-password",
+    }] }) }),
+  });
+  try {
+    const conversationId = (await fixture.invoke("direct-conversations", "adopter", { method: "POST", body: { listingId: ids.pet } })).data.conversation.id;
+    const callId = randomUUID();
+    const start = await fixture.invoke("direct-video", "adopter", { method: "POST", body: { conversationId, callId, action: "start" } });
+    assert.equal(start.statusCode, 201);
+    assert.equal(start.data.configuration.iceServers[0].username, "user-1");
+    const accept = await fixture.invoke("direct-video", "shelter", { method: "POST", body: { conversationId, callId, action: "accept" } });
+    assert.equal(accept.statusCode, 200);
+    assert.equal(accept.data.configuration.iceServers[0].username, "user-2");
+    const status = await fixture.invoke("direct-video", "adopter", { query: { conversationId, callId } });
+    assert.equal(status.statusCode, 200);
+    assert.equal(status.data.configuration, undefined);
+    assert.equal(requests, 2);
+  } finally { await fixture.close(); }
+});
+
+test("coturn call responses keep credentials scoped to their participant and call", async () => {
+  const environment = {
+    NODE_ENV: "production", PAWLINE_VIDEO_ENABLED: "true", PAWLINE_VIDEO_ALLOW_DIRECT: "false",
+    PAWLINE_TURN_URLS: "turns:relay.example.org:5349?transport=tcp", PAWLINE_TURN_SHARED_SECRET: "fixture-secret",
+  };
+  const fixture = await createChatFixture({ environment });
+  try {
+    const conversationId = (await fixture.invoke("direct-conversations", "adopter", { method: "POST", body: { listingId: ids.pet } })).data.conversation.id;
+    const callId = randomUUID();
+    const response = await fixture.invoke("direct-video", "adopter", { method: "POST", body: { conversationId, callId, action: "start" } });
+    assert.equal(response.statusCode, 201);
+    assert.equal(response.data.configuration.iceServers[0].username, videoConfiguration(environment, users.adopter.id, callId).iceServers[0].username);
+  } finally { await fixture.close(); }
 });
