@@ -22,7 +22,7 @@ Pawline's current repository serves pet adoption, shelter, messaging, applicatio
 
 ## Legal scope still to determine
 
-Owner states Pawline targets US users age 13 or older. Confirm whether other signup routes bypass the age prompt, and establish a process for any known under-13 accounts. Record business revenue and data-volume thresholds, and whether any personal information is sold or shared for cross-context advertising. Those facts determine which state privacy rules apply. Obtain legal review before claiming compliance with a specific regime.
+Owner states Pawline targets US users age 13 or older. Owner also reports Pawline is below all California CCPA business thresholds: annual revenue below the current $26.625 million threshold, no buying/selling/sharing of 100,000 or more California residents' or households' personal information, and less than half of revenue from selling or sharing California personal information. On those reported facts, Pawline does not appear to meet the CCPA business definition. Confirm this annually and if business practices change. Confirm whether other signup routes bypass the age prompt, and establish a process for any known under-13 accounts. Review other applicable state privacy rules and obtain legal review before claiming compliance with a specific regime.
 
 ## Sources
 
@@ -30,4 +30,5 @@ Owner states Pawline targets US users age 13 or older. Confirm whether other sig
 - [FTC privacy and security guidance](https://www.ftc.gov/business-guidance/privacy-security)
 - [DOJ guidance on website accessibility and the ADA](https://www.ada.gov/resources/web-guidance/)
 - [California privacy law and regulations](https://cppa.ca.gov/regulations/)
+- [California agency CCPA applicability FAQ](https://cppa.ca.gov/faq)
 - [FTC COPPA guidance](https://www.ftc.gov/business-guidance/resources/complying-coppa-frequently-asked-questions)
