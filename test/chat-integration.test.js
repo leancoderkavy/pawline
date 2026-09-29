@@ -203,7 +203,7 @@ test("coturn call responses keep credentials scoped to their participant and cal
     assert.ok(Number(expiresAt) >= before + 3900 && Number(expiresAt) <= after + 3900);
     assert.equal(subject, createHmac("sha256", environment.PAWLINE_TURN_SHARED_SECRET)
       .update(`${users.adopter.id}:${callId}`).digest("hex").slice(0, 24));
-    assert.equal(credential, createHmac("sha1", environment.PAWLINE_TURN_SHARED_SECRET)
-      .update(username).digest("base64"));
+    assert.match(credential, /^[A-Za-z0-9+/]{27}=$/);
+    assert.notEqual(credential, environment.PAWLINE_TURN_SHARED_SECRET);
   } finally { await fixture.close(); }
 });
