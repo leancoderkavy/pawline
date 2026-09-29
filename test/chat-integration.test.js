@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
 import { createChatFixture, ids, users } from "../e2e/chat-fixture.mjs";
 import { videoConfiguration, resolveVideoConfiguration, validateSignal, purgeExpiredVideoSignals } from "../api/_direct-video.js";
 
@@ -194,8 +194,16 @@ test("coturn call responses keep credentials scoped to their participant and cal
   try {
     const conversationId = (await fixture.invoke("direct-conversations", "adopter", { method: "POST", body: { listingId: ids.pet } })).data.conversation.id;
     const callId = randomUUID();
+    const before = Math.floor(Date.now() / 1000);
     const response = await fixture.invoke("direct-video", "adopter", { method: "POST", body: { conversationId, callId, action: "start" } });
+    const after = Math.floor(Date.now() / 1000);
     assert.equal(response.statusCode, 201);
-    assert.equal(response.data.configuration.iceServers[0].username, videoConfiguration(environment, users.adopter.id, callId).iceServers[0].username);
+    const { username, credential } = response.data.configuration.iceServers[0];
+    const [expiresAt, subject] = username.split(":");
+    assert.ok(Number(expiresAt) >= before + 3900 && Number(expiresAt) <= after + 3900);
+    assert.equal(subject, createHmac("sha256", environment.PAWLINE_TURN_SHARED_SECRET)
+      .update(`${users.adopter.id}:${callId}`).digest("hex").slice(0, 24));
+    assert.match(credential, /^[A-Za-z0-9+/]{27}=$/);
+    assert.notEqual(credential, environment.PAWLINE_TURN_SHARED_SECRET);
   } finally { await fixture.close(); }
 });
