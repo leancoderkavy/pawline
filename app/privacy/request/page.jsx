@@ -1,6 +1,6 @@
 import PrivacyRequestForm from "./privacy-request-form";
 
-export const metadata = { title: "Privacy Request", description: "Send a private access, correction, or deletion request to Pawline." };
+export const metadata = { title: "Privacy Request", description: "Send a private access, correction, or deletion request to Pawline.", alternates: { canonical: "/privacy/request" } };
 
 export default function PrivacyRequestPage() {
   return <main className="methodology-page">
