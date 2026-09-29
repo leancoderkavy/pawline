@@ -50,6 +50,7 @@ export default function AuthModal({
   const [returnMode, setReturnMode] = useState(startingMode);
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
   const [code, setCode] = useState("");
   const [message, setMessage] = useState({ type: "idle", text: "" });
   const [submitting, setSubmitting] = useState(false);
@@ -89,6 +90,7 @@ export default function AuthModal({
 
   const handleGoogle = async () => {
     if (isBusy) return;
+    if (isSignUpMode && !ageConfirmed) { showError("Confirm you are at least 13 to create an account."); return; }
     const resource = isSignUpMode ? signUp : signIn;
     if (!resource) {
       showError("The sign-in service is not ready. Please try again.");
@@ -182,6 +184,7 @@ export default function AuthModal({
   const handleSignUp = async (event) => {
     event.preventDefault();
     if (isBusy) return;
+    if (!ageConfirmed) { showError("Confirm you are at least 13 to create an account."); return; }
     if (!signUp) {
       showError("The account service is not ready. Please try again.");
       return;
@@ -258,7 +261,8 @@ export default function AuthModal({
 
   return <Dialog title={title} onClose={onClose} centered>
     <p className="dialog-copy">{dialogCopy}</p>
-    {!isVerifying ? <button type="button" className="auth-google" onClick={handleGoogle} disabled={isBusy}>Continue with Google</button> : null}
+    {isSignUpMode ? <label><input type="checkbox" checked={ageConfirmed} onChange={(event) => setAgeConfirmed(event.target.checked)} /> I confirm I am at least 13 years old.</label> : null}
+    {!isVerifying ? <button type="button" className="auth-google" onClick={handleGoogle} disabled={isBusy || isSignUpMode && !ageConfirmed}>Continue with Google</button> : null}
     {!isVerifying ? <div className="auth-method" aria-label="Authentication method">
       <button type="button" className={authMethod === "email-code" ? "selected" : ""} onClick={() => selectMethod("email-code")}>Email code</button>
       {isSignInMode && process.env.NEXT_PUBLIC_CLERK_PHONE_SIGN_IN_ENABLED === "true" ? <button type="button" className={authMethod === "phone-code" ? "selected" : ""} onClick={() => selectMethod("phone-code")}>Phone code</button> : null}
@@ -275,7 +279,7 @@ export default function AuthModal({
         <input type="text" name="code" required value={code} onChange={(event) => setCode(event.target.value)} placeholder="123456" maxLength={8} inputMode="numeric" autoComplete="one-time-code" />
       </label> : null}
       {mode === "signup" ? <div id="clerk-captcha" /> : null}
-      <button type="submit" className="button" disabled={isBusy}>
+      <button type="submit" className="button" disabled={isBusy || isSignUpMode && !ageConfirmed}>
         {isBusy ? <LoaderCircle className="community-spinner" /> : submitLabel}
       </button>
     </form>

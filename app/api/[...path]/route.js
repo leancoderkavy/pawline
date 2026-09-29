@@ -46,6 +46,7 @@ const handlers = {
   caregivers: () => import("../../../api/caregivers"),
   "caregiver-pets": () => import("../../../api/caregiver-pets"),
   "pet-media": () => import("../../../api/pet-media"),
+  "privacy-requests": () => import("../../../api/privacy-requests"),
   pets: () => import("../../../api/pets"),
   sources: () => import("../../../api/sources"),
   "seo-pipeline": () => import("../../../api/seo-pipeline"),
