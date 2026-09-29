@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { importImageUrl } from "../api/_import-image.js";
-import { ingestProvider, fetchAllLosAngelesPets, fetchAllRescueGroupsPets, recordProviderRun } from "../api/cron/ingest-providers.js";
+import { ingestProvider, fetchAllLosAngelesPets, fetchAllRescueGroupsPets, recordProviderRun, retireProviderSpecies, RESCUEGROUPS_SYNC_SPECIES } from "../api/cron/ingest-providers.js";
 import { createChatFixture } from "../e2e/chat-fixture.mjs";
 import { parsePetCsv } from "../api/shelter-import.js";
 
@@ -50,6 +50,36 @@ test("provider page failures reject the whole snapshot", async () => {
       ? { data: Array.from({ length: 250 }, (_, i) => ({ id: i + 1, attributes: { name: `Pet ${i + 1}` } })) }
       : {};
   }), /invalid animal page/);
+});
+
+test("RescueGroups completes snapshots for mapped pets beyond dogs and cats", async () => {
+  const requested = [];
+  await fetchAllRescueGroupsPets("key", async species => {
+    requested.push(...species);
+    return { data: [] };
+  });
+  assert.deepEqual(requested, RESCUEGROUPS_SYNC_SPECIES);
+  assert.deepEqual(requested, ["Rabbit", "Bird", "Small animal", "Horse", "Reptile", "Barnyard"]);
+});
+
+test("retiring off-scope provider species keeps current rabbits and birds available", async () => {
+  const fixture = await createChatFixture();
+  const sourceId = "66666666-6666-4666-8666-666666666666";
+  try {
+    await fixture.database`INSERT INTO sources (id, name, kind, enabled) VALUES (${sourceId}, 'RescueGroups', 'json', true)`;
+    await fixture.database`INSERT INTO pets (id, fingerprint, source_id, name, species, status, verified_at)
+      VALUES ('11111111-1111-4111-8111-111111111112', 'retire-dog', ${sourceId}, 'Dog', 'Dog', 'available', now()),
+             ('11111111-1111-4111-8111-111111111113', 'retire-cat', ${sourceId}, 'Cat', 'Cat', 'available', now()),
+             ('11111111-1111-4111-8111-111111111114', 'keep-rabbit', ${sourceId}, 'Rabbit', 'Rabbit', 'available', now()),
+             ('11111111-1111-4111-8111-111111111115', 'keep-bird', ${sourceId}, 'Bird', 'Bird', 'available', now())`;
+    assert.equal(await retireProviderSpecies(fixture.database, sourceId, ["Dog", "Cat"]), 2);
+    const rows = await fixture.database`SELECT species, status FROM pets WHERE source_id=${sourceId} ORDER BY species`;
+    assert.deepEqual(rows.map(({ species, status }) => [species, status]), [
+      ["Bird", "available"], ["Cat", "unavailable"], ["Dog", "unavailable"], ["Rabbit", "available"],
+    ]);
+  } finally {
+    await fixture.close();
+  }
 });
 
 test("provider run state records failure and only a complete run clears it", async () => {

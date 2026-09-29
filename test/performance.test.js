@@ -64,6 +64,7 @@ test("map filters keep species choice primary and disclose secondary controls in
 
   assert.match(filters, /const activeFilterCount = \[distance !== "150", hoursFilter !== "all", !showEvents, densityMode\]\.filter\(Boolean\)\.length/);
   assert.match(filters, /className="map-pet-types"/);
+  assert.match(filters, /\["All", \.\.\.PET_SPECIES\]/);
   assert.match(filters, /<span>Filters<\/span>/);
   assert.match(filters, /aria-label="Map search radius"/);
   assert.doesNotMatch(filters, /Filter map by pet type/);
@@ -71,6 +72,7 @@ test("map filters keep species choice primary and disclose secondary controls in
   assert.match(styles, /\.map-rail \.more-filters\[open\] \{ grid-column:1\/-1/);
   assert.match(styles, /\.map-rail \.more-filters > div \{ position:static/);
   assert.match(styles, /\.map-rail \.map-pet-types button \{ min-height:46px/);
+  assert.match(styles, /\.map-rail \.map-pet-types \{ min-width:0;min-height:52px;display:flex;overflow-x:auto/);
 });
 
 test("the top location search offers map-backed autocomplete", async () => {
