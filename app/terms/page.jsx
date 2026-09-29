@@ -9,7 +9,7 @@ export default function TermsPage() {
     <a className="skip-link" href="#main-content">Skip to main content</a>
     <header className="methodology-header"><a className="methodology-brand" href="/">Pawline</a><a className="methodology-discover" href="/">Find adoptable pets <span aria-hidden="true">→</span></a></header>
     <article id="main-content" className="methodology-content legal-content" tabIndex={-1}>
-      <p className="methodology-kicker">Effective August 22, 2026</p>
+      <p className="methodology-kicker">Effective September 28, 2026</p>
       <h1>Terms of Use</h1>
       <p className="methodology-lede">Pawline is a discovery and workflow service. It is not a shelter, rescue, veterinarian, adoption agency, emergency service, or guarantor of any listing, animal, organization, match, or outcome.</p>
       <section><h2>Verify information with the source</h2><p>Listings, availability, fees, health, behavior, location, hours, eligibility, and adoption requirements can change. Approximate web leads are not verified listings. Confirm material information with the identified shelter, rescue, organizer, or original source before relying on it.</p></section>
