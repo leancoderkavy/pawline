@@ -155,6 +155,18 @@ export async function fetchAllRescueGroupsPets(apiKey, fetchPage = fetchSpecies)
     throw new Error("RescueGroups API key is not configured");
   }
 
+  const imageShape = value => {
+    if (typeof value !== "string") return typeof value;
+    if (/^https:\/\//i.test(value)) return "https-absolute";
+    if (/^http:\/\//i.test(value)) return "http-absolute";
+    if (/^\/\//.test(value)) return "protocol-relative";
+    if (/^\//.test(value)) return "root-relative";
+    return "other-string";
+  };
+  const countShape = (counts, value) => {
+    const shape = imageShape(value);
+    counts[shape] = (counts[shape] || 0) + 1;
+  };
   const allPets = [];
   const photoDiagnostics = {
     animals: 0,
@@ -165,6 +177,11 @@ export async function fetchAllRescueGroupsPets(apiKey, fetchPage = fetchSpecies)
     normalizedImages: 0,
     animalAttributeKeys: [],
     pictureAttributeKeys: [],
+    relationshipTypes: {},
+    includedTypes: {},
+    matchedPictureReferences: 0,
+    largeUrlShapes: {},
+    thumbnailUrlShapes: {},
   };
   for (const species of RESCUEGROUPS_SYNC_SPECIES) {
     let page = 1;
@@ -178,6 +195,18 @@ export async function fetchAllRescueGroupsPets(apiKey, fetchPage = fetchSpecies)
       photoDiagnostics.includedPictures += includedPictures.length;
       photoDiagnostics.includedPictureUrls += includedPictures.filter(item => item.attributes?.large || item.attributes?.original || item.attributes?.small).length;
       photoDiagnostics.thumbnailUrls += payload.data.filter(item => item.attributes?.pictureThumbnailUrl).length;
+      for (const item of includedPictures) {
+        photoDiagnostics.includedTypes[item.type] = (photoDiagnostics.includedTypes[item.type] || 0) + 1;
+        countShape(photoDiagnostics.largeUrlShapes, item.attributes?.large);
+      }
+      for (const item of payload.data) {
+        const refs = item.relationships?.pictures?.data || [];
+        for (const ref of Array.isArray(refs) ? refs : [refs]) {
+          photoDiagnostics.relationshipTypes[ref.type] = (photoDiagnostics.relationshipTypes[ref.type] || 0) + 1;
+          if (includedPictures.some(pic => pic.type === ref.type && String(pic.id) === String(ref.id))) photoDiagnostics.matchedPictureReferences++;
+        }
+        countShape(photoDiagnostics.thumbnailUrlShapes, item.attributes?.pictureThumbnailUrl);
+      }
       if (!photoDiagnostics.animalAttributeKeys.length && payload.data.length) photoDiagnostics.animalAttributeKeys = Object.keys(payload.data[0].attributes || {});
       if (!photoDiagnostics.pictureAttributeKeys.length && includedPictures.length) photoDiagnostics.pictureAttributeKeys = Object.keys(includedPictures[0].attributes || {});
       const pets = payload.data
