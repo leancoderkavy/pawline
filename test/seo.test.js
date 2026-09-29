@@ -101,7 +101,7 @@ test("pet events have a crawlable, sourced landing page without misleading event
   assert.match(page, /href="\/#events"/);
   assert.doesNotMatch(page, /"@type": "Event"/);
   assert.match(layout, /href="\/events"/);
-  assert.match(sitemap, /https:\/\/www\.pawlineadopt\.com\/events/);
+  assert.ok(sitemap.includes("<loc>https://www.pawlineadopt.com/events</loc>"));
   assert.match(llms, /training, clinic, and community pet events/);
   assert.match(full, /training, clinic, and community pet events/);
 });
