@@ -474,8 +474,8 @@ export function normalizeAnimal(animal, included, index) {
     reviews: null,
     source: "RescueGroups · Live",
     sourceUrl: safeHttpUrl(attributes.url || organization.adoptionUrl || organization.url),
-    image:
-      safeImageUrl(picture?.large || picture?.original || attributes.pictureThumbnailUrl),
+    image: [picture?.large, picture?.original, attributes.pictureThumbnailUrl, picture?.small]
+      .map(safeImageUrl).find(Boolean) || null,
     latitude: coordinates.latitude,
     longitude: coordinates.longitude,
     locationAccuracy: hasCoordinates(coordinates) ? "shelter" : undefined,

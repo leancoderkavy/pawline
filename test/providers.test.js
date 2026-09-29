@@ -8,6 +8,7 @@ import {
   normalizeDatabasePet,
   normalizeKingCountyPet,
   normalizeLosAngelesPet,
+  normalizeAnimal,
   normalizeMontgomeryPet,
   normalizePetQuery,
   publicLocationCoordinates,
@@ -16,6 +17,16 @@ import {
   parseLosAngelesPets,
 } from "../api/pets.js";
 import { safeHttpUrl, safeImageUrl } from "../api/_safe-url.js";
+
+test("RescueGroups uses a valid thumbnail when a preferred picture field is an object", () => {
+  const animal = {
+    id: "rabbit-1",
+    attributes: { name: "Thumper", species: "Rabbit", pictureThumbnailUrl: "https://photos.example.org/rabbit-thumb.jpg" },
+    relationships: { pictures: { data: [{ type: "pictures", id: "photo-1" }] } },
+  };
+  const included = [{ type: "pictures", id: "photo-1", attributes: { large: { href: "https://photos.example.org/rabbit-large.jpg" } } }];
+  assert.equal(normalizeAnimal(animal, included, 0).image, "https://photos.example.org/rabbit-thumb.jpg");
+});
 
 test("reads public RescueGroups coordinates across REST response shapes", () => {
   assert.deepEqual(publicLocationCoordinates({ lat: "34.1", lon: "-118.2" }), {
