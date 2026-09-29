@@ -7,7 +7,6 @@ import {
   validateSeoDraft,
 } from "../api/_ai-seo-pipeline.js";
 import seoPipelineHandler from "../api/seo-pipeline.js";
-import seoPipelineCronHandler from "../api/cron/seo-pipeline.js";
 
 const research = [
   {
@@ -123,22 +122,15 @@ test("AI SEO pipeline fails closed when the migration is absent", async () => {
   await assert.rejects(requireSeoPipelineSchema(database), /migration is missing/i);
 });
 
-test("AI SEO operator and cron endpoints fail closed before private configuration", async () => {
+test("AI SEO operator endpoint fails closed before private configuration", async () => {
   const savedAdminSecret = process.env.SEO_PIPELINE_SECRET;
-  const savedCronSecret = process.env.CRON_SECRET;
   delete process.env.SEO_PIPELINE_SECRET;
-  delete process.env.CRON_SECRET;
   try {
     const operator = responseCapture();
     await seoPipelineHandler({ method: "GET", headers: {}, query: {} }, operator);
     assert.equal(operator.result.status, 503);
-    const cron = responseCapture();
-    await seoPipelineCronHandler({ method: "GET", headers: {} }, cron);
-    assert.equal(cron.result.status, 401);
   } finally {
     if (savedAdminSecret === undefined) delete process.env.SEO_PIPELINE_SECRET;
     else process.env.SEO_PIPELINE_SECRET = savedAdminSecret;
-    if (savedCronSecret === undefined) delete process.env.CRON_SECRET;
-    else process.env.CRON_SECRET = savedCronSecret;
   }
 });

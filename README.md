@@ -281,47 +281,14 @@ deployment OIDC when available, or `AI_GATEWAY_API_KEY` outside that environment
 Neon, Mapbox, Resend, and the scheduled importer are configured without
 exposing credentials.
 
-### AI SEO review pipeline
+### Web discovery and AI SEO
 
-The AI SEO pipeline creates source-grounded education drafts for **human
-review**. It does not publish a page, update the sitemap, or make a draft
-indexable. A Tuesday/Friday Vercel cron processes one queued job at a time. It
-uses Tavily only to collect public HTTPS research snippets, asks AI Gateway for
-a structured draft grounded in those snippets, and rejects draft outputs that
-fail deterministic checks for citation coverage, length, slug and metadata
-format, unsupported source URLs, or unsafe certainty/advice claims.
-
-Apply `db/schema.sql`, then set these server-only variables:
-
-```text
-DATABASE_URL
-CRON_SECRET
-SEO_PIPELINE_SECRET
-TAVILY_API_KEY
-AI_GATEWAY_API_KEY
-PAWLINE_SEO_MODEL=google/gemini-2.5-flash-lite
-```
-
-Queue a brief with the private operator endpoint. The `SEO_PIPELINE_SECRET` is
-different from the cron secret and must never be exposed in browser code:
-
-```bash
-curl -X POST https://www.pawlineadopt.com/api/seo-pipeline \
-  -H "Authorization: Bearer $SEO_PIPELINE_SECRET" \
-  -H "Content-Type: application/json" \
-  -d '{"focusKeyword":"how to prepare to adopt a dog","intent":"informational","audience":"first-time dog adopters","location":"Los Angeles","angle":"A practical, source-backed checklist"}'
-```
-
-The response returns a job id. Retrieve the private review artifact with:
-
-```bash
-curl "https://www.pawlineadopt.com/api/seo-pipeline?job=JOB_UUID" \
-  -H "Authorization: Bearer $SEO_PIPELINE_SECRET"
-```
-
-Jobs can become `needs_review`, `needs_revision`, or `error`; none of these
-states exposes content publicly. A human must validate citations and product
-claims, edit as necessary, then make a separately authorized publishing change.
+Scheduled web search and AI SEO research are disabled. `/api/discoveries`
+returns no web leads, and new SEO jobs cannot be queued. Existing web-lead
+rows and private SEO review records remain in storage; an authorized operator
+can still retrieve an existing SEO job with `GET /api/seo-pipeline?job=JOB_UUID`.
+No old web leads are shown in the public discovery map. Official pet feeds,
+shelter directory entries, and their existing import schedules continue.
 
 ### Shelter source enrichment and confirmation email
 

@@ -1,6 +1,7 @@
 import { getDatabase } from "../_db.js";
 import { ensureAdoptionPlatformSchema } from "../_adoption-platform.js";
 import { purgeExpiredHeldApplications } from "../adoption-applications.js";
+import { cleanupUsageLimits } from "../_usage-limit.js";
 
 export default async function handler(request, response) {
   response.setHeader("Cache-Control", "no-store");
@@ -16,7 +17,13 @@ export default async function handler(request, response) {
   try {
     await ensureAdoptionPlatformSchema(database);
     const purged = await purgeExpiredHeldApplications(database);
-    return response.status(200).json({ ok: true, purged });
+    let expiredUsageLimits = null;
+    try {
+      expiredUsageLimits = await cleanupUsageLimits(database);
+    } catch (error) {
+      console.warn("Usage limit cleanup failed", error.message);
+    }
+    return response.status(200).json({ ok: true, purged, expiredUsageLimits });
   } catch (error) {
     console.error("Held application purge failed", error.message);
     return response.status(500).json({ error: "Held application retention failed." });

@@ -20,14 +20,6 @@
       "schedule": "15 */6 * * *"
     },
     {
-      "path": "/api/cron/discover",
-      "schedule": "17 5 * * 1,4"
-    },
-    {
-      "path": "/api/cron/seo-pipeline",
-      "schedule": "43 5 * * 2,5"
-    },
-    {
       "path": "/api/cron/purge-held-applications",
       "schedule": "23 6 * * *"
     }

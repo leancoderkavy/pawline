@@ -13,18 +13,11 @@ test("request-time storage helpers never perform schema DDL", () => {
     "api/submissions.js",
     "api/_community.js",
     "api/_direct.js",
-    "api/_tavily-discovery.js",
     "api/_ai-seo-pipeline.js",
     "api/_shelter-outreach.js",
   ]) {
     assert.doesNotMatch(read(path), /CREATE\s+TABLE|ALTER\s+TABLE|CREATE\s+INDEX/i, path);
   }
-});
-
-test("web discovery fails closed when its migration is absent", async () => {
-  const { requireDiscoverySchema } = await import("../api/_tavily-discovery.js");
-  const database = async () => [{ web_discoveries: false }];
-  await assert.rejects(requireDiscoverySchema(database), /migration is missing/);
 });
 
 test("migration dry run parses and verifies local migration artifacts without a database connection", async () => {
