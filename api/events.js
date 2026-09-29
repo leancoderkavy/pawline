@@ -239,7 +239,7 @@ export default async function handler(request, response) {
       ) === index,
   ).sort((left, right) => new Date(left.starts_at) - new Date(right.starts_at));
   const page = Math.min(Math.max(Math.trunc(Number(request.query?.page)) || 1, 1), 100);
-  const limit = Math.min(Math.max(Math.trunc(Number(request.query?.limit)) || 50, 1), 250);
+  const limit = Math.min(Math.max(Math.trunc(Number(request.query?.limit)) || 250, 1), 250);
   const selected = combined.slice((page - 1) * limit, page * limit);
   const geocodedAddresses = new Map();
   const events = await Promise.all(selected.map(event => {

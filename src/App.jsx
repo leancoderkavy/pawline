@@ -1262,7 +1262,7 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
     const loadEvents = async () => {
       const events = [];
       for (let page = 1; page <= 10; page++) {
-        const response = await fetch(`/api/events?limit=250&page=${page}`, { signal: controller.signal });
+        const response = await fetch(page === 1 ? "/api/events" : `/api/events?limit=250&page=${page}`, { signal: controller.signal });
         const body = await readJson(response, "Verified events are temporarily unavailable.");
         if (!response.ok || body.mode === "error") throw new Error(body.message || "Verified events are temporarily unavailable.");
         events.push(...(body.events || []));
