@@ -917,3 +917,13 @@ CREATE TABLE IF NOT EXISTS appointment_video_reservations (
   reserved_minutes integer NOT NULL,
   PRIMARY KEY (appointment_id, revision)
 );
+CREATE TABLE IF NOT EXISTS privacy_requests (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  request_type text NOT NULL CHECK (request_type IN ('access', 'correction', 'deletion', 'other')),
+  contact_email text NOT NULL,
+  details text NOT NULL DEFAULT '',
+  status text NOT NULL DEFAULT 'received' CHECK (status IN ('received', 'verifying', 'in_progress', 'completed', 'denied')),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz,
+  updated_by text
+);
