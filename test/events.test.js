@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import handler, { createEventFeedFallbackLimiter, normalizePasadenaEvent, safeEventUrl } from "../api/events.js";
+import handler, { createEventFeedFallbackLimiter, normalizeKingCountyEvent, normalizePasadenaEvent, safeEventUrl } from "../api/events.js";
 
 function responseRecorder() {
   return {
@@ -28,13 +28,75 @@ test("normalizes an official dog adoption event", () => {
   assert.match(event.source, /Live/);
 });
 
-test("rejects events that are not dog adoption events", () => {
+test("includes pet support events without labeling them as adoption", () => {
   assert.equal(normalizePasadenaEvent({
     id: 43,
     title: "Pet Food Bank",
     start_date: "2026-07-29 17:00:00",
     description: "Dog food is available outside the adoption center.",
-  }), null);
+  }).type, "community");
+});
+
+test("classifies public training and community events separately from adoptions", () => {
+  const training = normalizePasadenaEvent({
+    id: 46, title: "Basics 101", start_date: "2027-07-29 17:00:00",
+    categories: [{ slug: "training-classes" }],
+    url: "https://pasadenahumane.org/phs-event/basics-101/",
+  });
+  assert.equal(training.type, "training");
+  assert.equal(training.city, "Pasadena");
+  assert.match(training.address, /Raymond Avenue/);
+  const community = normalizePasadenaEvent({
+    id: 47, title: "Pet community fair", start_date: "2027-07-30 17:00:00",
+    description: "Join us at 361 S. Raymond Ave, Pasadena, CA 91105.",
+    url: "https://pasadenahumane.org/phs-event/community-fair/",
+  });
+  assert.equal(community.type, "community");
+});
+
+test("includes located King County pet events and excludes closures", () => {
+  const base = {
+    event_name: "Pet Food Bank", start_time: "2026-10-04T13:00:00",
+    location_city: "Kent", location_address: "21615 64th Ave S",
+    location_state: "WA", location: { coordinates: [-122.2, 47.3] },
+    url: "https://kingcounty.gov/petassistance",
+  };
+  const event = normalizeKingCountyEvent(base);
+  assert.equal(event.type, "community");
+  assert.equal(event.city, "Kent");
+  assert.equal(event.latitude, 47.3);
+  assert.match(event.starts_at, /2026-10-04T20:00:00/);
+  assert.equal(normalizeKingCountyEvent({ ...base, start_time: "2026-10-04T13:00:00.000" }).starts_at, event.starts_at);
+  assert.equal(normalizeKingCountyEvent({ ...base, event_name: "Pet Adoption Center CLOSED" }), null);
+  assert.equal(normalizeKingCountyEvent({ ...base, location: null }), null);
+});
+
+test("event feed includes later official pages and sorts by start time", async () => {
+  const previousFetch = global.fetch;
+  const requestedPages = [];
+  global.fetch = async (url) => {
+    if (new URL(url).hostname !== "pasadenahumane.org") return { ok: true, json: async () => [] };
+    const page = Number(new URL(url).searchParams.get("page") || 1);
+    requestedPages.push(page);
+    return { ok: true, json: async () => ({
+      total_pages: 2,
+      events: [{
+        id: page, title: page === 1 ? "Dog Adoption Event" : "Basics 101",
+        start_date: page === 1 ? "2027-10-02 17:00:00" : "2027-10-01 17:00:00",
+        url: `https://pasadenahumane.org/phs-event/${page}/`,
+        categories: page === 1 ? [] : [{ slug: "training-classes" }],
+      }],
+    }) };
+  };
+  try {
+    const response = responseRecorder();
+    await handler({ method: "GET", query: { limit: "250" }, headers: {}, socket: {} }, response);
+    assert.deepEqual(requestedPages.sort(), [1, 2]);
+    assert.equal(response.body.count, 2);
+    assert.deepEqual(response.body.events.map(event => event.type), ["training", "adoption"]);
+  } finally {
+    global.fetch = previousFetch;
+  }
 });
 
 test("does not mistake promotion dates for street addresses", () => {
