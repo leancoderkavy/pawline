@@ -156,15 +156,34 @@ export async function fetchAllRescueGroupsPets(apiKey, fetchPage = fetchSpecies)
   }
 
   const allPets = [];
+  const photoDiagnostics = {
+    animals: 0,
+    pictureRelationships: 0,
+    includedPictures: 0,
+    includedPictureUrls: 0,
+    thumbnailUrls: 0,
+    normalizedImages: 0,
+    animalAttributeKeys: [],
+    pictureAttributeKeys: [],
+  };
   for (const species of RESCUEGROUPS_SYNC_SPECIES) {
     let page = 1;
     let hasMore = true;
     while (hasMore && page <= RESCUEGROUPS_MAX_PAGES) {
       const payload = await fetchPage([species], { limit: 250, page, query: {} }, apiKey);
       if (!Array.isArray(payload?.data)) throw new Error(`RescueGroups ${species} page ${page} returned an invalid animal page`);
+      const includedPictures = (payload.included || []).filter(item => item.type === "pictures");
+      photoDiagnostics.animals += payload.data.length;
+      photoDiagnostics.pictureRelationships += payload.data.filter(item => item.relationships?.pictures?.data?.length).length;
+      photoDiagnostics.includedPictures += includedPictures.length;
+      photoDiagnostics.includedPictureUrls += includedPictures.filter(item => item.attributes?.large || item.attributes?.original || item.attributes?.small).length;
+      photoDiagnostics.thumbnailUrls += payload.data.filter(item => item.attributes?.pictureThumbnailUrl).length;
+      if (!photoDiagnostics.animalAttributeKeys.length && payload.data.length) photoDiagnostics.animalAttributeKeys = Object.keys(payload.data[0].attributes || {});
+      if (!photoDiagnostics.pictureAttributeKeys.length && includedPictures.length) photoDiagnostics.pictureAttributeKeys = Object.keys(includedPictures[0].attributes || {});
       const pets = payload.data
         .map((animal, index) => normalizeAnimal(animal, payload.included || [], index))
         .filter(isCurrentProviderListing);
+      photoDiagnostics.normalizedImages += pets.filter(pet => pet.image).length;
 
       allPets.push(...pets);
       hasMore = payload.data.length === 250;
@@ -183,7 +202,7 @@ export async function fetchAllRescueGroupsPets(apiKey, fetchPage = fetchSpecies)
       allPets,
       process.env.MAPBOX_ACCESS_TOKEN
     );
-    return geocoded.map(pet => ({
+    const mapped = geocoded.map(pet => ({
       externalId: pet.externalId,
       name: pet.name,
       species: pet.species,
@@ -199,9 +218,11 @@ export async function fetchAllRescueGroupsPets(apiKey, fetchPage = fetchSpecies)
       image: pet.image,
       sourceUrl: pet.sourceUrl,
     }));
+    mapped.photoDiagnostics = photoDiagnostics;
+    return mapped;
   } catch (error) {
     console.error("RescueGroups geocoding failed:", error);
-    return allPets.map(pet => ({
+    const mapped = allPets.map(pet => ({
       externalId: pet.externalId,
       name: pet.name,
       species: pet.species,
@@ -217,6 +238,8 @@ export async function fetchAllRescueGroupsPets(apiKey, fetchPage = fetchSpecies)
       image: pet.image,
       sourceUrl: pet.sourceUrl,
     }));
+    mapped.photoDiagnostics = photoDiagnostics;
+    return mapped;
   }
 }
 
@@ -270,7 +293,7 @@ export default async function handler(request, response) {
       rescueGroupsPets,
       "RescueGroups"
     );
-    if (!results.rescueGroups.upserted) throw new Error("RescueGroups snapshot has no usable pet photos");
+    if (!results.rescueGroups.upserted) throw new Error(`RescueGroups snapshot has no usable pet photos: ${JSON.stringify(rescueGroupsPets.photoDiagnostics || {})}`);
     results.rescueGroups.retired_off_scope = await retireProviderSpecies(
       database, RESCUEGROUPS_SOURCE_ID, RESCUEGROUPS_OFF_SCOPE_SPECIES
     );
