@@ -1,6 +1,7 @@
 export const SEARCH_ORIGIN = "https://www.pawlineadopt.com";
 
 export const searchResources = [
+  { path: "/events", title: "Pet adoption and community events", description: "Explore upcoming pet events and confirm details with the organizer." },
   { path: "/guides/questions-to-ask-before-adopting", title: "Questions to ask before adopting", description: "Bring a practical checklist to your shelter conversation." },
   { path: "/guides", title: "Adoption guides", description: "Practical guides for finding a pet and contacting the shelter." },
   { path: "/guides/find-adoptable-pets-near-you", title: "Find adoptable pets near you", description: "Search locally, understand listing sources, and confirm availability." },

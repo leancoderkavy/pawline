@@ -3,17 +3,17 @@
 Canonical URL: https://www.pawlineadopt.com/
 Site name: Pawline
 Primary purpose: Pet adoption discovery
-Primary audience: People searching for adoptable dogs and cats
+Primary audience: People searching for adoptable pets and pet events
 Geographic scope: Locations covered by current provider feeds and reviewed records
 
 ## What Pawline does
 
-Pawline presents current adoptable dog and cat records on an interactive map. It also displays reviewed adoption events, accepts moderated community submissions, and offers a transparent match quiz based on an adopter's home, routine, household, and pet experience. The service is designed to send people to the original shelter, rescue, or event organizer for authoritative details and the final adoption process.
+Pawline presents current adoptable pet records on an interactive map where source coverage is available. It also displays adoption, training, clinic, and community pet events, accepts moderated community submissions, and offers a transparent match quiz based on an adopter's home, routine, household, and pet experience. The service is designed to send people to the original shelter, rescue, or event organizer for authoritative details and the final adoption process.
 
 ## Record classes
 
 1. Provider-backed pet listing: A current record obtained from an official public shelter feed, an authorized provider, or a reviewed Pawline database record.
-2. Reviewed adoption event: An upcoming event with an identified organizer and source link.
+2. Pet event: An upcoming adoption, training, clinic, or community event with an identified organizer and source link.
 3. Moderated community submission: A submitted record that is not public until reviewed.
 4. Web-discovered lead: An approximate search lead that may help locate a shelter or adoption resource. It is not a verified animal listing.
 5. Unavailable record: A listing no longer presented as available after source-refresh rules are met. Unavailable does not mean adopted.
@@ -47,16 +47,18 @@ An authorized operator must review every extracted value, any contact address, i
 ## Canonical resources
 
 - Main adoption discovery experience: https://www.pawlineadopt.com/
+- Pet events and organizer sources: https://www.pawlineadopt.com/events
 - Search crawler policy: https://www.pawlineadopt.com/robots.txt
 - XML sitemap: https://www.pawlineadopt.com/sitemap.xml
 - Concise AI reference: https://www.pawlineadopt.com/llms.txt
 - Service health: https://www.pawlineadopt.com/api/health
 
-Last reviewed: 2026-09-09
+Last reviewed: 2026-09-29
 
 ## Adoption guides and source explanations
 
 <!-- canonical-guides:start -->
+- [Pet adoption and community events](https://www.pawlineadopt.com/events): Explore upcoming pet events and confirm details with the organizer.
 - [Questions to ask before adopting](https://www.pawlineadopt.com/guides/questions-to-ask-before-adopting): Bring a practical checklist to your shelter conversation.
 - [Adoption guides](https://www.pawlineadopt.com/guides): Practical guides for finding a pet and contacting the shelter.
 - [Find adoptable pets near you](https://www.pawlineadopt.com/guides/find-adoptable-pets-near-you): Search locally, understand listing sources, and confirm availability.

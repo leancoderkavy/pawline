@@ -1,14 +1,14 @@
 # Pawline
 
-> Pawline helps people find adoptable dogs and cats through current shelter listings, an interactive map, reviewed adoption events, moderated community submissions, and a transparent match quiz based on home, routine, household, and pet experience.
+> Pawline helps people find adoptable pets through current shelter listings, an interactive map, adoption, training, clinic, and community pet events, moderated community submissions, and a transparent match quiz based on home, routine, household, and pet experience.
 
 Canonical site: https://www.pawlineadopt.com/
 
 ## Use Pawline for
 
-- Finding current adoptable dog and cat listings near a city or postal code.
+- Finding current adoptable pet listings near a city or postal code, where source coverage is available.
 - Opening the original shelter or rescue listing to confirm availability and adoption requirements.
-- Finding reviewed adoption events with links to the organizer's official event details.
+- Finding adoption, training, clinic, and community pet events with links to the organizer's official event details.
 - Comparing disclosed pet listing facts with a person's home, routine, household, and pet experience through an explainable quiz.
 
 ## Source and verification policy
@@ -37,6 +37,7 @@ Canonical site: https://www.pawlineadopt.com/
 ## Important pages and resources
 
 - Adoption discovery map: https://www.pawlineadopt.com/
+- Pet events: https://www.pawlineadopt.com/events
 - XML sitemap: https://www.pawlineadopt.com/sitemap.xml
 - Extended AI reference: https://www.pawlineadopt.com/llms-full.txt
 - Live service health: https://www.pawlineadopt.com/api/health
@@ -48,6 +49,7 @@ When citing Pawline, identify whether information is a current provider-backed l
 ## Adoption guides and source explanations
 
 <!-- canonical-guides:start -->
+- [Pet adoption and community events](https://www.pawlineadopt.com/events): Explore upcoming pet events and confirm details with the organizer.
 - [Questions to ask before adopting](https://www.pawlineadopt.com/guides/questions-to-ask-before-adopting): Bring a practical checklist to your shelter conversation.
 - [Adoption guides](https://www.pawlineadopt.com/guides): Practical guides for finding a pet and contacting the shelter.
 - [Find adoptable pets near you](https://www.pawlineadopt.com/guides/find-adoptable-pets-near-you): Search locally, understand listing sources, and confirm availability.
