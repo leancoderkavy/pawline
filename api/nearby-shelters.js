@@ -308,6 +308,7 @@ function usableCache(entry, now, age) {
 
 export function createNearbySheltersHandler(dependencies = {}) {
   const memory = new Map(),
+    refreshing = new Set(),
     coalesce = createPublicFeedCoalescer();
   const now = dependencies.now || Date.now;
   const remember = (key, entry) => {
@@ -361,6 +362,54 @@ export function createNearbySheltersHandler(dependencies = {}) {
       },
     };
   };
+  const refresh = async (query, key, database, entry, request) => {
+    try {
+      if (
+        !(await (dependencies.reserve || reserveShelterSearch)(
+          database,
+          request,
+        ))
+      )
+        return fallback(query, entry, 429);
+      if (!(await claimShelterRefresh(database, key, now())))
+        return fallback(query, entry);
+      const { shelters, radiusMiles } = await (
+        dependencies.load || fetchNearbyShelters
+      )(query);
+      const value = {
+        mode: shelters.length ? "live" : "empty",
+        shelters,
+        count: shelters.length,
+        radiusMiles,
+        requestedRadiusMiles: query.radiusMiles,
+        observedAt: new Date(now()).toISOString(),
+        provider: "OpenStreetMap via Overpass API",
+        attribution: {
+          text: "OpenStreetMap contributors",
+          url: "https://www.openstreetmap.org/copyright",
+        },
+        message: shelters.length
+          ? radiusMiles < query.radiusMiles
+            ? `Showing mapped shelters within ${radiusMiles} miles to keep this search responsive.`
+            : undefined
+          : "No mapped animal shelters were found in this area. Check the map or try a wider radius.",
+      };
+      remember(key, {
+        value,
+        observedAt: now(),
+        retryAt: now() + SHELTER_CACHE_FRESH_MS,
+      });
+      await writeShelterCache(database, key, value, now()).catch(() => {});
+      return { status: 200, body: value };
+    } catch (error) {
+      const retryMs = error.retryMs || 60000;
+      remember(key, { ...entry, retryAt: now() + retryMs });
+      await writeShelterCache(database, key, null, now(), retryMs).catch(
+        () => {},
+      );
+      return fallback(query, entry);
+    }
+  };
   return async (request, response) => {
     response.setHeader("Cache-Control", "no-store");
     if (request.method !== "GET") {
@@ -388,55 +437,27 @@ export function createNearbySheltersHandler(dependencies = {}) {
         return { status: 200, body: { ...entry.value, cached: true } };
       }
       if (entry?.retryAt > now()) return fallback(query, entry);
-      try {
-        if (
-          !(await (dependencies.reserve || reserveShelterSearch)(
-            database,
-            request,
-          ))
-        )
-          return fallback(query, entry, 429);
-        if (!(await claimShelterRefresh(database, key, now())))
-          return fallback(query, entry);
-        const { shelters, radiusMiles } = await (
-          dependencies.load || fetchNearbyShelters
-        )(query);
-        const value = {
-          mode: shelters.length ? "live" : "empty",
-          shelters,
-          count: shelters.length,
-          radiusMiles,
-          requestedRadiusMiles: query.radiusMiles,
-          observedAt: new Date(now()).toISOString(),
-          provider: "OpenStreetMap via Overpass API",
-          attribution: {
-            text: "OpenStreetMap contributors",
-            url: "https://www.openstreetmap.org/copyright",
-          },
-          message: shelters.length
-            ? radiusMiles < query.radiusMiles
-              ? `Showing mapped shelters within ${radiusMiles} miles to keep this search responsive.`
-              : undefined
-            : "No mapped animal shelters were found in this area. Check the map or try a wider radius.",
-        };
-        remember(key, {
-          value,
-          observedAt: now(),
-          retryAt: now() + SHELTER_CACHE_FRESH_MS,
-        });
-        await writeShelterCache(database, key, value, now()).catch(() => {});
-        return { status: 200, body: value };
-      } catch (error) {
-        const retryMs = error.retryMs || 60000;
-        remember(key, { ...entry, retryAt: now() + retryMs });
-        await writeShelterCache(database, key, null, now(), retryMs).catch(
-          () => {},
-        );
-        return fallback(query, entry);
+      // A stale result is still good enough to show at once. Refresh it after the
+      // response so a visitor never waits on the upstream map source.
+      if (
+        usableCache(entry, now(), SHELTER_CACHE_STALE_MS) &&
+        entry.value.shelters.length &&
+        typeof request.waitUntil === "function"
+      ) {
+        if (!refreshing.has(key)) {
+          refreshing.add(key);
+          request.waitUntil(
+            refresh(query, key, database, entry, request)
+              .catch(() => {})
+              .finally(() => refreshing.delete(key)),
+          );
+        }
+        return { status: 200, body: { ...entry.value, cached: true, stale: true } };
       }
+      return refresh(query, key, database, entry, request);
     });
     if (result.status === 200) {
-      const cap = result.body.partial ? 60 : 900;
+      const cap = result.body.partial || result.body.stale ? 60 : 900;
       const ageLimit = result.body.stale ? SHELTER_CACHE_STALE_MS : SHELTER_CACHE_FRESH_MS;
       const remaining = result.body.observedAt ? Math.floor((Date.parse(result.body.observedAt) + ageLimit - now()) / 1000) : cap;
       response.setHeader("Cache-Control", `public, s-maxage=${Math.max(0, Math.min(cap, remaining))}`);
