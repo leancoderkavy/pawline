@@ -1,3 +1,5 @@
+import { after } from "next/server";
+
 class LegacyResponse {
   constructor() {
     this.statusCode = 200;
@@ -46,6 +48,8 @@ export async function runLegacyHandler(handler, nextRequest) {
     query: Object.fromEntries(url.searchParams.entries()),
     body,
     socket: { remoteAddress: headers["x-forwarded-for"]?.split(",")[0]?.trim() || "unknown" },
+    // Lets a handler finish work, such as a cache refresh, after the response is sent.
+    waitUntil: task => after(task),
   };
   const response = new LegacyResponse();
   await handler(request, response);
