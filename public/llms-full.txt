@@ -63,6 +63,7 @@ Last reviewed: 2026-09-29
 - [Adoption guides](https://www.pawlineadopt.com/guides): Practical guides for finding a pet and contacting the shelter.
 - [Find adoptable pets near you](https://www.pawlineadopt.com/guides/find-adoptable-pets-near-you): Search locally, understand listing sources, and confirm availability.
 - [Find a pet that fits your home and routine](https://www.pawlineadopt.com/guides/find-a-pet-that-fits-your-home-and-routine): Compare disclosed pet needs with your household and daily life.
+- [How to adopt a dog](https://www.pawlineadopt.com/guides/how-to-adopt-a-dog): Step-by-step guidance from deciding readiness to preparing your home and the first two weeks.
 - [How Pawline checks listing sources](https://www.pawlineadopt.com/how-pawline-works): Understand provider listings, approximate leads, and unknown details.
 <!-- canonical-guides:end -->
 
