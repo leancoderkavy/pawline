@@ -2,6 +2,12 @@
 
 const guides = [
   {
+    href: "#guides/how-to-adopt", path: "/guides/how-to-adopt-a-dog",
+    label: "Complete adoption guide",
+    title: "How to adopt a dog",
+    description: "Step-by-step guidance from deciding readiness to preparing your home and planning the first two weeks.",
+  },
+  {
     href: "#guides/checklist", path: "/guides/questions-to-ask-before-adopting",
     label: "Prepare for a conversation",
     title: "Questions to ask a shelter before adopting a pet",

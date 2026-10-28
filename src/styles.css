@@ -817,7 +817,15 @@ body:has(> .map-app) > .legal-footer { display:none; }
 .adoption-checklist label { display:flex;align-items:flex-start;gap:12px;padding:16px 0;line-height:1.6;cursor:pointer; }
 .adoption-checklist input { flex:none;width:22px;height:22px;margin-top:3px;accent-color:var(--green); }
 .adoption-checklist strong { display:block; }.adoption-checklist input:checked + span { color:#65716b; }
-@media print { .search-page-nav,.legal-footer,.search-related { display:none; }.methodology-page { background:white;min-height:0;padding:0; }.methodology-content { margin:0 auto; }.adoption-checklist li { break-inside:avoid; } }
+
+.faq-list { margin:0;padding:0; }
+.faq-item { border-bottom:1px solid var(--line);padding:20px 0; }
+.faq-item:first-child { padding-top:0; }
+.faq-item dt { margin-bottom:12px;font-size:18px;line-height:1.4;color:var(--green); }
+.faq-item dd { margin:0;line-height:1.6; }
+.faq-item dd a { text-decoration:underline;text-underline-offset:3px; }
+
+@media print { .search-page-nav,.legal-footer,.search-related { display:none; }.methodology-page { background:white;min-height:0;padding:0; }.methodology-content { margin:0 auto; }.adoption-checklist li,.faq-item { break-inside:avoid; } }
 /* Pass 1: a quiet, discoverable control aligned with the search field. */
 .map-rail .rail-toggle { color:var(--green);background:#f0f4ee;border:1px solid #dde5db; }
 .map-rail .rail-toggle:hover { background:#e1ebdf;border-color:#aebfac; }
