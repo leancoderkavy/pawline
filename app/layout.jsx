@@ -1,7 +1,11 @@
 import "mapbox-gl/dist/mapbox-gl.css";
 import { posthogScript } from "../src/posthogSetup.js";
+import { checkAnalyticsConfig } from "../src/checkAnalytics.js";
 import "../src/styles.css";
 import { DM_Sans, DM_Serif_Display } from "next/font/google";
+
+// Check analytics configuration during build
+checkAnalyticsConfig();
 
 const sans = DM_Sans({ subsets: ["latin"], variable: "--font-dm-sans", display: "swap" });
 const serif = DM_Serif_Display({ subsets: ["latin"], weight: "400", variable: "--font-dm-serif", display: "swap" });
