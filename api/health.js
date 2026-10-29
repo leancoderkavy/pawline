@@ -15,6 +15,10 @@ export function getHealth(environment = process.env) {
   );
   const clerkConfigured = Boolean(environment.CLERK_SECRET_KEY);
   const realtimeConfigured = Boolean(environment.ABLY_API_KEY);
+  const analyticsConfigured = Boolean(
+    environment.NEXT_PUBLIC_POSTHOG_KEY &&
+    /^phc_[a-zA-Z0-9]+$/.test(environment.NEXT_PUBLIC_POSTHOG_KEY)
+  );
   return {
     ok: true,
     service: "pawline",
@@ -38,6 +42,7 @@ export function getHealth(environment = process.env) {
     communityLinkParsingConfigured: clerkConfigured && communityDatabaseConfigured && Boolean(
       environment.VERCEL || environment.AI_GATEWAY_API_KEY || environment.VERCEL_OIDC_TOKEN,
     ),
+    analyticsConfigured,
     publicOpenDataProviders: 2,
     officialDirectPetProviders: 3,
     activePetProviders:
