@@ -84,6 +84,7 @@ export default function HowToAdoptADog({ standalone = false }) {
         <li><strong>Support network:</strong> Identify a veterinarian, backup pet care if you travel, and resources for questions or emergencies.</li>
         <li><strong>Long-term commitment:</strong> Understand that dogs can live 10 to 15 years or more and require consistent care throughout their lives.</li>
       </ul>
+      <p>For a complete first-time owner guide, read the <a href={standalone ? "/guides/first-time-dog-owner-checklist" : "#guides/first-time"}>first time dog owner checklist</a> with detailed readiness assessment, choosing the right dog, essential supplies, home preparation, and planning for the first weeks.</p>
       <p>Use Pawline to <a href={standalone ? "/guides/find-a-pet-that-fits-your-home-and-routine" : "#guides/matching"}>compare your home and routine with available dogs</a> before visiting a shelter. This helps you identify which questions to ask and which unknowns to confirm in person.</p>
     </section>
 
