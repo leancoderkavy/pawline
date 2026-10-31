@@ -7,6 +7,7 @@ export const searchResources = [
   { path: "/guides/find-adoptable-pets-near-you", title: "Find adoptable pets near you", description: "Search locally, understand listing sources, and confirm availability." },
   { path: "/guides/find-a-pet-that-fits-your-home-and-routine", title: "Find a pet that fits your home and routine", description: "Compare disclosed pet needs with your household and daily life." },
   { path: "/guides/how-to-adopt-a-dog", title: "How to adopt a dog", description: "Step-by-step guidance from deciding readiness to preparing your home and the first two weeks." },
+  { path: "/guides/first-time-dog-owner-checklist", title: "First time dog owner checklist", description: "Confirm you're ready, choose the right dog, prepare supplies and your home, and plan for the first weeks." },
   { path: "/how-pawline-works", title: "How Pawline checks listing sources", description: "Understand provider listings, approximate leads, and unknown details." },
 ];
 

@@ -8,6 +8,12 @@ const guides = [
     description: "Step-by-step guidance from deciding readiness to preparing your home and planning the first two weeks.",
   },
   {
+    href: "#guides/first-time", path: "/guides/first-time-dog-owner-checklist",
+    label: "First-time owner guide",
+    title: "First time dog owner checklist",
+    description: "Confirm you're ready, choose the right dog, prepare essential supplies and your home, and plan for the first weeks.",
+  },
+  {
     href: "#guides/checklist", path: "/guides/questions-to-ask-before-adopting",
     label: "Prepare for a conversation",
     title: "Questions to ask a shelter before adopting a pet",
