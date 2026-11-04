@@ -33,7 +33,7 @@ export default function AdoptionChecklist({ standalone = false }) {
 
     <section aria-labelledby="after-conversation"><h2 id="after-conversation">After the conversation</h2>
       <p>Separate confirmed facts from open questions. If an answer is unknown, keep it unknown when comparing pets. Agree on who to contact next and whether another meeting or application is needed. A completed checklist or Pawline match score does not approve an adoption or establish compatibility.</p>
-      <p>For another way to organize your questions, use the <a href={standalone ? "/guides/find-a-pet-that-fits-your-home-and-routine" : "#guides/matching"}>home and routine guide</a>. When you are ready to search, <a href={standalone ? "/#map" : "#map"}>return to the adoption map</a>.</p>
+      <p>For another way to organize your questions, use the <a href={standalone ? "/guides/find-a-pet-that-fits-your-home-and-routine" : "#guides/matching"}>home and routine guide</a>. For complete step-by-step guidance through the entire adoption process, see <a href={standalone ? "/guides/how-to-adopt-a-dog" : "#guides/how-to-adopt"}>how to adopt a dog</a>. When you are ready to search, <a href={standalone ? "/#map" : "#map"}>return to the adoption map</a>.</p>
     </section>
   </article></section>;
 }
