@@ -1,6 +1,6 @@
 .network-tools {
   padding: 24px;
-  color: var(--ink, #213d34);
+  color: var(--ink, var(--ink));
   overflow-wrap: anywhere;
 }
 .network-tools h1 {
@@ -11,10 +11,10 @@
   font-size: 20px;
 }
 .network-tools h3 {
-  font-size: 17px;
+  font-size:var(--text-xl);
 }
 .network-tools p {
-  font-size: 14px;
+  font-size:var(--text-md);
   line-height: 1.6;
 }
 .network-tabs {
@@ -31,7 +31,7 @@
 .network-tools button {
   padding: 9px 12px;
   border: 1px solid #c9d3cb;
-  border-radius: 8px;
+  border-radius:var(--radius-sm);
   background: #fff;
   color: inherit;
   font: inherit;
@@ -48,7 +48,7 @@
 .network-tools label {
   display: grid;
   gap: 6px;
-  font-size: 14px;
+  font-size:var(--text-md);
 }
 .network-tools input,
 .network-tools textarea,
@@ -57,7 +57,7 @@
   width: 100%;
   min-height: 44px;
   border: 1px solid #b6c4bb;
-  border-radius: 6px;
+  border-radius:var(--radius-xs);
   padding: 10px;
   font: inherit;
   background: #fff;
@@ -99,7 +99,7 @@
 }
 .network-notice {
   padding: 12px;
-  background: #edf3eb;
+  background: var(--mint);
   border-left: 3px solid #497d5f;
 }
 .network-tools dd {
@@ -124,7 +124,7 @@
   min-height: 44px;
   border: 1px solid #b6c4bb;
   background: white;
-  border-radius: 8px;
+  border-radius:var(--radius-sm);
   padding: 8px;
   color: inherit;
 }
@@ -140,7 +140,7 @@
   width: 72px;
   height: 80px;
   object-fit: cover;
-  border-radius: 6px;
+  border-radius:var(--radius-xs);
 }
 .network-pet-copy {
   display: grid;
@@ -148,5 +148,5 @@
   min-width: 0;
 }
 .network-pet-copy small {
-  font-size: 12px;
+  font-size:var(--text-base);
 }
