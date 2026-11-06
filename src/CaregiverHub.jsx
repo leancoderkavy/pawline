@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Building2, Heart, MessageCircle, PawPrint } from "lucide-react";
+import { capture } from "./analytics.js";
 import "./caregivers.css";
 
 export function CaregiverRegistrationForm({ onRegister, busy, error }) {
@@ -59,7 +60,7 @@ export default function CaregiverHub({ getToken, onListPet, onOpenMessages, chil
   }, [data]);
   const register = async form => {
     setBusy(true); setError("");
-    try { const body = await request("/api/caregivers", { method: "POST", body: JSON.stringify(form) }); setData(body); setSelectedId(body.registeredOrganizationId || body.organizations[0]?.id || ""); setRegistrationOpen(false); }
+    try { const body = await request("/api/caregivers", { method: "POST", body: JSON.stringify(form) }); capture(form.kind === "foster" ? "foster_onboarding_completed" : "shelter_onboarding_completed"); setData(body); setSelectedId(body.registeredOrganizationId || body.organizations[0]?.id || ""); setRegistrationOpen(false); }
     catch (reason) { setError(reason.message); } finally { setBusy(false); }
   };
   const updatePet = async (petId, status) => {

@@ -51,28 +51,40 @@ export default async function PetPage({ params }) {
           {pet.breed} · {pet.age}
         </p>
         <p>
-          Listed as available. Confirm availability and adoption requirements
-          with the shelter before visiting.
+          Listed as available. Confirm current availability and adoption requirements
+          with {pet.shelter} before visiting.
         </p>
-        {pet.lastObservedAt ? (
-          <p>
-            Last listing observation:{" "}
-            {new Date(pet.lastObservedAt).toLocaleDateString("en-US", {
-              timeZone: "UTC",
-            })}
-          </p>
+        {pet.sourceUrl ? (
+          <div style={{ marginTop: "1.5rem", marginBottom: "1.5rem" }}>
+            <a
+              className="button"
+              href={pet.sourceUrl}
+              rel="noreferrer"
+              target="_blank"
+              style={{ display: "inline-block", marginBottom: "0.75rem" }}
+            >
+              Contact {pet.shelter} to inquire
+            </a>
+            <p style={{ fontSize: "0.875rem", color: "var(--text-secondary)", margin: 0 }}>
+              <a href={pet.sourceUrl} rel="noreferrer" target="_blank">
+                {petSourceLinkLabel(pet.sourceUrl, pet.externalId)}
+              </a>
+            </p>
+          </div>
         ) : null}
         <a
           className="button"
           href={`/?pet=${encodeURIComponent(pet.id)}#network`}
+          style={{ display: "inline-block" }}
         >
-          Open pet and adoption options
+          Compare with your home and routine
         </a>
-        {pet.sourceUrl ? (
-          <p>
-            <a href={pet.sourceUrl} rel="noreferrer" target="_blank">
-              {petSourceLinkLabel(pet.sourceUrl, pet.externalId)}
-            </a>
+        {pet.lastObservedAt ? (
+          <p style={{ marginTop: "1.5rem", fontSize: "0.875rem", color: "var(--text-secondary)" }}>
+            Last listing observation:{" "}
+            {new Date(pet.lastObservedAt).toLocaleDateString("en-US", {
+              timeZone: "UTC",
+            })}
           </p>
         ) : null}
       </article>

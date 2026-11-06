@@ -1,6 +1,6 @@
 # PostHog critical-path audit
 
-HOLD-MERGE: draft review only. No merge, deployment, dashboard changes, or paid services were performed for this audit.
+HOLD-MERGE: draft review only. KAV-26 follow-up (2026-09-27) enabled path-only pageview/pageleave capture and added search, application-start, and caregiver-onboarding events. No merge, deployment, dashboard changes, or paid services were performed for this audit.
 
 ## Existing setup and fixes
 
@@ -20,11 +20,15 @@ All custom event names use snake_case. **No custom properties** are accepted.
 | `sign_in_completed`, `sign_up_completed` | Successful Clerk finalization in the auth modal |
 | `signed_out` | Loaded auth state transitions from identified to signed out |
 | `auth_error` | Auth modal displays a validation/provider/resend error; no error text |
+| `$pageview`, `$pageleave` | SDK `history_change` capture on initial load and App Router/SPA history navigation; path-only URL, host, referring domain, UTM source/medium/campaign, browser/OS/device type |
+| `search_performed` | Location search submitted or a location suggestion selected; no query text |
 | `pet_viewed` | Explicit opening of pet details from map or discovery; not deep-link/back navigation |
 | `pet_favorite_added`, `pet_favorite_removed` | Guest local save succeeds, or signed-in cloud save succeeds; excludes initial sync/import |
 | `favorite_error` | Local save or cloud mutation fails |
+| `application_started` | A new private application draft is created for a pet (existing drafts are not re-counted) |
 | `application_submitted` | Application submission API succeeds; excludes local drafts |
 | `application_error` | Application submission fails |
+| `shelter_onboarding_completed`, `foster_onboarding_completed` | Caregiver registration API succeeds (shelter/rescue vs foster) |
 | `appointment_proposed` | Propose API succeeds |
 | `appointment_confirmed` | Accept API succeeds |
 | `appointment_rescheduled` | Reschedule API succeeds |
@@ -37,7 +41,7 @@ Appointment success is recorded before refreshing the list. A failed follow-up r
 
 ## Privacy controls
 
-Autocapture, pageviews/pageleave, replay, heatmaps, dead/rage clicks, automatic exceptions, performance capture, surveys, and feature-flag requests are disabled. Error events contain no message, stack, request body, note, or URL. `before_send` rejects unknown events and replaces outgoing properties with a minimal SDK allowlist: project token, distinct/anonymous/device/session/window identifiers, library/version, and identity/person-processing booleans. This also removes SDK-added URLs, referrers, UTM fields, and nested `$set`/`$set_once` traits. `$identify` is the only allowed SDK event. No pet, application, appointment, or conversation IDs are sent.
+Autocapture, replay, heatmaps, dead/rage clicks, automatic exceptions, performance capture, surveys, and feature-flag requests are disabled. Error events contain no message, stack, request body, note, or URL. `before_send` rejects unknown events and replaces outgoing properties with a minimal SDK allowlist: project token, distinct/anonymous/device/session/window identifiers, library/version, and identity/person-processing booleans. For custom events this also removes SDK-added URLs, referrers, UTM fields, and nested `$set`/`$set_once` traits. `$identify`, `$pageview`, and `$pageleave` are the only allowed SDK events. Page events (only) also keep a path-only `$current_url`, `$pathname`, `$host`, `$referring_domain`, previous-pathname/duration, browser/OS/device type, and UTM source/medium/campaign; query strings and hashes are stripped from every string property. No application, appointment, or conversation IDs are sent; page paths can include public pet listing slugs (for example `/pets/<slug>`).
 
 The Clerk ID and SDK identifiers are pseudonymous, not anonymous. `ip: false` disables PostHog IP-based enrichment; network requests necessarily still reach the provider. Existing SDK storage can contain historic metadata locally, but that metadata is stripped from outgoing events. See [PostHog configuration](https://posthog.com/docs/libraries/js/config) for the capture and `before_send` options.
 
