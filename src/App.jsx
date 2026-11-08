@@ -1382,8 +1382,10 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
     setMapSearchMoved(false);
     setLocationState({ status: "success", message: `Map centered on ${match.name}.` });
   };
-  const findMatch = async () => {
-    if (!location.trim()) {
+  // `query` comes from the welcome screen, which searches before the `location` state update lands.
+  const findMatch = async query => {
+    const place = typeof query === "string" ? query : location;
+    if (!place.trim()) {
       setLocationState({ status: "error", message: "Enter a city, state, or postal code." });
       return;
     }
@@ -1395,7 +1397,7 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
     }
     setLocationState({ status: "loading", message: "Finding that location…" });
     try {
-      const response = await fetch(`/api/geocode?q=${encodeURIComponent(location)}`);
+      const response = await fetch(`/api/geocode?q=${encodeURIComponent(place)}`);
       const body = await readJson(response, "Location search requires the configured Pawline API.");
       if (!response.ok) throw new Error(body.error || "Location search failed.");
       const match = body.results?.[0];
@@ -1404,6 +1406,12 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
     } catch (error) {
       setLocationState({ status: "error", message: error.message });
     }
+  };
+  const searchFromWelcome = query => {
+    setLocation(query);
+    openPanel("explore");
+    capture("search_performed");
+    findMatch(query);
   };
   const stopUserLocation = () => {
     locationRequestRef.current += 1;
@@ -1599,7 +1607,7 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
               : <AdopterExperience {...journeyProps} /> : null}
           </div>
           {activePanel === "network" ? <Suspense fallback={<p role="status">Opening discovery tools…</p>}>{clerkConfigured ? <NetworkToolsWithAuth onOpenPet={openPetDetail} /> : <NetworkTools onOpenPet={openPetDetail} onSignIn={() => openPanel("messages")} />}</Suspense> : null}
-          {activePanel === "onboarding" ? <Onboarding onNavigate={openPanel} /> : null}
+          {activePanel === "onboarding" ? <Onboarding onNavigate={openPanel} onSearchLocation={searchFromWelcome} /> : null}
           {activePanel === "resources" ? <Suspense fallback={<p className="panel-loading" role="status">Opening guides…</p>}><MapResources hash={resourceHash} /></Suspense> : null}
           {activePanel === "shelter" ? clerkConfigured
             ? <Suspense fallback={<p className="panel-loading" role="status">Opening caregiver workspace…</p>}><CaregiverHubWithAuth key={submitOpen ? "listing" : "workspace"} onListPet={caregiver => { setListingCaregiver(caregiver); setSubmitOpen(true); }} onOpenMessages={() => openPanel("messages")} /></Suspense>
