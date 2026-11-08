@@ -62,7 +62,8 @@
 .onboarding-search-row:focus-within { border-color:var(--green); box-shadow:0 0 0 3px #17382f22; }
 .onboarding-search-row > svg { width:20px; height:20px; flex-shrink:0; }
 .onboarding-search-row input { flex:1; min-width:0; min-height:44px; border:0; background:transparent; font:inherit; color:inherit; outline:none; }
-.onboarding-search-row .button { display:inline-flex; align-items:center; gap:6px; min-height:44px; padding:0 16px; white-space:nowrap; }
+.onboarding-search-row .button { display:inline-flex; align-items:center; gap:6px; min-height:44px; padding:0 16px; white-space:nowrap; background:var(--rust-contrast); color:#fff; }
+.onboarding-search-row .button span { color:inherit; }
 .onboarding-search-row .button svg { width:18px; height:18px; }
 .onboarding-search-error { margin:0; color:#a3392c; font-size:var(--text-md); }
 .onboarding-search-row:has(input[aria-invalid="true"]) { border-color:#a3392c; }

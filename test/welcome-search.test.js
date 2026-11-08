@@ -33,4 +33,6 @@ test("the welcome screen offers a labelled place search that runs the map's loca
   const css = await read("src/onboarding.css");
   assert.match(css, /\.panel-onboarding \.rail-search/);
   assert.match(css, /\.onboarding-search-row input \{[^}]*min-height:44px/);
+  // White on --rust is about 4:1; the welcome button uses the 4.5:1-safe contrast token.
+  assert.match(css, /\.onboarding-search-row \.button \{[^}]*background:var\(--rust-contrast\); color:#fff;/);
 });
