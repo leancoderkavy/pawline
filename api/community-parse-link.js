@@ -116,10 +116,13 @@ function fetchSafeHtml({ url, address, family }) {
   });
 }
 
+const DECODED_ENTITIES = { "&amp;": "&", "&quot;": "\"", "&#39;": "'", "&lt;": "<", "&gt;": ">" };
+
+// Single pass, so an encoded entity such as "&amp;lt;" is decoded only once.
 function decode(value) {
   return String(value || "")
-    .replace(/&amp;/g, "&").replace(/&quot;/g, "\"").replace(/&#39;/g, "'")
-    .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/\s+/g, " ").trim();
+    .replace(/&(?:amp|quot|#39|lt|gt);/g, (entity) => DECODED_ENTITIES[entity])
+    .replace(/\s+/g, " ").trim();
 }
 
 function meta(html, key) {
@@ -206,7 +209,7 @@ export default async function handler(request, response) {
       description: meta(html, "og:description") || meta(html, "description"),
       imageUrl: meta(html, "og:image"),
     };
-    const visibleText = decode(html.replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<style[\s\S]*?<\/style>/gi, " ").replace(/<[^>]+>/g, " ")).slice(0, 12_000);
+    const visibleText = decode(html.replace(/<script\b[^>]*>[\s\S]*?<\/script\b[^>]*>/gi, " ").replace(/<style\b[^>]*>[\s\S]*?<\/style\b[^>]*>/gi, " ").replace(/<[^>]+>/g, " ")).slice(0, 12_000);
     const { output } = await generateText({
       model: MODEL,
       output: Output.object({
