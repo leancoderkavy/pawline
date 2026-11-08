@@ -68,3 +68,10 @@
 .onboarding-search-error { margin:0; color:#a3392c; font-size:var(--text-md); }
 .onboarding-search-row:has(input[aria-invalid="true"]) { border-color:#a3392c; }
 @media (max-width:380px) { .onboarding-search-row .button span { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; } .onboarding-search-row .button { padding:0 12px; } }
+
+.search-tour-card { margin:8px 0 16px;padding:16px;border:1px solid var(--line);border-radius:var(--radius-md);background:var(--cream);overflow-wrap:anywhere; }
+.search-tour-card h2 { margin:8px 0;font:400 23px/1.2 var(--serif); }
+.search-tour-card p { line-height:1.5; }
+.search-tour-actions { display:flex;flex-wrap:wrap;gap:8px; }
+.search-tour-actions button { min-height:44px;padding:8px 12px;border:1px solid var(--green);border-radius:8px;background:white;color:var(--green);font:inherit;cursor:pointer; }
+.search-tour-actions button:focus-visible { outline:3px solid var(--green);outline-offset:3px; }

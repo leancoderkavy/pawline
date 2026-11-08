@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Building2, Heart, House, Check, PawPrint, MapPin, Search } from "lucide-react";
 import { welcomeLocationQuery, WELCOME_QUERY_MAX } from "./welcomeSearch.js";
 import "./onboarding.css";
+import SearchTour from "./SearchTour";
 
 const paths = [
   { id: "adopter", Icon: Heart, title: "I’m looking for a pet", description: "Browse the map. No account needed." },
@@ -57,6 +58,7 @@ export default function Onboarding({ onNavigate, onSearchLocation }) {
       </div>
       {placeError ? <p id="onboarding-location-error" className="onboarding-search-error" role="alert">{placeError}</p> : null}
     </form> : null}
+    {!path ? <SearchTour targetId="onboarding-location" /> : null}
     {!path ? <div className="onboarding-choices">{paths.map(({ id, Icon, title, description }) => <button className={id === "adopter" ? "onboarding-primary" : ""} key={id} onClick={() => id === "adopter" ? onNavigate("explore") : setSelected(id)}><Icon aria-hidden="true" /><span><strong>{title}</strong><small>{description}</small></span><ArrowRight aria-hidden="true" /></button>)}</div> : <>
       <ol className="onboarding-steps">{path.steps.map(step => <li key={step}><Check aria-hidden="true" /><span>{step}</span></li>)}</ol>
       <p className="onboarding-note">{selected === "foster" ? "Use your city, not your home address. Your pet listing will be reviewed before it appears publicly." : "Already invited to a team? Use your invitation link. Creating a profile does not verify an affiliation or grant access to an existing organization."}</p>
