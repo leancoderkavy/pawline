@@ -8,7 +8,7 @@ test("production CSP permits the configured Clerk custom domain", async () => {
 
   for (const directive of ["script-src", "connect-src", "frame-src", "form-action"]) {
     const line = policy.split('; ').find(entry => entry.startsWith(`${directive} `));
-    assert.equal((line || "").split(" ").includes("https://clerk.pawlineadopt.com"), true, `${directive} permits the Clerk custom domain`);
+    assert.equal((line || "").split(" ").some(source => source === "https://clerk.pawlineadopt.com"), true, `${directive} permits the Clerk custom domain`);
     assert.equal(line.split(" ").some(source => source === "https://pawlineadopt.com/__clerk/"), true, `${directive} permits the configured proxy path`);
     assert.equal(line.split(" ").some(source => source === "https://pawlineadopt.com"), false, "Do not allow unrelated apex paths");
   }
