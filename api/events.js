@@ -40,8 +40,7 @@ async function reserveEventFeedUsage(database, request) {
 function cleanText(value) {
   return String(value || "")
     .replace(/<[^>]+>/g, " ")
-    .replace(/&#038;|&amp;/g, "&")
-    .replace(/&#8217;/g, "’")
+    .replace(/&(?:#038|amp|#8217);/g, (entity) => (entity === "&#8217;" ? "’" : "&"))
     .replace(/\s+/g, " ")
     .trim();
 }
