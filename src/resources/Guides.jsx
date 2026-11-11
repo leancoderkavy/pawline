@@ -32,6 +32,48 @@ const guides = [
     description: "Use disclosed listing facts and your household, routine, and pet experience to compare questions worth asking a shelter.",
   },
   {
+    href: "/guides/adopt-a-pet-before-the-holidays", path: "/guides/adopt-a-pet-before-the-holidays",
+    label: "Holiday timing",
+    title: "How to adopt a pet before the holidays",
+    description: "Decide whether a pre-holiday adoption fits guests, travel, and the settling-in time a new pet needs.",
+  },
+  {
+    href: "/guides/adopting-a-pet-as-a-gift", path: "/guides/adopting-a-pet-as-a-gift",
+    label: "Responsible gifting",
+    title: "Adopting a pet as a gift—responsibly",
+    description: "Consent-first guidance when someone wants to include adoption in a holiday gift plan.",
+  },
+  {
+    href: "/guides/winter-pet-care-for-newly-adopted-pets", path: "/guides/winter-pet-care-for-newly-adopted-pets",
+    label: "Winter care",
+    title: "Winter pet care for newly adopted dogs and cats",
+    description: "Cold-weather routines, indoor safety, and seasonal hazards after a new adoption.",
+  },
+  {
+    href: "/guides/adopt-a-pet-after-the-holidays", path: "/guides/adopt-a-pet-after-the-holidays",
+    label: "After the rush",
+    title: "Why adopt a pet after the holidays",
+    description: "Use a calmer January window while you keep searching current shelter listings.",
+  },
+  {
+    href: "/guides/holiday-travel-and-pet-adoption-timing", path: "/guides/holiday-travel-and-pet-adoption-timing",
+    label: "Travel timing",
+    title: "Holiday travel and pet adoption timing",
+    description: "Align pickup with days you can stay home so a new pet can settle without a rushed trip.",
+  },
+  {
+    href: "/guides/adopt-a-cat-during-the-holidays", path: "/guides/adopt-a-cat-during-the-holidays",
+    label: "Cat adoption",
+    title: "How to adopt a cat during the holidays",
+    description: "Quiet landing rooms, lily- and tinsel-safe décor, and confirmed shelter listings.",
+  },
+  {
+    href: "/guides/prepare-your-home-for-a-winter-adoption", path: "/guides/prepare-your-home-for-a-winter-adoption",
+    label: "Home setup",
+    title: "Prepare your home for a winter pet adoption",
+    description: "Arrival zones, core supplies, and winter hazard controls before bring-home day.",
+  },
+  {
     href: "#how-pawline-works", path: "/how-pawline-works",
     label: "Understand the data",
     title: "How Pawline verifies adoption listings",
