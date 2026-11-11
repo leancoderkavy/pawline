@@ -11,6 +11,9 @@ These seed outlines support Pawline Adopt's brand disambiguation strategy:
 
 ## Files
 
+### 0. `hold-merge-30-day-pack/` (Nov 16 – Dec 15, 2026)
+Draft 30-day pack: content calendar, social drafts, newsletter, plus seven seasonal SEO guides under `/guides/`. **HOLD MERGE / DO NOT PUBLISH** until founder review.
+
 ### 1. `what-is-pawline-adopt.md`
 Brand identity and core positioning — what Pawline Adopt is (and is NOT).
 
