@@ -60,29 +60,28 @@ const MONTGOMERY_ADOPTION_URL =
   "https://www.montgomerycountymd.gov/animalservices/adoption/index.html";
 
 
+const BASIC_ENTITIES = { "&amp;": "&", "&quot;": '"', "&#39;": "'" };
+const NAMED_ENTITIES = { amp: "&", quot: '"', "#39": "'", apos: "'", lt: "<", gt: ">" };
+
 export function cleanText(value) {
   if (!value) return null;
   return String(value)
     .replace(/<[^>]+>/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
+    .replace(/&(?:amp|quot|#39);/g, (entity) => BASIC_ENTITIES[entity])
     .replace(/\s+/g, " ")
     .trim() || null;
 }
 
 
+// Decode each entity exactly once so "&amp;lt;" stays "&lt;" instead of becoming "<".
 function decodeHtml(value) {
-  return String(value || "")
-    .replace(/&#x([0-9a-f]+);/gi, (_, code) =>
-      String.fromCodePoint(Number.parseInt(code, 16)))
-    .replace(/&#(\d+);/g, (_, code) =>
-      String.fromCodePoint(Number.parseInt(code, 10)))
-    .replace(/&amp;/g, "&")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;|&apos;/g, "'")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">");
+  return String(value || "").replace(
+    /&(?:#x([0-9a-f]+)|#(\d+)|(amp|quot|#39|apos|lt|gt));/gi,
+    (entity, hex, decimal, named) => {
+      if (named) return NAMED_ENTITIES[named.toLowerCase()] ?? entity;
+      const code = Number.parseInt(hex ?? decimal, hex ? 16 : 10);
+      return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : entity;
+    });
 }
 
 export function canonicalSpecies(value) {

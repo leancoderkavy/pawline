@@ -183,7 +183,7 @@ test("parses live LA Animal Services cards into shelter-mapped pets", () => {
   assert.equal(pets[0].address, "11361 West Pico Blvd, Los Angeles, CA 90064");
   assert.equal(pets[0].locationAccuracy, "shelter");
   assert.ok(Number.isFinite(pets[0].latitude));
-  assert.match(pets[0].sourceUrl, /laanimalservices\.com\/pet\/a2286725/);
+  assert.equal(pets[0].sourceUrl, "https://www.laanimalservices.com/pet/a2286725");
 });
 
 test("LA Animal Services records fail closed without a known shelter location", () => {
@@ -253,4 +253,9 @@ test("database listings fail closed instead of exposing raw provider metadata", 
   assert.equal(pet.shelter, "Community rescue");
   assert.equal(pet.sourceUrl, null);
   assert.equal(pet.image, "https://example.org/kitty.jpg");
+});
+
+test("cleanText decodes each HTML entity only once", () => {
+  assert.equal(cleanText("Tom &amp;quot;Bean&amp;quot; &amp;amp; Jerry"), "Tom &quot;Bean&quot; &amp; Jerry");
+  assert.equal(cleanText("<b>Rex</b> &amp; Max"), "Rex & Max");
 });
