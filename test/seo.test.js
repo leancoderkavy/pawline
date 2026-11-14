@@ -137,3 +137,15 @@ test("shared guide metadata preserves canonical and accessible social previews",
   assert.ok(result.openGraph.images[0].alt);
   assert.equal(result.twitter.images[0].alt, result.openGraph.images[0].alt);
 });
+
+test("static guide sitemap entries carry valid, non-future lastmod dates", async () => {
+  const sitemap = await read("public/sitemap.xml");
+  const entries = [...sitemap.matchAll(/<url>\s*<loc>([^<]+)<\/loc>(?:\s*<lastmod>([^<]+)<\/lastmod>)?\s*<\/url>/g)];
+  const guides = entries.filter(([, loc]) => loc.includes("/guides"));
+  assert.ok(guides.length > 0);
+  const today = new Date().toISOString().slice(0, 10);
+  for (const [, loc, lastmod] of guides) {
+    assert.match(lastmod ?? "", /^\d{4}-\d{2}-\d{2}$/, `${loc} needs lastmod`);
+    assert.ok(lastmod <= today, `${loc} lastmod is in the future`);
+  }
+});

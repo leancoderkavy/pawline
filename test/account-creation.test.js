@@ -38,7 +38,7 @@ test("documented Clerk parties include current local Next.js preview origins", a
   assert.match(example, /CLERK_AUTHORIZED_PARTIES=.*http:\/\/localhost:3000/);
   assert.match(example, /http:\/\/localhost:4173/);
   assert.match(example, /http:\/\/127\.0\.0\.1:4173/);
-  assert.match(example, /https:\/\/www\.pawlineadopt\.com/);
+  assert.match(example, /^CLERK_AUTHORIZED_PARTIES=.*,https:\/\/www\.pawlineadopt\.com(?:,|$)/m);
 });
 
 test("the custom account modal offers email code, Google, and phone code sign-in", async () => {
