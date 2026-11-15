@@ -361,9 +361,10 @@ body:has(.map-app) { background:#dce3d5; }
 .explore-intro { padding-top:0; }
 .map-rail .map-toolbar { display:grid !important;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;margin:0 0 22px; }
 .mobile-view-map { display:none; }
-.map-rail .map-pet-types { min-width:0;min-height:52px;display:flex;overflow-x:auto;scrollbar-width:thin;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--surface); }
-.map-rail .map-pet-types button { flex:0 0 auto;min-height:50px;padding-inline:12px;border:0;border-right:1px solid var(--line);background:transparent;color:var(--green);font:800 var(--text-base) var(--sans);cursor:pointer; }.map-rail .map-pet-types button:last-child { border-right:0; }.map-rail .map-pet-types button.is-active { background:var(--green);color:white; }
+.map-rail .map-pet-types { min-width:0;min-height:52px;display:flex;overflow-x:auto;align-items:center;gap:4px;padding:4px;scrollbar-width:none;scroll-padding-inline:4px;border-radius:var(--radius-pill);background:var(--sunken);mask-image:linear-gradient(90deg,#000 calc(100% - 28px),transparent);-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 28px),transparent); }.map-rail .map-pet-types::-webkit-scrollbar { display:none; }
+.map-rail .map-pet-types button { flex:0 0 auto;min-height:44px;padding-inline:14px;border:0;border-radius:var(--radius-pill);background:transparent;color:var(--ink-soft);font:700 var(--text-base) var(--sans);cursor:pointer;transition:background var(--dur-fast) var(--ease-out),color var(--dur-fast) var(--ease-out); }.map-rail .map-pet-types button:last-child { margin-right:24px; }.map-rail .map-pet-types button:hover { background:rgba(255,253,249,.7);color:var(--ink); }.map-rail .map-pet-types button.is-active { background:var(--ink);color:var(--surface);box-shadow:var(--shadow-sm); }
 .map-rail .map-pet-types button:focus-visible,.map-rail .more-filters summary:focus-visible { position:relative;z-index:1;outline:3px solid var(--rust);outline-offset:-3px; }
+.map-rail .more-filters summary { border-radius:var(--radius-pill)!important;border-color:var(--line-strong)!important; }
 .map-rail .map-toolbar .map-select { min-height:58px;display:grid;grid-template-columns:auto 1fr;gap:1px 8px;border-color:var(--line);background:var(--surface); }
 .map-rail .map-toolbar .map-select svg { grid-row:1/3; }.map-rail .map-toolbar .map-select span { align-self:end; }.map-rail .map-toolbar .map-select select { align-self:start;width:100%; }
 .map-rail .more-filters { grid-column:2;padding:0;border:0; }.map-rail .more-filters summary { min-height:52px;display:flex;align-items:center;gap:7px;padding:0 13px;border:1px solid #789484;border-radius:var(--radius-sm);background:var(--surface);color:var(--green);font-size:var(--text-base);font-weight:900;cursor:pointer;list-style:none;white-space:nowrap; }.map-rail .more-filters summary::-webkit-details-marker { display:none; }.map-rail .more-filters summary::after { content:"+";margin-left:1px;font-size:var(--text-xl);font-weight:500; }.map-rail .more-filters[open] { grid-column:1/-1;padding-top:10px;border-top:1px solid #e5e0d8; }.map-rail .more-filters[open] summary::after { content:"−";margin-left:auto; }.map-rail .more-filters summary svg { width:16px; }.filter-count { min-width:19px;height:19px;display:grid;place-items:center;padding:0 4px;border-radius:var(--radius-pill);background:var(--green);color:var(--surface);font-size:var(--text-xs);line-height:1; }
@@ -738,8 +739,8 @@ body:has(> .map-app) > .legal-footer { display:none; }
 .map-workspace .map-unavailable { left:calc(var(--map-rail-width) + 32px); }
 .map-workspace.rail-collapsed .map-unavailable { left:0; }
 .map-message-tabs { display:flex;gap:8px;padding:16px;border-bottom:1px solid var(--line); }
-.map-message-tabs button { flex:1;min-height:44px;border:1px solid var(--line);border-radius:var(--radius-sm);background:transparent;color:var(--green);font-size:var(--text-base);font-weight:700;cursor:pointer; }
-.map-message-tabs button[aria-pressed=true] { background:var(--green);color:white;border-color:var(--green); }
+.map-message-tabs button { flex:1;min-height:44px;border:0;border-radius:var(--radius-pill);background:var(--sunken);color:var(--ink-soft);font-size:var(--text-base);font-weight:700;cursor:pointer;transition:background var(--dur-fast) var(--ease-out),color var(--dur-fast) var(--ease-out); }.map-message-tabs button:hover { color:var(--ink);background:var(--mint-strong); }
+.map-message-tabs button[aria-pressed=true] { background:var(--ink);color:var(--surface);box-shadow:var(--shadow-sm); }
 .map-journey-panel { min-height:0;background:transparent; }
 .map-journey-panel .journey-content,.map-journey-panel .journey-pet-page { padding:24px 20px;max-width:none; }
 .map-journey-panel .journey-page-heading { display:block;margin-bottom:22px; }
@@ -1056,3 +1057,48 @@ p.search-breadcrumbs { margin-top:-12px;color:var(--muted);font-size:var(--text-
 .methodology-content h1 { margin-bottom:20px; }
 main:has(> .search-breadcrumbs) .methodology-page { padding-top:0;min-height:0; }
 main:has(> .search-breadcrumbs) .methodology-content { margin-top:clamp(16px,3vw,32px); }
+
+/* ── Rail tab polish ────────────────────────────────────────────────────
+   One title scale, one card surface and compact density for every rail tab.
+   Desktop-only density lives in the min-width block so phone rules stay intact. */
+.nowrap { white-space:nowrap; }
+.rail-panel-heading { margin:0 0 18px; }
+.rail-panel-heading .eyebrow { margin:0 0 6px; }
+.rail-panel-heading h1 { margin:0;color:var(--ink);font:400 30px/1.08 var(--serif);letter-spacing:-.01em; }
+.rail-panel-heading p:not(.eyebrow) { margin:8px 0 0;color:var(--muted);font-size:var(--text-base);line-height:1.5; }
+.map-rail .event-panel .event-label { margin-top:4px; }
+.map-rail .explore-intro h1,.map-rail .network-tools h1,.map-rail .map-journey-panel .journey-page-heading h1,.map-rail .map-journey-panel .journey-hero h1,.map-rail .map-resources h1 { font-size:30px;line-height:1.08;letter-spacing:-.01em; }
+.map-rail .results-placeholder h3 { font-size:24px;line-height:1.15; }
+/* Explore footer cards share one surface; only the icon carries colour. */
+.map-rail .quiz-teaser,.map-rail .source-methodology,.map-rail .adoption-guides,.map-rail .holiday-guides { border:1px solid var(--line);background:var(--surface); }
+.map-rail .quiz-teaser:hover { border-color:var(--line-strong);box-shadow:var(--shadow-sm); }
+.map-rail .network-pagination button { border-radius:var(--radius-pill); }
+/* Filter toolbar: species chips get the full row; Filters sits beneath. */
+.map-rail .map-toolbar .map-pet-types { grid-column:1/-1; }
+.map-rail .map-toolbar .more-filters,.map-rail .map-toolbar .more-filters[open] { grid-column:1/-1; }
+.map-rail .map-toolbar .more-filters summary { width:max-content; }
+.map-rail .nearby-shelters { border-color:var(--line);background:var(--surface); }
+/* Discover species chips match the shared pill-tab style. */
+.map-rail .discovery-controls button { border-color:transparent;background:var(--sunken);color:var(--ink-soft);font-weight:700; }
+.map-rail .discovery-controls button:hover { background:var(--mint-strong);color:var(--ink); }
+.map-rail .discovery-controls button.selected { border-color:var(--ink);background:var(--ink);color:var(--surface);box-shadow:var(--shadow-sm); }
+/* Guides: scannable list instead of tall poster cards. */
+.map-resources .guide-list { gap:10px; }
+.map-resources .guide-card { min-height:0;padding:16px 18px;gap:5px;border-radius:var(--radius-md);border-color:var(--line); }
+.map-resources .guide-card:hover,.map-resources .guide-card:focus-visible { transform:none; }
+.map-resources .guide-card > span { font-size:var(--text-2xs); }
+.map-resources .guide-card h3 { font-size:21px;line-height:1.15; }
+.map-resources .guide-card p { margin:0;font-size:var(--text-sm);line-height:1.5;color:var(--muted); }
+.map-resources .guide-card strong { font-size:var(--text-sm); }
+/* Adoption plan stepper: smaller labels so five steps fit the rail. */
+.map-journey-panel .journey-timeline li { font-size:var(--text-2xs);line-height:1.2; }
+.map-journey-panel .home-matches > header > :last-child { flex:none;white-space:nowrap; }
+@media (min-width:821px) {
+  /* Reuse the compact 112px-thumbnail pet card inside the desktop rail. */
+  .map-journey-panel .journey-pet-grid { gap:10px; }
+  .map-journey-panel .journey-pet-card { display:grid;grid-template-columns:112px minmax(0,1fr); }
+  .map-journey-panel .journey-pet-card > .journey-pet-card-photo,.map-journey-panel .journey-pet-card > .journey-pet-card-photo-fallback { height:100%;min-height:150px;aspect-ratio:auto; }
+  .map-journey-panel .journey-pet-card > div { padding:12px 14px; }
+  .map-journey-panel .journey-pet-card h3 { font-size:22px; }
+  .map-journey-panel .journey-hero,.map-journey-panel .journey-card { box-shadow:none; }
+}
