@@ -1596,6 +1596,20 @@ export default function App({ clerkPublishableKey = "", isSignedIn = false }) {
               <p>Use practical Pawline guides to understand listing status, source links, and the next questions to ask.</p>
               <a href="#guides">Browse adoption guides <ChevronRight /></a>
             </section>
+            <section className="holiday-guides" aria-labelledby="holiday-guides-heading">
+              <div><CalendarDays /><span><small>Holiday adoption guides</small><strong id="holiday-guides-heading">Plan your winter adoption</strong></span></div>
+              <p>Explore timing, travel, and home preparation for holiday and winter pet adoptions.</p>
+              <nav aria-label="Holiday adoption guides">
+                <a href="/guides/adopt-a-pet-before-the-holidays">Adopt before the holidays</a>
+                <a href="/guides/adopting-a-pet-as-a-gift">Adopting as a gift</a>
+                <a href="/guides/adopt-a-pet-after-the-holidays">Adopt after the holidays</a>
+                <a href="/guides/holiday-travel-and-pet-adoption-timing">Holiday travel timing</a>
+                <a href="/guides/adopt-a-cat-during-the-holidays">Adopt a cat during holidays</a>
+                <a href="/guides/prepare-your-home-for-a-winter-adoption">Prepare for winter adoption</a>
+                <a href="/guides/winter-pet-care-for-newly-adopted-pets">Winter pet care</a>
+              </nav>
+              <a href="/guides">View all guides <ChevronRight /></a>
+            </section>
           </div> : null}
           {["messages", "application-messages"].includes(activePanel) ? <div className="map-message-tabs" aria-label="Message type">
             <button type="button" aria-pressed={activePanel === "messages"} onClick={() => openPanel("messages")}>Listing chats</button>
