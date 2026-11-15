@@ -22,7 +22,7 @@
     "@clerk/backend": "^3.26.6",
     "@clerk/nextjs": "^7.9.24",
     "@clerk/react": "^6.18.5",
-    "@daily-co/daily-js": "^0.92.2",
+    "@daily-co/daily-js": "^0.95.0",
     "@neondatabase/serverless": "^1.2.0",
     "ably": "^2.30.0",
     "ai": "^7.0.170",
