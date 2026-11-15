@@ -984,9 +984,9 @@ function EventPanel({ events, state, eventWindowDays, onEventWindowChange }) {
   if (!events.length) {
     const unavailable = state.status === "error";
     const loading = state.status === "loading";
-    return <article className="event-panel event-empty" role={unavailable ? "status" : undefined}><div className="event-label"><CalendarDays /> {unavailable ? "Events temporarily unavailable" : "Verified events"}</div>{range}<h3>{unavailable ? "We could not load events" : loading ? "Checking for verified events" : "No upcoming verified events"}</h3><p>{unavailable ? state.message || "Try again shortly." : loading ? "Checking official and reviewed event sources." : `No verified events in the next ${eventWindowDays} days. Try a longer range.`}</p></article>;
+    return <article className="event-panel event-empty" role={unavailable ? "status" : undefined}><header className="rail-panel-heading"><p className="eyebrow">Pet events</p><h1>Events near you</h1><p>Adoption days, clinics, and community events from verified sources.</p></header><div className="event-label"><CalendarDays /> {unavailable ? "Events temporarily unavailable" : "Verified events"}</div>{range}<h3>{unavailable ? "We could not load events" : loading ? "Checking for verified events" : "No upcoming verified events"}</h3><p>{unavailable ? state.message || "Try again shortly." : loading ? "Checking official and reviewed event sources." : `No verified events in the next ${eventWindowDays} days. Try a longer range.`}</p></article>;
   }
-  return <article className="event-panel"><div className="event-label"><CalendarDays /> Verified pet events · next {eventWindowDays} days</div>{range}{state.message ? <p role="status">{state.message}</p> : null}<div className="event-list">{events.map(event => {
+  return <article className="event-panel"><header className="rail-panel-heading"><p className="eyebrow">Pet events</p><h1>Events near you</h1><p>Adoption days, clinics, and community events from verified sources.</p></header><div className="event-label"><CalendarDays /> Verified pet events · next {eventWindowDays} days</div>{range}{state.message ? <p role="status">{state.message}</p> : null}<div className="event-list">{events.map(event => {
     const item = normalizeEvent(event);
     return <div className="event-content" key={item.id}><div className="event-date"><small>{item.month}</small><strong>{item.day}</strong></div><div><h3>{item.title}</h3><p>{item.type || "Pet event"} · {item.time}</p><p><MapPin /> {item.place}</p>{item.source_url ? <a href={item.source_url} target="_blank" rel="noreferrer">Official event details <ChevronRight /></a> : <span className="event-review">Confirm details with the organizer</span>}</div></div>;
   })}</div></article>;
@@ -1112,7 +1112,7 @@ function Matchmaker({ pets, feed, location, onLocationChange, onSpeciesChange, o
     </div>
     <div className="matchmaker-results" aria-live="polite">
       <div className="results-head"><div><h2>{complete ? "Your top matches nearby" : "Your matches will appear here"}</h2><p>{complete ? "Ranked from current listing facts and your answers" : "Finish the quiz to see transparent compatibility reasons."}</p></div>{complete ? <button onClick={restart}><Pencil /> Adjust my answers</button> : null}</div>
-      {!complete ? <div className="results-placeholder"><PawPrint /><h3>No black-box recommendations</h3><p>We show what supported each match, what may not fit, and what the listing does not tell us.</p></div>
+      {!complete ? <div className="results-placeholder"><PawPrint /><h3>No <span className="nowrap">black-box</span> recommendations</h3><p>We show what supported each match, what may not fit, and what the listing does not tell us.</p></div>
         : feed.mode === "loading" ? <div className="results-placeholder"><PawPrint /><h3>Loading current listings…</h3></div>
         : ranked.length ? <><div className="ai-controls">
           <label><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)} /> Send my quiz answers and these public listing facts to Vercel AI Gateway for a compatibility draft.</label>

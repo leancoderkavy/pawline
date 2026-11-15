@@ -20,8 +20,11 @@
 .network-tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 4px;
   margin-bottom: 20px;
+  padding: 4px;
+  border-radius: var(--radius-lg);
+  background: var(--sunken);
 }
 .network-tools button,
 .network-tools summary {
@@ -36,9 +39,36 @@
   color: inherit;
   font: inherit;
 }
-.network-tabs button[aria-pressed="true"] {
-  background: var(--green, #174e3b);
-  color: white;
+.network-tools .network-tabs button {
+  flex: 1 1 auto;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--ink-soft);
+  font-weight: 700;
+}
+.network-tools .network-tabs button:hover {
+  background: rgba(255, 253, 249, .7);
+  color: var(--ink);
+}
+.network-tools .network-tabs button[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+.network-tools h1 {
+  letter-spacing: -0.01em;
+}
+.network-tools .button {
+  border: 0;
+  border-radius: var(--radius-xl);
+  background: var(--rust-contrast);
+  color: #fff;
+  font-weight: 700;
+}
+.network-tools .button:disabled {
+  opacity: .6;
+  cursor: progress;
 }
 .network-tools form {
   display: grid;
