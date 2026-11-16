@@ -14,6 +14,12 @@ const guides = [
     description: "Confirm you're ready, choose the right dog, prepare essential supplies and your home, and plan for the first weeks.",
   },
   {
+    href: "/guides/adopting-a-senior-dog", path: "/guides/adopting-a-senior-dog",
+    label: "Older dogs",
+    title: "Adopting a senior dog: what to know first",
+    description: "What counts as senior, questions to ask the shelter, veterinary care, and home setup for an older dog.",
+  },
+  {
     href: "#guides/checklist", path: "/guides/questions-to-ask-before-adopting",
     label: "Prepare for a conversation",
     title: "Questions to ask a shelter before adopting a pet",
