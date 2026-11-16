@@ -8,6 +8,7 @@ export const searchResources = [
   { path: "/guides/find-a-pet-that-fits-your-home-and-routine", title: "Find a pet that fits your home and routine", description: "Compare disclosed pet needs with your household and daily life." },
   { path: "/guides/how-to-adopt-a-dog", title: "How to adopt a dog", description: "Step-by-step guidance from deciding readiness to preparing your home and the first two weeks." },
   { path: "/guides/first-time-dog-owner-checklist", title: "First time dog owner checklist", description: "Confirm you're ready, choose the right dog, prepare supplies and your home, and plan for the first weeks." },
+  { path: "/guides/adopting-a-senior-dog", title: "Adopting a senior dog", description: "What senior means, questions for the shelter, vet care, and home setup for an older dog." },
   { path: "/guides/adopt-a-pet-before-the-holidays", title: "Adopt a pet before the holidays", description: "Decide whether a pre-holiday adoption fits your calendar, guests, and travel plans." },
   { path: "/guides/adopting-a-pet-as-a-gift", title: "Adopting a pet as a gift responsibly", description: "Consent-first guidance for pets as gifts and better holiday alternatives." },
   { path: "/guides/winter-pet-care-for-newly-adopted-pets", title: "Winter pet care for newly adopted pets", description: "Cold-weather routines, hazards, and follow-up care after a new adoption." },

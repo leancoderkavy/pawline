@@ -49,7 +49,7 @@ export default function FirstTimeDogOwnerChecklist({ standalone = false }) {
     <section aria-labelledby="choosing-first-dog"><h2 id="choosing-first-dog">Choosing your first dog</h2>
       <p>Not all dogs are equally suited for first-time owners. Consider these factors when searching for your first dog:</p>
       <ul>
-        <li><strong>Age:</strong> Adult dogs (1-5 years) are often easier for first-time owners than puppies. They typically have established house training and calmer energy levels. Senior dogs (7+ years) can be wonderful, low-maintenance companions.</li>
+        <li><strong>Age:</strong> Adult dogs (1-5 years) are often easier for first-time owners than puppies. They typically have established house training and calmer energy levels. Senior dogs can be wonderful, calm companions; when a dog counts as senior depends on size and breed. Read our guide to <a href="/guides/adopting-a-senior-dog">adopting a senior dog</a> before you decide.</li>
         <li><strong>Size:</strong> Smaller dogs are generally easier to handle physically and may have lower food and medication costs. However, temperament matters more than size alone.</li>
         <li><strong>Energy level:</strong> Match the dog's energy to your lifestyle. High-energy working breeds need extensive daily exercise and mental stimulation. Moderate or low-energy dogs suit less active households.</li>
         <li><strong>Temperament:</strong> Look for dogs described as friendly, adaptable, trainable, and confident. Ask shelter staff about the dog's behavior with people, other animals, and in different environments.</li>
