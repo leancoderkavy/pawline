@@ -136,7 +136,7 @@ test("generic organization source has truthful link label", async ({ page }) => 
 });
 async function open(page) {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Find adoptable dogs and cats near you" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Find adoptable dogs and cats — Pawline Adopt" })).toBeVisible();
   await page.getByRole("button", { name: "Just browsing? Explore pets" }).click();
   await expect(page.getByRole("heading", { name: "Pets near you", exact: true })).toBeVisible();
 }

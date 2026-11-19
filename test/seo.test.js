@@ -8,9 +8,11 @@ test("homepage publishes canonical search and social metadata", async () => {
   const layout = await read("app/layout.jsx");
   assert.match(layout, /alternates: \{ canonical: "\/"/);
   assert.match(layout, /robots: \{ index: true, follow: true/);
-  assert.match(layout, /Adopt Dogs & Cats Near You \| Pawline/);
-  assert.match(layout, /map, check listing sources, and compare/);
-  assert.match(layout, /home, routine, household, and pet experience/);
+  assert.match(layout, /Pawline Adopt \| Pet Adoption App for Dogs & Cats/);
+  assert.match(layout, /pet adoption app for browsing adoptable dogs and cats from shelters/);
+  assert.match(layout, /Shelter dog finder/);
+  assert.match(layout, /Not a pet-health product/);
+  assert.match(layout, /home and routine/);
   assert.match(layout, /card: "summary_large_image"/);
   assert.match(layout, /locale: "en_US"/);
   assert.match(layout, /social-card\.png/);
@@ -22,8 +24,8 @@ test("homepage publishes canonical search and social metadata", async () => {
 
 test("homepage explains its search value and links to crawlable guides", async () => {
   const onboarding = await read("src/Onboarding.jsx");
-  assert.match(onboarding, /Find adoptable dogs and cats near you/);
-  assert.match(onboarding, /Why use Pawline/);
+  assert.match(onboarding, /Find adoptable dogs and cats — Pawline Adopt/);
+  assert.match(onboarding, /Why use Pawline Adopt/);
   assert.match(onboarding, /Map-first search/);
   assert.match(onboarding, /Listing source labels/);
   assert.match(onboarding, /Fit reasons and unknowns/);
@@ -33,7 +35,8 @@ test("homepage explains its search value and links to crawlable guides", async (
 
 test("Clerk loading HTML explains the same source and fit value", async () => {
   const landing = await read("src/PawlineWithClerk.jsx");
-  assert.match(landing, /Why use Pawline\?/);
+  assert.match(landing, /Why use Pawline Adopt\?/);
+  assert.match(landing, /Find adoptable dogs and cats — Pawline Adopt/);
   assert.match(landing, /Map-first search/);
   assert.match(landing, /Listing source labels/);
   assert.match(landing, /Fit reasons and unknowns/);

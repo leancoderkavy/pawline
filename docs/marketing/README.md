@@ -64,7 +64,8 @@ Before publishing any content based on these outlines:
 ## Related
 
 See also:
-- `docs/search-visibility.md` — SEO strategy and guidelines
+- `docs/search-visibility.md` — SEO strategy and guidelines (KAV-29 keyword map + near-me deferral)
+- `docs/marketing/ahrefs-site-audit-ops.md` — Ahrefs Site Audit for pawlineadopt.com (Kavy dashboard)
 - `app/layout.jsx` — Current brand messaging in metadata
 - Footer disclaimer in `app/layout.jsx` — Live brand disambiguation statement
 
