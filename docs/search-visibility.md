@@ -12,15 +12,20 @@ Production verification also found that configured authentication reduced homepa
 
 ## Keyword map
 
-These are intent targets, not measured ranks or search-volume estimates.
+These are intent targets, not measured ranks or search-volume estimates. Per [KAV-29](https://linear.app/kavy-rattana/issue/KAV-29/pawline-seo-brand-disambiguation-seed-outlines-no-near-me-until-supply), prioritize brand disambiguation and educational seeds until shelter supply density exists. Do **not** chase head “near me” terms as week-1 homepage primaries.
 
 | Target query cluster | Canonical landing page | Purpose |
 | --- | --- | --- |
-| adoptable dogs and cats near me; pet adoption map | `/` | Search current source-backed listings |
-| how to find adoptable pets near you | `/guides/find-adoptable-pets-near-you` | Explain location, record classes, and source confirmation |
+| pawline; Pawline Adopt (brand disambiguation) | `/` | Lead with Pawline Adopt / shelter listings; reduce pet-health collision |
+| pet adoption app; shelter dog finder | `/` | Category + product identity (US Ahrefs P0 from plan) |
+| how to find adoptable pets near you | `/guides/find-adoptable-pets-near-you` | Location education on a guide — not a city doorway |
 | find a pet that fits my home; pet adoption matching | `/guides/find-a-pet-that-fits-your-home-and-routine` | Compare listing facts and household needs |
 | pet adoption guides | `/guides` | Navigate educational resources |
 | Pawline listing sources; how Pawline works | `/how-pawline-works` | Explain evidence, unknowns, and availability |
+
+**Deferred until supply (KAV-27):** city/near-me landings and week-1 primary targeting of adoptable dogs/cats near me, adopt a dog near me, cat adoption near me, pet adoption near me.
+
+Draft seed outlines (HOLD PUBLISH): `docs/marketing/what-is-pawline-adopt.md`, `how-shelter-listings-work.md`, `pet-adoption-app-category.md`.
 
 Prioritize these existing pages before creating more topics. Use actual GSC impressions and query intent to choose subsequent improvements. Do not infer rankings from a single personalized search or from absent queries.
 

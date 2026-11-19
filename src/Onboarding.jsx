@@ -42,11 +42,11 @@ export default function Onboarding({ onNavigate, onSearchLocation }) {
     else onNavigate("explore");
   };
   return <section className="onboarding" aria-labelledby="onboarding-title">
-    <p className="eyebrow">Welcome to Pawline</p>
+    <p className="eyebrow">Welcome to Pawline Adopt</p>
     {!path ? <div className="onboarding-map-art" aria-hidden="true"><span className="onboarding-art-road" /><span className="onboarding-art-park" /><span className="onboarding-art-pin"><PawPrint /></span><span className="onboarding-art-home"><House /></span><span className="onboarding-art-label"><MapPin /> A new friend, closer than you think.</span></div> : null}
     {path ? <button className="onboarding-back" onClick={() => setSelected(null)}><ArrowLeft aria-hidden="true" /> Change my path</button> : null}
-    <h1 id="onboarding-title" ref={heading} tabIndex={-1}>{path ? path.heading : "Find adoptable dogs and cats near you"}</h1>
-    <p>{path ? "Here’s what comes next." : "Explore nearby pets on a map, compare their needs, or help a pet find a home."}</p>
+    <h1 id="onboarding-title" ref={heading} tabIndex={-1}>{path ? path.heading : "Find adoptable dogs and cats — Pawline Adopt"}</h1>
+    <p>{path ? "Here’s what comes next." : "Browse shelter listings on a map, compare their needs with your home, or help a pet find a home."}</p>
     {!path ? <form className="onboarding-search" role="search" aria-label="Find pets near a place" onSubmit={searchPlace} noValidate>
       <label htmlFor="onboarding-location">Find pets near</label>
       <div className="onboarding-search-row">
@@ -66,7 +66,7 @@ export default function Onboarding({ onNavigate, onSearchLocation }) {
     </>}
     <button className="onboarding-back" onClick={() => onNavigate("explore")}>Just browsing? Explore pets</button>
     {!path ? <section className="onboarding-seo" aria-labelledby="onboarding-seo-title">
-      <h2 id="onboarding-seo-title">Why use Pawline?</h2>
+      <h2 id="onboarding-seo-title">Why use Pawline Adopt?</h2>
       <ul>
         <li><strong>Map-first search.</strong> Explore pet listings and shelter locations around a place you can reach.</li>
         <li><strong>Listing source labels.</strong> See how each record was found and confirm availability with the original source. <a href="/how-pawline-works">How listing sources work</a>.</li>
