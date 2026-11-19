@@ -19,15 +19,15 @@
     "test": "node --test && python -m unittest discover -s test -p \"test_*.py\""
   },
   "dependencies": {
-    "@clerk/backend": "^3.29.0",
-    "@clerk/nextjs": "^7.10.0",
-    "@clerk/react": "^6.18.8",
+    "@clerk/backend": "^3.31.1",
+    "@clerk/nextjs": "^7.10.4",
+    "@clerk/react": "^6.19.1",
     "@daily-co/daily-js": "^0.95.0",
     "@neondatabase/serverless": "^1.2.1",
     "ably": "^2.30.0",
-    "ai": "^7.0.173",
-    "lucide-react": "^1.73.0",
-    "mapbox-gl": "^3.35.0",
+    "ai": "^7.0.177",
+    "lucide-react": "^1.75.0",
+    "mapbox-gl": "^3.35.1",
     "next": "^16.4.6",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
