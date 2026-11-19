@@ -13,10 +13,10 @@ const serif = DM_Serif_Display({ subsets: ["latin"], weight: "400", variable: "-
 export const metadata = {
   metadataBase: new URL("https://www.pawlineadopt.com"),
   title: {
-    default: "Adopt Dogs & Cats Near You | Pawline",
+    default: "Pawline Adopt | Pet Adoption App for Dogs & Cats",
     template: "%s | Pawline Adopt",
   },
-  description: "Find adoptable dogs and cats near you. Browse the map, check listing sources, and compare pet needs with your home and routine before contacting a shelter.",
+  description: "Pawline Adopt is a pet adoption app for browsing adoptable dogs and cats from shelters. Shelter dog finder — compare listing needs with your home and routine. Not a pet-health product.",
   alternates: { canonical: "/", types: { "text/plain": "https://www.pawlineadopt.com/llms.txt" } },
   robots: { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1, "max-video-preview": -1 } },
   icons: { icon: "/favicon.svg?v=2", apple: "/apple-touch-icon.png" },
@@ -24,15 +24,15 @@ export const metadata = {
   appleWebApp: { capable: true, title: "Pawline Adopt", statusBarStyle: "default" },
   other: { bingbot: "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" },
   openGraph: {
-    title: "Adopt Dogs & Cats Near You | Pawline",
-    description: "Explore nearby adoptable pets on a map, check listing sources, and compare disclosed needs with your home and routine.",
+    title: "Pawline Adopt | Pet Adoption App for Dogs & Cats",
+    description: "Pet adoption app for browsing adoptable dogs and cats from shelters. Compare shelter listings with your home and routine. Not a pet-health product.",
     url: "/",
     siteName: "Pawline Adopt",
     type: "website",
     locale: "en_US",
     images: [{ url: "/social-card.png", width: 1200, height: 630, alt: "Pawline Adopt pet adoption map and paw-print logo" }],
   },
-  twitter: { card: "summary_large_image", title: "Adopt Dogs & Cats Near You | Pawline", description: "Explore nearby adoptable pets on a map, check listing sources, and compare disclosed needs with your home and routine.", images: [{ url: "/social-card.png", alt: "Pawline Adopt pet adoption map and paw-print logo" }] },
+  twitter: { card: "summary_large_image", title: "Pawline Adopt | Pet Adoption App for Dogs & Cats", description: "Pet adoption app for browsing adoptable dogs and cats from shelters. Compare shelter listings with your home and routine. Not a pet-health product.", images: [{ url: "/social-card.png", alt: "Pawline Adopt pet adoption map and paw-print logo" }] },
 };
 
 export const viewport = {

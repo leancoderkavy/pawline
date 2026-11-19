@@ -13,10 +13,10 @@ function AuthenticatedLanding({ publishableKey }) {
   }, [isLoaded, isSignedIn, userId]);
   if (!isLoaded) return <main className="methodology-page">
     <article className="methodology-content">
-      <h1>Find adoptable dogs and cats near you</h1>
-      <p>Explore shelter listings on Pawline's adoption map and compare listed needs with your home and routine. Confirm availability and adoption requirements with the original shelter or rescue.</p>
+      <h1>Find adoptable dogs and cats — Pawline Adopt</h1>
+      <p>Browse shelter listings on Pawline Adopt's map and compare listed needs with your home and routine. Confirm availability and adoption requirements with the original shelter or rescue. Not a pet-health product.</p>
       <section aria-labelledby="clerk-landing-value">
-        <h2 id="clerk-landing-value">Why use Pawline?</h2>
+        <h2 id="clerk-landing-value">Why use Pawline Adopt?</h2>
         <ul>
           <li><strong>Map-first search.</strong> Explore pet listings and shelter locations around a place you can reach.</li>
           <li><strong>Listing source labels.</strong> See how each record was found and confirm availability with the original source.</li>
