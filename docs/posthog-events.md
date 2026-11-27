@@ -8,6 +8,8 @@ The root layout contained the only PostHog integration: a CDN snippet with a har
 
 The same CDN loader now uses `NEXT_PUBLIC_POSTHOG_KEY` and `NEXT_PUBLIC_POSTHOG_HOST` (defaults to `https://us.i.posthog.com`). Blank/invalid keys or unsupported hosts disable the loader. Only US Cloud is accepted, matching the existing CSP script/connect origins. The key is a public project token, not a personal API key. Public environment changes require a rebuild.
 
+**Consent gate (2026-11-27, pending release):** the loader no longer runs for everyone. `app/layout.jsx` passes the snippet to `src/AnalyticsConsent.jsx`, which injects it only after the visitor clicks "Allow analytics" (choice stored in localStorage `pawline-analytics-consent`). Global Privacy Control or Do Not Track means analytics never load and no banner is shown. "No thanks" or a later withdrawal calls `opt_out_capturing()` + `reset()` and clears `ph_*` cookies/storage. Expect lower event volume after release; `window.posthog?.capture` calls stay no-ops until consent. Logic and tests: `src/analyticsConsent.js`, `test/analytics-consent.test.js`.
+
 On the main product landing, Clerk's loaded auth state identifies by opaque `userId` without traits; account switches reset first, and sign-out captures before reset. Repeated effects are deduplicated. Initial signed-out state also resets stale identity, so anonymous continuity across reloads is intentionally limited. Restored sessions identify but do not count as a fresh sign-in. Completion events come from the custom auth modal after Clerk finalization, not from page loads.
 
 ## Events added

@@ -568,6 +568,7 @@ function InteractiveMap({ coordinates, userCoordinates, points, location, onPoin
         antialias: true,
         attributionControl: true,
         cooperativeGestures: false,
+        performanceMetricsCollection: false,
       });
       mapRef.current = map;
       resizeObserver = new ResizeObserver(() => map.resize());

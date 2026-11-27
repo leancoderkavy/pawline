@@ -1103,3 +1103,20 @@ main:has(> .search-breadcrumbs) .methodology-content { margin-top:clamp(16px,3vw
   .map-journey-panel .journey-pet-card h3 { font-size:22px; }
   .map-journey-panel .journey-hero,.map-journey-panel .journey-card { box-shadow:none; }
 }
+
+/* Legal pages: provider and CCPA tables; analytics consent banner (opt-in). */
+.legal-content .legal-table-wrap { max-width:760px;overflow-x:auto;margin:14px 0; }
+.legal-content table { width:100%;border-collapse:collapse;font-size:var(--text-sm,14px); }
+.legal-content th,.legal-content td { text-align:left;vertical-align:top;padding:8px 10px;border-bottom:1px solid var(--line); }
+.legal-content th { color:var(--ink-strong);font-weight:700; }
+.legal-content ul { max-width:760px;padding-left:1.2em; }
+.legal-content li + li { margin-top:8px; }
+.link-button { border:0;padding:0;background:none;color:var(--green);font-weight:700;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px; }
+.consent-bar { position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:60;max-width:720px;margin:0 auto;display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;padding:12px 16px;border:1px solid var(--line-strong);border-radius:14px;background:var(--surface);color:var(--ink);box-shadow:0 8px 28px rgba(15,42,35,.16);font-size:var(--text-sm,14px); }
+.consent-bar p { flex:1 1 280px;margin:0; }
+.consent-bar a { color:var(--green);font-weight:700; }
+.consent-actions { display:flex;gap:8px; }
+/* Equal visual weight for both choices. */
+.consent-button { min-height:40px;padding:0 16px;border:1px solid var(--ink);border-radius:999px;background:var(--surface);color:var(--ink);font-weight:700; }
+.consent-button:focus-visible,.link-button:focus-visible { outline:3px solid var(--rust);outline-offset:2px; }
+body:has(> .map-app) .consent-bar { bottom:calc(84px + env(safe-area-inset-bottom)); }
