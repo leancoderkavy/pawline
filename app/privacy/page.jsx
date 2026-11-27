@@ -30,7 +30,7 @@ export default function PrivacyPage() {
       </section>
       <section><h2>Service providers and public sources</h2>
         <p>These providers process information for us, under their own terms and our configuration of their services:</p>
-        <div className="legal-table-wrap"><table>
+        <div className="legal-table-wrap" role="region" aria-label="Service providers table" tabIndex={0}><table>
           <thead><tr><th scope="col">Provider</th><th scope="col">Used for</th><th scope="col">What it can receive</th></tr></thead>
           <tbody>
             <tr><td>Vercel</td><td>Hosting, server functions, logs, AI gateway</td><td>Request data (IP, URLs), function logs, AI prompts when an AI feature is used</td></tr>
@@ -68,7 +68,7 @@ export default function PrivacyPage() {
         <p>California residents can ask Pawline to: (1) tell you what personal information we collect, use, disclose, and keep; (2) give you a copy; (3) correct inaccurate information; (4) delete your information, subject to legal exceptions; and (5) limit use of sensitive personal information (we do not use it beyond running the service). You can also opt out of the sale or sharing of personal information; we do not sell or share it. We do not discriminate against you for making a request. We offer these rights to California residents whether or not Pawline is legally required to under the California Consumer Privacy Act as amended by the CPRA.</p>
         <p><strong>How to ask.</strong> Use the <a href="/privacy/request">privacy request form</a> or email <a href={`mailto:${PRIVACY_EMAIL}`}>{PRIVACY_EMAIL}</a>. We verify requests by matching them to your signed-in account or verified email. You may use an authorized agent; we will ask for proof of their authority. We confirm receipt within 10 business days and respond within 45 days; if we need more time we may extend once by up to 45 days and tell you why. If we deny a request, we will explain why, and you may appeal by replying to our response.</p>
         <p><strong>Categories collected in the last 12 months, sources, and purposes.</strong></p>
-        <div className="legal-table-wrap"><table>
+        <div className="legal-table-wrap" role="region" aria-label="Personal information categories table" tabIndex={0}><table>
           <thead><tr><th scope="col">Category (CCPA)</th><th scope="col">Examples</th><th scope="col">Source</th><th scope="col">Purpose</th><th scope="col">Sold/shared</th></tr></thead>
           <tbody>
             <tr><td>Identifiers</td><td>Name, email, account ID, IP address</td><td>You, your device, Clerk</td><td>Run the service, security</td><td>No</td></tr>
