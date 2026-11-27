@@ -261,7 +261,7 @@ export default function AuthModal({
 
   return <Dialog title={title} onClose={onClose} centered>
     <p className="dialog-copy">{dialogCopy}</p>
-    {isSignUpMode ? <label><input type="checkbox" checked={ageConfirmed} onChange={(event) => setAgeConfirmed(event.target.checked)} /> I confirm I am at least 13 years old.</label> : null}
+    {isSignUpMode ? <label><input type="checkbox" checked={ageConfirmed} onChange={(event) => setAgeConfirmed(event.target.checked)} /> I confirm I am at least 13 years old and agree to the <a href="/terms" target="_blank" rel="noopener">Terms</a> and <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>.</label> : null}
     {!isVerifying ? <button type="button" className="auth-google" onClick={handleGoogle} disabled={isBusy || isSignUpMode && !ageConfirmed}>Continue with Google</button> : null}
     {!isVerifying ? <div className="auth-method" aria-label="Authentication method">
       <button type="button" className={authMethod === "email-code" ? "selected" : ""} onClick={() => selectMethod("email-code")}>Email code</button>

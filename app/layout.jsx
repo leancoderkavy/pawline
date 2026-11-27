@@ -1,5 +1,7 @@
 import "mapbox-gl/dist/mapbox-gl.css";
 import { posthogScript } from "../src/posthogSetup.js";
+import AnalyticsConsent, { PrivacyChoicesLink } from "../src/AnalyticsConsent.jsx";
+import { LEGAL_ENTITY_DBA } from "../src/legalEntity.js";
 import { checkAnalyticsConfig } from "../src/checkAnalytics.js";
 import "../src/styles.css";
 import { DM_Sans, DM_Serif_Display } from "next/font/google";
@@ -56,17 +58,19 @@ export default function RootLayout({ children }) {
       }).replace(/</g, "\\u003c") }} />
       {children}
       <div className="legal-footer" role="contentinfo" aria-label="Pawline legal information">
-        <span>© {new Date().getFullYear()} Pawline</span>
+        <span>© {new Date().getFullYear()} {LEGAL_ENTITY_DBA}</span>
         <a href="/guides">Adoption guides</a>
         <a href="/events">Pet events</a>
         <a href="/how-pawline-works">Our sources</a>
         <a href="/privacy">Privacy</a>
         <a href="/terms">Terms</a>
+        <PrivacyChoicesLink />
         <p style={{ marginTop: "1rem", fontSize: "0.875rem", color: "var(--text-secondary)", maxWidth: "600px" }}>
           Looking for pet health? That's a different "Pawline." We're <strong>Pawline Adopt</strong> — a pet adoption app for shelter listings only.
         </p>
       </div>
-      {analytics ? <script dangerouslySetInnerHTML={{ __html: analytics }} /> : null}
+      {/* PostHog loads only after opt-in consent; GPC/DNT = off. See src/analyticsConsent.js. */}
+      <AnalyticsConsent script={analytics} />
     </body>
   </html>;
 }
